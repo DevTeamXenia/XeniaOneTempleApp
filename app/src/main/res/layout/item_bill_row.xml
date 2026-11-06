@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="34dp"
+    android:background="@drawable/bg_row_border"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingHorizontal="6dp">
+
+    <TextView
+        android:id="@+id/tvRowIndex"
+        android:layout_width="28dp"
+        android:layout_height="wrap_content"
+        android:fontFamily="sans-serif"
+        android:gravity="center"
+        android:text="01"
+        android:textColor="@color/text_dark"
+        android:textSize="11sp" />
+
+    <TextView
+        android:id="@+id/tvRowItemName"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="4dp"
+        android:layout_weight="1"
+        android:ellipsize="end"
+        android:fontFamily="sans-serif-medium"
+        android:maxLines="1"
+        android:text="Appam"
+        android:textColor="@color/text_dark"
+        android:textSize="11sp" />
+
+    <TextView
+        android:id="@+id/tvRowQty"
+        android:layout_width="32dp"
+        android:layout_height="wrap_content"
+        android:fontFamily="sans-serif"
+        android:gravity="center"
+        android:text="3"
+        android:textColor="@color/text_dark"
+        android:textSize="11sp" />
+
+    <TextView
+        android:id="@+id/tvRowPrice"
+        android:layout_width="48dp"
+        android:layout_height="wrap_content"
+        android:fontFamily="sans-serif"
+        android:gravity="end"
+        android:text="40.00"
+        android:textColor="@color/text_dark"
+        android:textSize="11sp" />
+
+    <TextView
+        android:id="@+id/tvRowTotal"
+        android:layout_width="56dp"
+        android:layout_height="wrap_content"
+        android:fontFamily="sans-serif-medium"
+        android:gravity="end"
+        android:text="120.00"
+        android:textColor="@color/text_dark"
+        android:textSize="11sp" />
+
+    <!-- Remove Item Button (Orange/Red X) -->
+    <ImageButton
+        android:id="@+id/btnRemoveRow"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:layout_marginStart="4dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="Remove Item"
+        android:padding="5dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_close"
+        app:tint="@color/pay_button_orange" />
+
+</LinearLayout>

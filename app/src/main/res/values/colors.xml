@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brand / Temple Ochre Colors -->
+    <color name="temple_gold_primary">#A76505</color>
+    <color name="temple_gold_dark">#7C4A02</color>
+    <color name="temple_gold_light">#EAA93B</color>
+    <color name="temple_bg_cream">#FAF2DC</color>
+    <color name="temple_card_bg">#FFFDF9</color>
+    
+    <!-- Table & Screen 1 Colors -->
+    <color name="billing_screen_bg">#FAF1DA</color>
+    <color name="table_header_bg">#FCAC00</color>
+    <color name="table_header_text">#561700</color>
+    <color name="table_row_alt">#FDF7E7</color>
+    <color name="table_border">#E59B00</color>
+    <color name="table_divider">#EADBBD</color>
+    <color name="text_dark">#211A13</color>
+    <color name="text_muted">#7A7062</color>
+    <color name="text_subtle">#9C9284</color>
+    
+    <!-- Bottom Bar & Pay Button -->
+    <color name="bottom_bar_bg">#FFD376</color>
+    <color name="pay_button_orange">#FE4A00</color>
+    <color name="pay_button_orange_pressed">#D83D00</color>
+    <color name="delete_red">#D32F2F</color>
+    <color name="success_green">#2E7D32</color>
+    
+    <!-- Stepper Buttons -->
+    <color name="stepper_plus_blue">#1976D2</color>
+    <color name="stepper_minus_brown">#7A4020</color>
+    <color name="stepper_count_bg">#FFFFFF</color>
+    <color name="stepper_disabled_grey">#BDBDBD</color>
+    
+    <!-- Xenia Brand -->
+    <color name="xenia_blue">#005DAA</color>
+    <color name="xenia_dark">#1A365D</color>
+    
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+    <color name="transparent">#00000000</color>
+</resources>

@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:paddingVertical="5dp"
+    android:gravity="center_vertical">
+
+    <TextView
+        android:id="@+id/tv_item_no"
+        android:layout_width="38dp"
+        android:layout_height="wrap_content"
+        android:text="01"
+        android:textSize="13sp"
+        android:textColor="#222222"
+        android:fontFamily="sans-serif-medium" />
+
+    <TextView
+        android:id="@+id/tv_item_name"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:text="Appam"
+        android:textSize="13sp"
+        android:textColor="#222222"
+        android:fontFamily="sans-serif-medium" />
+
+    <TextView
+        android:id="@+id/tv_item_qty"
+        android:layout_width="45dp"
+        android:layout_height="wrap_content"
+        android:text="3"
+        android:textSize="13sp"
+        android:gravity="center"
+        android:textColor="#222222"
+        android:fontFamily="sans-serif-medium" />
+
+    <TextView
+        android:id="@+id/tv_item_rate"
+        android:layout_width="72dp"
+        android:layout_height="wrap_content"
+        android:text="40.00"
+        android:textSize="13sp"
+        android:gravity="end"
+        android:textColor="#222222"
+        android:fontFamily="sans-serif-medium" />
+
+    <TextView
+        android:id="@+id/tv_item_total"
+        android:layout_width="78dp"
+        android:layout_height="wrap_content"
+        android:text="120.00"
+        android:textSize="13sp"
+        android:gravity="end"
+        android:textColor="#222222"
+        android:fontFamily="sans-serif-bold" />
+
+</LinearLayout>

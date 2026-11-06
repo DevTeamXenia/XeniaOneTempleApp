@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/rootPaymentQr"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/white">
+
+    <!-- Top Ochre/Golden Header Banner (Exact Match: 17.5% screen height solid warm amber bar) -->
+    <FrameLayout
+        android:id="@+id/topBanner"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="@color/temple_gold_primary"
+        app:layout_constraintHeight_percent="0.175"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <ImageButton
+            android:id="@+id/btnBack"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="start|center_vertical"
+            android:layout_marginStart="8dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Back"
+            android:src="@drawable/ic_arrow_back"
+            app:tint="@color/white" />
+    </FrameLayout>
+
+    <!-- Center Payment Block: Total Amount, QR Code, Scan Instruction -->
+    <LinearLayout
+        android:id="@+id/llPaymentBlock"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
+        android:paddingHorizontal="24dp"
+        app:layout_constraintBottom_toTopOf="@id/llFooter"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/topBanner"
+        app:layout_constraintVertical_bias="0.38">
+
+        <!-- "Total Amount ₹520.00 /-" -->
+        <TextView
+            android:id="@+id/tvTotalAmountPay"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="sans-serif-medium"
+            android:letterSpacing="0.01"
+            android:text="Total Amount ₹520.00 /-"
+            android:textColor="@color/text_dark"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+        <!-- High-Contrast Clean QR Code (Tap to simulate payment confirmation) -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardQr"
+            android:layout_width="210dp"
+            android:layout_height="210dp"
+            android:layout_marginTop="16dp"
+            android:clickable="true"
+            android:focusable="true"
+            app:cardBackgroundColor="@color/white"
+            app:cardCornerRadius="4dp"
+            app:cardElevation="0dp"
+            app:strokeWidth="0dp">
+
+            <ImageView
+                android:id="@+id/ivQrCode"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:contentDescription="QR Code for Payment"
+                android:padding="4dp"
+                android:scaleType="fitCenter" />
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- 5-Minute Countdown Timer -->
+        <TextView
+            android:id="@+id/tvTimer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:fontFamily="sans-serif-medium"
+            android:text="QR expires in 05:00"
+            android:textColor="@color/temple_gold_primary"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+
+        <!-- SIB Bank Logo -->
+        <ImageView
+            android:id="@+id/ivBankLogo"
+            android:layout_width="140dp"
+            android:layout_height="34dp"
+            android:layout_marginTop="8dp"
+            android:contentDescription="South Indian Bank Logo"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_sib" />
+
+        <!-- "Scan this code to Pay Amount" -->
+        <TextView
+            android:id="@+id/tvScanHint"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:fontFamily="sans-serif"
+            android:text="@string/scan_code_to_pay"
+            android:textColor="@color/text_dark"
+            android:textSize="13sp" />
+
+        <!-- Manual Check Payment Status Button -->
+        <FrameLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp">
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btnCheckPayment"
+                android:layout_width="210dp"
+                android:layout_height="38dp"
+                android:background="@drawable/bg_check_payment_button"
+                android:fontFamily="sans-serif-medium"
+                android:stateListAnimator="@null"
+                android:text="Check Payment Status"
+                android:textColor="@color/temple_gold_primary"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <ProgressBar
+                android:id="@+id/progressBarChecking"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:layout_gravity="center"
+                android:indeterminateTint="@color/temple_gold_primary"
+                android:visibility="gone" />
+        </FrameLayout>
+
+        <!-- Hidden simulation helper -->
+        <TextView
+            android:id="@+id/tvTapToSimulate"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:fontFamily="sans-serif"
+            android:text="(Tap QR code to simulate payment)"
+            android:textColor="@color/text_subtle"
+            android:textSize="11sp"
+            android:visibility="gone" />
+
+    </LinearLayout>
+
+    <!-- Footer: "powered by XENIA TECHNOLOGIES" (Exact Match) -->
+    <LinearLayout
+        android:id="@+id/llFooter"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="24dp"
+        android:gravity="center"
+        android:orientation="vertical"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="sans-serif"
+            android:text="@string/powered_by"
+            android:textColor="@color/text_subtle"
+            android:textSize="11sp" />
+
+        <ImageView
+            android:id="@+id/ivFooterLogo"
+            android:layout_width="125dp"
+            android:layout_height="40dp"
+            android:layout_marginTop="3dp"
+            android:contentDescription="@string/company_name"
+            android:scaleType="fitCenter"
+            android:src="@drawable/xenia_logo" />
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

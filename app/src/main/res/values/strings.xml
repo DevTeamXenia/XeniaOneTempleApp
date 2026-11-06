@@ -1,0 +1,45 @@
+<resources>
+    <string name="app_name">Prasadam Billing</string>
+    
+    <!-- Login Screen -->
+    <string name="login_title">Prasadam Billing System</string>
+    <string name="login_subtitle">Automation of Appam &amp; Aravana Billing</string>
+    <string name="counter_login_header">Counter Operator Login</string>
+    <string name="counter_login_desc">Please enter your counter credentials to continue</string>
+    <string name="operator_id_hint">Username</string>
+    <string name="password_hint">Password</string>
+    <string name="remember_me">Remember Me</string>
+    <string name="sign_in">SIGN IN</string>
+    <string name="demo_credentials_hint">Default test credentials: operator / 1234</string>
+    <string name="err_empty_username">Please enter your Operator ID</string>
+    <string name="err_empty_password">Please enter your password</string>
+    <string name="err_invalid_credentials">Invalid Operator ID or Password</string>
+    <string name="login_success">Logged in successfully</string>
+    
+    <!-- Billing Screen -->
+    <string name="select_your_item">Select Your Item</string>
+    <string name="item_appam">Appam</string>
+    <string name="item_aravana">Aravana</string>
+    <string name="item_combo">Aravana Appam Combo</string>
+    
+    <string name="col_no">No.</string>
+    <string name="col_item_name">Item Name</string>
+    <string name="col_qty">Qty</string>
+    <string name="col_amount">Amount</string>
+    <string name="col_total">Total</string>
+    
+    <string name="total_amount_label">Total Amount</string>
+    <string name="pay">PAY</string>
+    <string name="no_items_selected">Please select at least one prasadam item to pay</string>
+    
+    <!-- Payment QR Screen -->
+    <string name="scan_code_to_pay">Scan this code to Pay Amount</string>
+    <string name="powered_by">powered by</string>
+    <string name="company_name">XENIA TECHNOLOGIES</string>
+    <string name="payment_received">Payment Received (Done)</string>
+    <string name="cancel_payment">Cancel</string>
+    <string name="payment_success_title">Payment Successful!</string>
+    <string name="payment_success_msg">Prasadam Token #%1$s generated for %2$s. Hand over tokens to devotee.</string>
+    <string name="new_order">NEW BILL</string>
+    <string name="logout">Logout</string>
+</resources>

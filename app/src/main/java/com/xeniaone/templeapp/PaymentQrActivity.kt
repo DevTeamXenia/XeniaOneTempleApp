@@ -1,0 +1,227 @@
+package com.xeniaone.templeapp
+
+import android.annotation.SuppressLint
+import android.content.Intent
+import android.graphics.Bitmap
+import android.os.Bundle
+import android.os.CountDownTimer
+import android.util.Log
+import android.view.View
+import android.widget.Toast
+import androidx.activity.enableEdgeToEdge
+import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.lifecycle.lifecycleScope
+import com.xeniaone.templeapp.repository.OrderRepository
+import com.xeniaone.templeapp.util.LanguageStrings
+import com.xeniaone.templeapp.util.QrCodeGenerator
+import com.xeniaone.templeapp.databinding.ActivityPaymentQrBinding
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import java.util.Locale
+import kotlin.time.Duration.Companion.milliseconds
+
+class PaymentQrActivity : AppCompatActivity() {
+    companion object {
+        const val EXTRA_TOTAL_AMOUNT = "extra_total_amount"
+        const val EXTRA_QR_URL = "extra_qr_url"
+        const val EXTRA_ORDER_ID = "extra_order_id"
+        const val EXTRA_PSP_REF_NO = "extra_psp_ref_no"
+        const val EXTRA_RECEIPT_ITEMS_JSON = "extra_receipt_items_json"
+        private const val TAG = "PaymentQrActivity"
+        private const val TOTAL_COUNTDOWN_MS = 5 * 60 * 1000L
+    }
+
+    private lateinit var binding: ActivityPaymentQrBinding
+    private lateinit var orderRepository: OrderRepository
+    private var totalAmount: Double = 0.0
+    private var qrUrl: String? = null
+    private var orderId: Int = 0
+    private var pspRefNo: String = ""
+    private var receiptItemsJson: String? = null
+    private var currentLanguage: String = "en"
+
+    private var countDownTimer: CountDownTimer? = null
+    private var isPaymentCompleted = false
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        binding = ActivityPaymentQrBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+
+        ViewCompat.setOnApplyWindowInsetsListener(binding.rootPaymentQr) { _, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            binding.topBanner.setPadding(0, systemBars.top, 0, 0)
+            binding.llFooter.setPadding(0, 0, 0, systemBars.bottom.coerceAtLeast(16))
+            insets
+        }
+
+        val app = application as TempleApp
+        orderRepository = app.container.orderRepository
+
+        totalAmount = intent.getDoubleExtra(EXTRA_TOTAL_AMOUNT, 0.0)
+        qrUrl = intent.getStringExtra(EXTRA_QR_URL)
+        orderId = intent.getIntExtra(EXTRA_ORDER_ID, 0)
+        pspRefNo = intent.getStringExtra(EXTRA_PSP_REF_NO) ?: ""
+        receiptItemsJson = intent.getStringExtra(EXTRA_RECEIPT_ITEMS_JSON)
+        currentLanguage = intent.getStringExtra(BillingActivity.EXTRA_LANGUAGE_CODE) ?: "en"
+
+
+        binding.tvScanHint.text = LanguageStrings.getScanCodeToPay(currentLanguage)
+        binding.tvTotalAmountPay.text = String.format(Locale.getDefault(), "Total Amount ₹%.2f /-", totalAmount)
+
+        generatePaymentQr()
+
+        startPaymentCountdownTimer()
+
+        startAutoPaymentStatusPolling()
+
+        binding.btnCheckPayment.setOnClickListener {
+            handleManualPaymentCheck()
+        }
+
+        binding.btnCheckPayment.setOnLongClickListener {
+            navigateToReceiptScreen()
+            true
+        }
+
+        binding.btnBack.setOnClickListener {
+            finish()
+        }
+
+        binding.cardQr.setOnClickListener {
+            navigateToReceiptScreen()
+        }
+        binding.ivQrCode.setOnClickListener {
+            navigateToReceiptScreen()
+        }
+    }
+
+    private fun generatePaymentQr() {
+        try {
+            val qrBitmap: Bitmap = QrCodeGenerator.generate(qrUrl!!, 512)
+            binding.ivQrCode.setImageBitmap(qrBitmap)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            binding.ivQrCode.setImageResource(R.drawable.img_qr_sample)
+        }
+    }
+
+    private fun startPaymentCountdownTimer() {
+        countDownTimer?.cancel()
+        countDownTimer = object : CountDownTimer(TOTAL_COUNTDOWN_MS, 1000L) {
+            @SuppressLint("SetTextI18n")
+            override fun onTick(millisUntilFinished: Long) {
+                val minutes = (millisUntilFinished / 1000) / 60
+                val seconds = (millisUntilFinished / 1000) % 60
+                binding.tvTimer.text = "QR expires in %02d:%02d".format(minutes, seconds)
+            }
+
+            @SuppressLint("SetTextI18n")
+            override fun onFinish() {
+                binding.tvTimer.text = "QR Expired"
+                if (!isPaymentCompleted && !isFinishing) {
+                    showPaymentExpiredDialog()
+                }
+            }
+        }.start()
+    }
+
+    private fun startAutoPaymentStatusPolling() {
+        if (orderId <= 0) return
+        lifecycleScope.launch {
+            delay(3000.milliseconds)
+            while (!isPaymentCompleted && !isDestroyed && !isFinishing) {
+                val paid = checkStatusFromApi(isManual = false)
+                if (paid) {
+                    break
+                }
+                delay(4000.milliseconds)
+            }
+        }
+    }
+
+    @SuppressLint("SetTextI18n")
+    private fun handleManualPaymentCheck() {
+        binding.btnCheckPayment.text = ""
+        binding.progressBarChecking.visibility = View.VISIBLE
+        binding.btnCheckPayment.isEnabled = false
+
+        lifecycleScope.launch {
+            val paid = checkStatusFromApi(isManual = true)
+            binding.progressBarChecking.visibility = View.GONE
+            binding.btnCheckPayment.text = "Check Payment Status"
+            binding.btnCheckPayment.isEnabled = true
+
+            if (!paid && !isPaymentCompleted) {
+                Toast.makeText(
+                    this@PaymentQrActivity,
+                    "Payment is still pending. Please complete UPI payment and verify again.",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+    }
+
+    private suspend fun checkStatusFromApi(isManual: Boolean): Boolean {
+        if (orderId <= 0 || isPaymentCompleted) return false
+
+        try {
+            Log.d("KIOSK_PAYMENT_DEBUG", "🔍 Checking SIB payment status: orderId=$orderId, pspRefNo=$pspRefNo (manual=$isManual)")
+            val result = orderRepository.checkSibPaymentStatus(orderId)
+            val response = result.getOrNull()
+
+            Log.d("KIOSK_PAYMENT_DEBUG", "📊 SIB Status Response: ${response?.status}, Data: ${response?.data}")
+
+            val statusItem = response?.data?.firstOrNull()
+            val paymentStatus = statusItem?.status?.uppercase(Locale.US) ?: ""
+
+            if (paymentStatus == "PAID" || paymentStatus == "SUCCESS" || paymentStatus == "COMPLETED" || paymentStatus == "S") {
+                Log.d("KIOSK_PAYMENT_DEBUG", "✅ Payment Verified Successfully: Status = $paymentStatus")
+                isPaymentCompleted = true
+                countDownTimer?.cancel()
+                navigateToReceiptScreen()
+                return true
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error checking payment status: ${e.message}", e)
+        }
+        return false
+    }
+
+    private fun navigateToReceiptScreen() {
+        if (isFinishing || isDestroyed) return
+        isPaymentCompleted = true
+        countDownTimer?.cancel()
+
+        val intent = Intent(this@PaymentQrActivity, PaymentActivity::class.java).apply {
+            putExtra(PaymentActivity.EXTRA_ORDER_ID, orderId.toLong())
+            putExtra(PaymentActivity.EXTRA_PSP_REF_NO, pspRefNo)
+            putExtra(PaymentActivity.EXTRA_TOTAL_AMOUNT, totalAmount)
+            putExtra(PaymentActivity.EXTRA_RECEIPT_ITEMS_JSON, receiptItemsJson)
+            putExtra(PaymentActivity.EXTRA_LANGUAGE_CODE, currentLanguage)
+        }
+        startActivity(intent)
+        finish()
+    }
+
+    private fun showPaymentExpiredDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("Session Expired")
+            .setMessage("The payment QR code has expired after 5 minutes. Please return to billing to place your order again.")
+            .setPositiveButton("Return to Billing") { dialog, _ ->
+                dialog.dismiss()
+                finish()
+            }
+            .setCancelable(false)
+            .show()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        countDownTimer?.cancel()
+    }
+}

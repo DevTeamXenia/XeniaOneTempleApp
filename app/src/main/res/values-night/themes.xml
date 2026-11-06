@@ -1,0 +1,11 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme for night mode. Keep warm temple aesthetic. -->
+    <style name="Base.Theme.XeniaOneTempleApp" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">@color/temple_gold_primary</item>
+        <item name="colorPrimaryDark">@color/temple_gold_dark</item>
+        <item name="colorSecondary">@color/pay_button_orange</item>
+        <item name="android:statusBarColor">@color/temple_gold_primary</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:navigationBarColor">@color/billing_screen_bg</item>
+    </style>
+</resources>
