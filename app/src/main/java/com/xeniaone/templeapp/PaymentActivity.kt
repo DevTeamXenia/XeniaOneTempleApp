@@ -20,9 +20,12 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.xeniaone.templeapp.model.ReceiptItem
+import com.xeniaone.templeapp.pinelabs.PineLabsConstants
+import com.xeniaone.templeapp.pinelabs.PineLabsManager
 import com.xeniaone.templeapp.util.QrCodeGenerator
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -52,6 +55,31 @@ class PaymentActivity : AppCompatActivity() {
     private var currentLanguage: String = "en"
     private var formattedDate: String = ""
 
+    // Pine Labs Transaction Details
+    private var paymentMode: String = ""
+    private var cardNumber: String = ""
+    private var approvalCode: String = ""
+    private var invoiceNumber: Long = 0L
+    private var rrn: String = ""
+    private var cardType: String = ""
+
+    // Launcher for Pine Labs App-to-App Print Intent (MethodId: 1002)
+    private val pineLabsPrintLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        isPrintingInProgress = false
+        val printResponse = PineLabsManager.parsePrintResponse(result.data)
+        Log.d(TAG, "Pine Labs Print Response: isSuccess=${printResponse?.isSuccess}, code=${printResponse?.response?.responseCode}, msg=${printResponse?.response?.responseMsg}")
+
+        binding.pbPrinter.visibility = View.GONE
+        if (printResponse != null && printResponse.isSuccess) {
+            binding.tvPrinterStatus.text = "✅ Receipt printed on Pine Labs POS!"
+        } else {
+            val msg = printResponse?.response?.responseMsg ?: "Printer busy or finished"
+            binding.tvPrinterStatus.text = "Print status: $msg"
+        }
+    }
+
     // Printer Connection state (Kiosk USB & POS)
     private var curConnect: IDeviceConnection? = null
     private var printerService: IPrinterService? = null
@@ -70,6 +98,12 @@ class PaymentActivity : AppCompatActivity() {
         const val EXTRA_TOTAL_AMOUNT = "extra_total_amount"
         const val EXTRA_RECEIPT_ITEMS_JSON = "extra_receipt_items_json"
         const val EXTRA_LANGUAGE_CODE = "extra_language_code"
+        const val EXTRA_PAYMENT_MODE = "extra_payment_mode"
+        const val EXTRA_CARD_NUMBER = "extra_card_number"
+        const val EXTRA_APPROVAL_CODE = "extra_approval_code"
+        const val EXTRA_INVOICE_NUMBER = "extra_invoice_number"
+        const val EXTRA_RRN = "extra_rrn"
+        const val EXTRA_CARD_TYPE = "extra_card_type"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -86,6 +120,14 @@ class PaymentActivity : AppCompatActivity() {
         totalAmount = intent.getDoubleExtra(EXTRA_TOTAL_AMOUNT, 0.0)
         currentLanguage = intent.getStringExtra(EXTRA_LANGUAGE_CODE) ?: "en"
 
+        // Pine Labs Extras
+        paymentMode = intent.getStringExtra(EXTRA_PAYMENT_MODE) ?: ""
+        cardNumber = intent.getStringExtra(EXTRA_CARD_NUMBER) ?: ""
+        approvalCode = intent.getStringExtra(EXTRA_APPROVAL_CODE) ?: ""
+        invoiceNumber = intent.getLongExtra(EXTRA_INVOICE_NUMBER, 0L)
+        rrn = intent.getStringExtra(EXTRA_RRN) ?: ""
+        cardType = intent.getStringExtra(EXTRA_CARD_TYPE) ?: ""
+
         val itemsJson = intent.getStringExtra(EXTRA_RECEIPT_ITEMS_JSON)
         receiptItems = parseReceiptItems(itemsJson)
 
@@ -94,8 +136,19 @@ class PaymentActivity : AppCompatActivity() {
 
         setupUI()
         setupListeners()
-        bindNyxPrinterService()
-        initKioskPrinter()
+
+        // Detect if running on Pine Labs device
+        if (PineLabsManager.isPineLabsAvailable(this)) {
+            Log.d(TAG, "Pine Labs POS detected. Initializing Pine Labs print...")
+            binding.tvPrinterStatus.text = "Pine Labs POS detected. Printing receipt..."
+            Handler(Looper.getMainLooper()).postDelayed({
+                printReceiptOnPineLabs()
+            }, 600)
+        } else {
+            bindNyxPrinterService()
+            initKioskPrinter()
+        }
+
         startAutoReturnTimer()
     }
 
@@ -128,7 +181,17 @@ class PaymentActivity : AppCompatActivity() {
         binding.tvReceiptNo.text = displayOrderId
         binding.tvReceiptDate.text = formattedDate
         binding.tvReceiptTotalAmount.text = "Total Amount : ₹%.2f".format(Locale.US, displayTotal)
-        binding.tvReceiptUpiRef.text = "UPI Reference No: $displayPspRef"
+
+        val modeLabel = if (paymentMode.isNotBlank()) paymentMode else "UPI Payment"
+        if (cardNumber.isNotBlank()) {
+            binding.tvReceiptUpiRef.text = "$modeLabel: $cardNumber (Auth: $approvalCode)"
+        } else if (rrn.isNotBlank()) {
+            binding.tvReceiptUpiRef.text = "$modeLabel (RRN: $rrn)"
+        } else if (pspRefNo.isNotBlank()) {
+            binding.tvReceiptUpiRef.text = "$modeLabel Ref: $displayPspRef"
+        } else {
+            binding.tvReceiptUpiRef.text = "$modeLabel Success"
+        }
 
         // Populate Dynamic Item Rows
         binding.llReceiptItems.removeAllViews()
@@ -289,6 +352,12 @@ class PaymentActivity : AppCompatActivity() {
             startAutoReturnTimer()
         }
 
+        // Prioritize Pine Labs POS print if on a Pine Labs terminal
+        if (PineLabsManager.isPineLabsAvailable(this)) {
+            printReceiptOnPineLabs()
+            return
+        }
+
         binding.pbPrinter.visibility = View.VISIBLE
         binding.tvPrinterStatus.text = "Printing receipt..."
 
@@ -308,6 +377,52 @@ class PaymentActivity : AppCompatActivity() {
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * Initiates Pine Labs app-to-app print request (MethodId: 1002).
+     */
+    private fun printReceiptOnPineLabs() {
+        try {
+            isPrintingInProgress = true
+            binding.pbPrinter.visibility = View.VISIBLE
+            binding.tvPrinterStatus.text = "Printing on Pine Labs POS..."
+
+            val app = application as TempleApp
+            val authManager = app.container.authManager
+
+            val displayOrderId = if (orderId > 0) orderId.toString() else "27533365"
+            val displayPaymentMode = if (paymentMode.isNotBlank()) paymentMode else "Pine Labs POS"
+            val displayRef = if (rrn.isNotBlank()) rrn else if (approvalCode.isNotBlank()) approvalCode else pspRefNo
+            val displayTotal = if (totalAmount > 0.0) totalAmount else receiptItems.sumOf { it.total }
+            val qrData = "upi://pay?pa=sabarimala@sib&pn=SabarimalaTemple&tr=$displayOrderId&am=$displayTotal&cu=INR"
+
+            val printItems = PineLabsManager.buildTempleReceiptPrintItems(
+                orderId = displayOrderId,
+                dateFormatted = formattedDate,
+                paymentRef = displayRef,
+                paymentModeTitle = displayPaymentMode,
+                items = receiptItems,
+                totalAmount = displayTotal,
+                qrData = qrData,
+                printerWidth = PineLabsConstants.PRINTER_WIDTH_32
+            )
+
+            val printIntent = PineLabsManager.createPrintIntent(
+                context = this,
+                printRefNo = displayOrderId,
+                printItems = printItems,
+                applicationId = authManager.pineLabsApplicationId,
+                userId = authManager.pineLabsUserId
+            )
+
+            pineLabsPrintLauncher.launch(printIntent)
+        } catch (e: Exception) {
+            isPrintingInProgress = false
+            Log.e(TAG, "Error initiating Pine Labs print: ${e.message}", e)
+            binding.pbPrinter.visibility = View.GONE
+            binding.tvPrinterStatus.text = "Print error: ${e.message}"
         }
     }
 
@@ -387,7 +502,10 @@ class PaymentActivity : AppCompatActivity() {
     private fun generateThermalReceiptBitmap(): Bitmap {
         val width = 576
         val itemLineHeight = 36
-        val dynamicHeight = 780 + (receiptItems.size * itemLineHeight)
+        val extraLines = (if (paymentMode.isNotBlank()) 1 else 0) +
+                (if (cardNumber.isNotBlank()) 1 else 0) +
+                (if (approvalCode.isNotBlank()) 1 else 0)
+        val dynamicHeight = 800 + ((receiptItems.size + extraLines) * itemLineHeight)
 
         val bitmap = Bitmap.createBitmap(width, dynamicHeight, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
@@ -432,6 +550,19 @@ class PaymentActivity : AppCompatActivity() {
         canvas.drawText("Receipt No :   $displayOrderId", 20f, y, paint)
         y += 28f
         canvas.drawText("Date       :   $formattedDate", 20f, y, paint)
+
+        if (paymentMode.isNotBlank()) {
+            y += 28f
+            canvas.drawText("Payment    :   $paymentMode", 20f, y, paint)
+        }
+        if (cardNumber.isNotBlank()) {
+            y += 28f
+            canvas.drawText("Card No    :   $cardNumber", 20f, y, paint)
+        }
+        if (approvalCode.isNotBlank()) {
+            y += 28f
+            canvas.drawText("Auth Code  :   $approvalCode", 20f, y, paint)
+        }
 
         // Table Header Divider
         y += 25f

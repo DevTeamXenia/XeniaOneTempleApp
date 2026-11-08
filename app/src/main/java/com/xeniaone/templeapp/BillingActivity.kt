@@ -1,12 +1,17 @@
 package com.xeniaone.templeapp
 
 import android.content.Intent
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -15,12 +20,16 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.gson.Gson
 import com.xeniaone.templeapp.adapter.ProductCardAdapter
 import com.xeniaone.templeapp.model.PrasadamItem
+import com.xeniaone.templeapp.model.ReceiptItem
 import com.xeniaone.templeapp.network.model.OrderCartItem
 import com.xeniaone.templeapp.network.model.OrderKioskRequest
 import com.xeniaone.templeapp.network.model.SocketProduct
 import com.xeniaone.templeapp.network.socket.CatalogueSocketManager
+import com.xeniaone.templeapp.pinelabs.PineLabsConstants
+import com.xeniaone.templeapp.pinelabs.PineLabsManager
 import com.xeniaone.templeapp.repository.OrderRepository
 import com.xeniaone.templeapp.repository.Resource
 import com.xeniaone.templeapp.util.AuthManager
@@ -53,6 +62,20 @@ class BillingActivity : AppCompatActivity() {
 
     private val allItems = mutableListOf<PrasadamItem>()
 
+    // Pine Labs State
+    private var pendingOrderId: Long = 0L
+    private var pendingTotal: Double = 0.0
+    private var pendingReceiptItemsJson: String = ""
+    private var pendingPaymentMode: String = "Pine Labs Card"
+
+    // Launcher for Pine Labs App-to-App Payment Intent (MethodId: 1001)
+    private val pineLabsPaymentLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        CommonMethod.dismissLoader()
+        handlePineLabsPaymentResult(result.resultCode, result.data)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -79,6 +102,9 @@ class BillingActivity : AppCompatActivity() {
 
         currentLanguage = intent.getStringExtra(EXTRA_LANGUAGE_CODE) ?: authManager.selectedLanguage
 
+        // Detect Pine Labs hardware / MasterApp availability while loading
+        detectAndDisplayPineLabsDevice()
+
         // Back button to logout or exit to login
         binding.btnBackToLanguage.setOnClickListener {
             androidx.appcompat.app.AlertDialog.Builder(this)
@@ -99,6 +125,17 @@ class BillingActivity : AppCompatActivity() {
         // Pay button listener
         binding.btnPay.setOnClickListener {
             proceedToPayment()
+        }
+
+        // Pine Labs status badge click listener (quick pay or device info)
+        binding.layoutPineLabsStatus.setOnClickListener {
+            val activeItems = allItems.filter { it.quantity > 0 }
+            val total = activeItems.sumOf { it.totalAmount }
+            if (activeItems.isNotEmpty() && total > 0.0) {
+                showPaymentOptionDialog(activeItems, total)
+            } else {
+                showPineLabsTerminalInfoDialog()
+            }
         }
 
         // Apply localization header
@@ -288,6 +325,23 @@ class BillingActivity : AppCompatActivity() {
         binding.btnPay.alpha = if (activeItems.isNotEmpty()) 1.0f else 0.6f
     }
 
+    override fun onResume() {
+        super.onResume()
+        detectAndDisplayPineLabsDevice()
+    }
+
+    private fun detectAndDisplayPineLabsDevice() {
+        val isPineLabs = PineLabsManager.isPineLabsAvailable(this)
+        if (isPineLabs) {
+            binding.layoutPineLabsStatus.visibility = View.VISIBLE
+            binding.tvPineLabsBadge.text = "⚡ Pine Labs POS Ready"
+            Log.i(TAG, "Pine Labs POS detected: ${PineLabsManager.getDeviceStatusDescription(this)}")
+        } else {
+            binding.layoutPineLabsStatus.visibility = View.GONE
+            Log.d(TAG, "Pine Labs not detected: ${PineLabsManager.getDeviceStatusDescription(this)}")
+        }
+    }
+
     private fun proceedToPayment() {
         val activeItems = allItems.filter { it.quantity > 0 }
         val total = activeItems.sumOf { it.totalAmount }
@@ -296,6 +350,254 @@ class BillingActivity : AppCompatActivity() {
             return
         }
 
+        // If Pine Labs is detected on this device, offer Pine Labs App-to-App payment
+        if (PineLabsManager.isPineLabsAvailable(this)) {
+            showPaymentOptionDialog(activeItems, total)
+        } else {
+            proceedWithSibKioskPayment(activeItems, total)
+        }
+    }
+
+    /**
+     * Shows a modern themed payment selection dialog matching the app's gold/cream theme.
+     */
+    private fun showPaymentOptionDialog(activeItems: List<PrasadamItem>, total: Double) {
+        val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_pinelabs_payment_mode, null)
+        val dialog = AlertDialog.Builder(this)
+            .setView(dialogView)
+            .setCancelable(true)
+            .create()
+
+        // Transparent background so the rounded card corners and soft elevation display cleanly
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+
+        val tvDialogTotalAmount = dialogView.findViewById<TextView>(R.id.tvDialogTotalAmount)
+        val btnCloseDialog = dialogView.findViewById<View>(R.id.btnCloseDialog)
+        val btnOptionCard = dialogView.findViewById<View>(R.id.btnOptionCard)
+        val btnOptionUpi = dialogView.findViewById<View>(R.id.btnOptionUpi)
+        val btnOptionSibQr = dialogView.findViewById<View>(R.id.btnOptionSibQr)
+
+        tvDialogTotalAmount.text = "₹%.2f".format(Locale.US, total)
+
+        btnCloseDialog.setOnClickListener {
+            dialog.dismiss()
+        }
+
+        btnOptionCard.setOnClickListener {
+            dialog.dismiss()
+            initiatePineLabsPayment(
+                activeItems = activeItems,
+                total = total,
+                txnType = PineLabsConstants.TXN_TYPE_SALE,
+                modeName = "Pine Labs Card"
+            )
+        }
+
+        btnOptionUpi.setOnClickListener {
+            dialog.dismiss()
+            initiatePineLabsPayment(
+                activeItems = activeItems,
+                total = total,
+                txnType = PineLabsConstants.TXN_TYPE_UPI_SALE,
+                modeName = "Pine Labs UPI"
+            )
+        }
+
+        btnOptionSibQr.setOnClickListener {
+            dialog.dismiss()
+            proceedWithSibKioskPayment(activeItems, total)
+        }
+
+        dialog.show()
+    }
+
+    /**
+     * Shows modern Pine Labs device information dialog when clicking the status badge.
+     */
+    private fun showPineLabsTerminalInfoDialog() {
+        val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_pinelabs_terminal_info, null)
+        val dialog = AlertDialog.Builder(this)
+            .setView(dialogView)
+            .setCancelable(true)
+            .create()
+
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+
+        val tvInfoDeviceModel = dialogView.findViewById<TextView>(R.id.tvInfoDeviceModel)
+        val tvInfoAppId = dialogView.findViewById<TextView>(R.id.tvInfoAppId)
+        val btnClose = dialogView.findViewById<View>(R.id.btnCloseInfoDialog)
+        val btnDismiss = dialogView.findViewById<View>(R.id.btnDismissInfo)
+
+        tvInfoDeviceModel.text = "Model: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}"
+        tvInfoAppId.text = authManager.pineLabsApplicationId.take(14) + "..."
+
+        btnClose.setOnClickListener { dialog.dismiss() }
+        btnDismiss.setOnClickListener { dialog.dismiss() }
+
+        dialog.show()
+    }
+
+    /**
+     * Initiates Pine Labs app-to-app payment transaction (MethodId: 1001).
+     */
+    private fun initiatePineLabsPayment(
+        activeItems: List<PrasadamItem>,
+        total: Double,
+        txnType: Long,
+        modeName: String
+    ) {
+        val cartItems = activeItems.map { item ->
+            OrderCartItem(
+                productId = item.id.toIntOrNull() ?: 9543,
+                variantId = 0,
+                quantity = item.quantity,
+                rate = item.unitPrice
+            )
+        }
+
+        val receiptItems = activeItems.mapIndexed { index, item ->
+            ReceiptItem(
+                no = index + 1,
+                name = item.name,
+                quantity = item.quantity,
+                rate = item.unitPrice,
+                total = item.totalAmount
+            )
+        }
+        pendingReceiptItemsJson = Gson().toJson(receiptItems)
+        pendingTotal = total
+        pendingPaymentMode = modeName
+
+        CommonMethod.showLoader(this, "Connecting to Pine Labs POS...")
+
+        lifecycleScope.launch {
+            try {
+                val companyId = if (authManager.companyId > 0) authManager.companyId else 40
+                val branchId = if (authManager.defaultBranch > 0) authManager.defaultBranch else 85
+                val userId = if (authManager.userId > 0) authManager.userId else 23
+
+                val nowIso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
+                    timeZone = TimeZone.getTimeZone("UTC")
+                }.format(Date())
+
+                val orderRequest = OrderKioskRequest(
+                    addressId = 0,
+                    deliveryTypeId = 0,
+                    deliverySlotId = 0,
+                    expectedDeliveryDate = nowIso,
+                    remark = "$modeName Transaction",
+                    orderChanel = "KIOSK",
+                    tableId = 0,
+                    dinningId = 0,
+                    paymentProviderId = 11,
+                    couponCode = "",
+                    isWalletAmount = false,
+                    isWalletLoyality = false,
+                    cartItems = cartItems
+                )
+
+                val orderResult = orderRepository.createKioskOrder(
+                    companyId = companyId,
+                    branchId = branchId,
+                    customerId = 0,
+                    userId = userId,
+                    request = orderRequest
+                )
+
+                CommonMethod.dismissLoader()
+
+                val orderResponse = orderResult.getOrNull()
+                val orderId = orderResponse?.orderId?.toLong() ?: (System.currentTimeMillis() % 100000000)
+                pendingOrderId = orderId
+
+                Log.d(TAG, "Launching Pine Labs DoTransaction for Order #$orderId, Amount: ₹$total, Type: $txnType")
+
+                val pineIntent = PineLabsManager.createTransactionIntent(
+                    context = this@BillingActivity,
+                    billingRefNo = orderId.toString(),
+                    amountRupees = total,
+                    transactionType = txnType,
+                    applicationId = authManager.pineLabsApplicationId,
+                    userId = authManager.pineLabsUserId
+                )
+
+                pineLabsPaymentLauncher.launch(pineIntent)
+            } catch (e: Exception) {
+                CommonMethod.dismissLoader()
+                Log.e(TAG, "Error initiating Pine Labs payment: ${e.message}", e)
+                Toast.makeText(this@BillingActivity, "Pine Labs error: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    /**
+     * Handles the callback received from Pine Labs MasterApp DoTransaction.
+     */
+    private fun handlePineLabsPaymentResult(resultCode: Int, data: Intent?) {
+        val response = PineLabsManager.parseTransactionResponse(data)
+        Log.d(TAG, "Pine Labs Payment Result: isApproved=${response?.isApproved}, code=${response?.response?.responseCode}, msg=${response?.response?.responseMsg}")
+
+        if (response != null && response.isApproved) {
+            val detail = response.detail
+            val approvalCode = detail?.approvalCode.orEmpty()
+            val rrn = detail?.rrn.orEmpty()
+            val cardNumber = detail?.cardNumber.orEmpty()
+            val cardType = detail?.cardType.orEmpty()
+            val invoiceNo = detail?.invoiceNumber ?: 0L
+            val pspRef = if (rrn.isNotBlank()) rrn else if (approvalCode.isNotBlank()) approvalCode else detail?.plutusTransactionLogId.orEmpty()
+
+            Toast.makeText(this, "✅ Payment Approved! (Auth: $approvalCode)", Toast.LENGTH_SHORT).show()
+
+            // Navigate to Receipt and Thermal Print screen
+            val intent = Intent(this@BillingActivity, PaymentActivity::class.java).apply {
+                putExtra(PaymentActivity.EXTRA_ORDER_ID, pendingOrderId)
+                putExtra(PaymentActivity.EXTRA_PSP_REF_NO, pspRef)
+                putExtra(PaymentActivity.EXTRA_TOTAL_AMOUNT, pendingTotal)
+                putExtra(PaymentActivity.EXTRA_RECEIPT_ITEMS_JSON, pendingReceiptItemsJson)
+                putExtra(PaymentActivity.EXTRA_LANGUAGE_CODE, currentLanguage)
+                putExtra(PaymentActivity.EXTRA_PAYMENT_MODE, pendingPaymentMode)
+                putExtra(PaymentActivity.EXTRA_CARD_NUMBER, cardNumber)
+                putExtra(PaymentActivity.EXTRA_APPROVAL_CODE, approvalCode)
+                putExtra(PaymentActivity.EXTRA_INVOICE_NUMBER, invoiceNo)
+                putExtra(PaymentActivity.EXTRA_RRN, rrn)
+                putExtra(PaymentActivity.EXTRA_CARD_TYPE, cardType)
+            }
+            startActivity(intent)
+        } else if (response != null && response.isUpiPending) {
+            Toast.makeText(this, "UPI Transaction initiated on terminal. Complete on device.", Toast.LENGTH_LONG).show()
+        } else {
+            val errorMsg = response?.response?.responseMsg
+                ?: response?.detail?.remark
+                ?: "Payment was cancelled or could not be completed on Pine Labs terminal."
+            Log.w(TAG, "Pine Labs payment failed/cancelled: $errorMsg")
+            showModernMessageDialog("Transaction Not Completed", errorMsg)
+        }
+    }
+
+    private fun showModernMessageDialog(title: String, message: String) {
+        val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_modern_alert, null)
+        val dialog = AlertDialog.Builder(this)
+            .setView(dialogView)
+            .setCancelable(true)
+            .create()
+
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+
+        val tvTitle = dialogView.findViewById<TextView>(R.id.tvAlertTitle)
+        val tvMessage = dialogView.findViewById<TextView>(R.id.tvAlertMessage)
+        val btnAction = dialogView.findViewById<View>(R.id.btnAlertAction)
+
+        tvTitle.text = title
+        tvMessage.text = message
+
+        btnAction.setOnClickListener {
+            dialog.dismiss()
+        }
+
+        dialog.show()
+    }
+
+    private fun proceedWithSibKioskPayment(activeItems: List<PrasadamItem>, total: Double) {
         // Map active items to OrderCartItem list
         val cartItems = activeItems.map { item ->
             OrderCartItem(

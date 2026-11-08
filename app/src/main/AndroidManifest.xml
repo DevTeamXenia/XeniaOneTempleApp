@@ -6,6 +6,17 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-feature android:name="android.hardware.usb.host" android:required="false" />
 
+    <!-- Queries for Pine Labs Plutus Smart MasterApp App-to-App IPC on Android 11+ -->
+    <queries>
+        <package android:name="com.pinelabs.masterapp" />
+        <intent>
+            <action android:name="com.pinelabs.masterapp.HYBRID_REQUEST" />
+        </intent>
+        <intent>
+            <action android:name="com.pinelabs.masterapp.SERVER" />
+        </intent>
+    </queries>
+
     <application
         android:name=".TempleApp"
         android:allowBackup="true"

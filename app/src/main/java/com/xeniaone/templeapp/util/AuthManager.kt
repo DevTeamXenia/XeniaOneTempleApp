@@ -20,7 +20,17 @@ class AuthManager(context: Context) {
         private const val KEY_DEFAULT_BRANCH = "default_branch"
         private const val KEY_USER_ID = "user_id"
         private const val KEY_EMPLOYEE_NAME = "employee_name"
+        private const val KEY_PINELABS_APP_ID = "pinelabs_app_id"
+        private const val KEY_PINELABS_USER_ID = "pinelabs_user_id"
     }
+
+    var pineLabsApplicationId: String
+        get() = prefs.getString(KEY_PINELABS_APP_ID, "307e5684edf24fb9844edfa48be92292") ?: "307e5684edf24fb9844edfa48be92292"
+        set(value) = prefs.edit().putString(KEY_PINELABS_APP_ID, value).apply()
+
+    var pineLabsUserId: String
+        get() = prefs.getString(KEY_PINELABS_USER_ID, "1234") ?: "1234"
+        set(value) = prefs.edit().putString(KEY_PINELABS_USER_ID, value).apply()
 
     var isLoggedIn: Boolean
         get() = prefs.getBoolean(KEY_IS_LOGGED_IN, false)
