@@ -6,379 +6,237 @@
     android:layout_height="match_parent"
     android:background="#F3F2EE">
 
-    <!-- Top Title: Payment Receipt -->
-    <TextView
-        android:id="@+id/tv_screen_title"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:text="Payment Receipt"
-        android:textColor="#212121"
-        android:textSize="26sp"
-        android:fontFamily="sans-serif-medium"
-        android:letterSpacing="0.02"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <!-- ScrollView for Receipt & Actions -->
-    <ScrollView
-        android:id="@+id/sv_receipt_scroll"
+    <!-- Transaction Successful content (centered between top and the bottom bar) -->
+    <LinearLayout
+        android:id="@+id/ll_success_content"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:layout_marginTop="12dp"
-        android:layout_marginBottom="8dp"
-        android:fillViewport="true"
-        android:scrollbars="none"
+        android:layout_marginHorizontal="@dimen/receipt_scroll_padding_horizontal"
+        android:gravity="center"
+        android:orientation="vertical"
+        app:layout_constrainedWidth="true"
         app:layout_constraintBottom_toTopOf="@+id/ll_bottom_bar"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/tv_screen_title">
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintWidth_max="@dimen/receipt_content_max_width">
 
-        <LinearLayout
+        <!-- Success check icon -->
+        <ImageView
+            android:id="@+id/iv_success_icon"
+            android:layout_width="@dimen/receipt_success_icon_size"
+            android:layout_height="@dimen/receipt_success_icon_size"
+            android:contentDescription="Transaction successful"
+            android:src="@drawable/ic_transaction_success" />
+
+        <!-- Title -->
+        <TextView
+            android:id="@+id/tv_screen_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/receipt_spacing_medium"
+            android:fontFamily="sans-serif-medium"
+            android:letterSpacing="0.02"
+            android:text="Transaction Successful"
+            android:textColor="#2E7D32"
+            android:textSize="@dimen/receipt_title_text_size"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tv_success_subtitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/receipt_spacing_small"
+            android:gravity="center"
+            android:text="Thank you for Your Generosity"
+            android:textColor="#555555"
+            android:textSize="@dimen/receipt_meta_text_size" />
+
+        <!-- Amount -->
+        <TextView
+            android:id="@+id/tv_receipt_total_amount"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/receipt_spacing_large"
+            android:fontFamily="sans-serif-medium"
+            android:text="Total Amount : ₹520.00"
+            android:textColor="#000000"
+            android:textSize="@dimen/receipt_total_text_size"
+            android:textStyle="bold" />
+
+        <!-- Transaction details -->
+        <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:gravity="center_horizontal"
-            android:orientation="vertical"
-            android:paddingHorizontal="16dp"
-            android:paddingBottom="16dp">
+            android:layout_marginTop="@dimen/receipt_spacing_large"
+            app:cardBackgroundColor="#FFFFFF"
+            app:cardCornerRadius="@dimen/card_corner_radius"
+            app:cardElevation="@dimen/receipt_card_elevation"
+            app:cardUseCompatPadding="true">
 
-            <!-- Receipt Wrapper with drop shadow -->
-            <androidx.cardview.widget.CardView
-                android:id="@+id/card_receipt_container"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginHorizontal="8dp"
-                app:cardCornerRadius="4dp"
-                app:cardElevation="8dp"
-                app:cardBackgroundColor="#FFFFFF"
-                app:cardUseCompatPadding="true">
+                android:orientation="vertical"
+                android:padding="@dimen/receipt_content_padding_horizontal">
 
                 <LinearLayout
-                    android:id="@+id/ll_receipt_printable_view"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:background="#FFFFFF">
+                    android:orientation="horizontal">
 
-                    <!-- Top Jagged Edge -->
-                    <com.xeniaone.templeapp.util.ReceiptJaggedEdgeView
-                        android:id="@+id/view_top_jagged_edge"
-                        android:layout_width="match_parent"
-                        android:layout_height="10dp"
-                        android:background="#F3F2EE" />
-
-                    <!-- Receipt Content Area -->
-                    <LinearLayout
-                        android:layout_width="match_parent"
+                    <TextView
+                        android:layout_width="@dimen/receipt_meta_label_width"
                         android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:paddingHorizontal="20dp"
-                        android:paddingTop="12dp"
-                        android:paddingBottom="12dp">
+                        android:fontFamily="sans-serif-medium"
+                        android:text="Receipt No :"
+                        android:textColor="#222222"
+                        android:textSize="@dimen/receipt_meta_text_size" />
 
-                        <!-- Temple Header -->
-                        <TextView
-                            android:id="@+id/tv_receipt_temple_name"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:gravity="center"
-                            android:text="Sabarimala Sri Dharmasastha Temple"
-                            android:textColor="#000000"
-                            android:textSize="17sp"
-                            android:textStyle="bold"
-                            android:fontFamily="sans-serif-medium" />
-
-                        <TextView
-                            android:id="@+id/tv_receipt_temple_address"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="3dp"
-                            android:gravity="center"
-                            android:text="Swamy Ayyappan Rd, Sannidhanam, Sabarimala, Kerala 689662"
-                            android:textColor="#333333"
-                            android:textSize="11sp" />
-
-                        <TextView
-                            android:id="@+id/tv_receipt_temple_contact"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="2dp"
-                            android:gravity="center"
-                            android:text="Phone: (703) 690-9355; website: www.sabarimala.com"
-                            android:textColor="#333333"
-                            android:textSize="11sp" />
-
-                        <!-- Prasadam Receipt Title -->
-                        <TextView
-                            android:id="@+id/tv_receipt_type_title"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="16dp"
-                            android:gravity="center"
-                            android:text="Prasadam Receipt"
-                            android:textColor="#000000"
-                            android:textSize="15sp"
-                            android:textStyle="bold"
-                            android:fontFamily="sans-serif-medium" />
-
-                        <!-- Metadata: Receipt No & Date -->
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="14dp"
-                            android:orientation="horizontal">
-
-                            <TextView
-                                android:layout_width="100dp"
-                                android:layout_height="wrap_content"
-                                android:text="Receipt No :"
-                                android:textColor="#222222"
-                                android:textSize="13sp"
-                                android:fontFamily="sans-serif-medium" />
-
-                            <TextView
-                                android:id="@+id/tv_receipt_no"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="27533365"
-                                android:textColor="#000000"
-                                android:textSize="13sp"
-                                android:fontFamily="sans-serif-medium" />
-                        </LinearLayout>
-
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp"
-                            android:orientation="horizontal">
-
-                            <TextView
-                                android:layout_width="100dp"
-                                android:layout_height="wrap_content"
-                                android:text="Date         :"
-                                android:textColor="#222222"
-                                android:textSize="13sp"
-                                android:fontFamily="sans-serif-medium" />
-
-                            <TextView
-                                android:id="@+id/tv_receipt_date"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="04 - Sep - 2024  07: 50 AM"
-                                android:textColor="#222222"
-                                android:textSize="13sp" />
-                        </LinearLayout>
-
-                        <!-- Items Table Header -->
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="16dp"
-                            android:orientation="horizontal"
-                            android:paddingVertical="4dp"
-                            android:gravity="center_vertical">
-
-                            <TextView
-                                android:layout_width="38dp"
-                                android:layout_height="wrap_content"
-                                android:text="No."
-                                android:textColor="#111111"
-                                android:textSize="12sp"
-                                android:fontFamily="sans-serif-medium" />
-
-                            <TextView
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:text="Item Name"
-                                android:textColor="#111111"
-                                android:textSize="12sp"
-                                android:fontFamily="sans-serif-medium" />
-
-                            <TextView
-                                android:layout_width="45dp"
-                                android:layout_height="wrap_content"
-                                android:gravity="center"
-                                android:text="Qty"
-                                android:textColor="#111111"
-                                android:textSize="12sp"
-                                android:fontFamily="sans-serif-medium" />
-
-                            <TextView
-                                android:layout_width="72dp"
-                                android:layout_height="wrap_content"
-                                android:gravity="end"
-                                android:text="Amount"
-                                android:textColor="#111111"
-                                android:textSize="12sp"
-                                android:fontFamily="sans-serif-medium" />
-
-                            <TextView
-                                android:layout_width="78dp"
-                                android:layout_height="wrap_content"
-                                android:gravity="end"
-                                android:text="Total"
-                                android:textColor="#111111"
-                                android:textSize="12sp"
-                                android:fontFamily="sans-serif-medium" />
-                        </LinearLayout>
-
-                        <!-- Dynamic Table Items Container -->
-                        <LinearLayout
-                            android:id="@+id/ll_receipt_items"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="vertical" />
-
-                        <!-- Totals Section -->
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="16dp"
-                            android:gravity="end"
-                            android:orientation="vertical">
-
-                            <TextView
-                                android:id="@+id/tv_receipt_total_amount"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Total Amount : ₹520.00"
-                                android:textColor="#000000"
-                                android:textSize="18sp"
-                                android:textStyle="bold"
-                                android:fontFamily="sans-serif-medium" />
-
-                            <TextView
-                                android:id="@+id/tv_receipt_upi_ref"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="4dp"
-                                android:text="UPI Reference No: 5647784112"
-                                android:textColor="#444444"
-                                android:textSize="12sp" />
-                        </LinearLayout>
-
-                        <!-- Footer Text -->
-                        <TextView
-                            android:id="@+id/tv_receipt_thank_you"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="20dp"
-                            android:gravity="center"
-                            android:text="Thank you for Your Generosity"
-                            android:textColor="#000000"
-                            android:textSize="14sp"
-                            android:textStyle="bold"
-                            android:fontFamily="sans-serif-medium" />
-
-                        <TextView
-                            android:id="@+id/tv_receipt_powered_by"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="3dp"
-                            android:gravity="center"
-                            android:text="Powered by www.xeniaonline.in"
-                            android:textColor="#555555"
-                            android:textSize="11sp" />
-
-                        <!-- Centered QR Code -->
-                        <ImageView
-                            android:id="@+id/iv_receipt_qr"
-                            android:layout_width="95dp"
-                            android:layout_height="95dp"
-                            android:layout_gravity="center_horizontal"
-                            android:layout_marginTop="12dp"
-                            android:layout_marginBottom="6dp"
-                            android:contentDescription="Receipt QR"
-                            tools:srcCompat="@tools:sample/avatars" />
-
-                    </LinearLayout>
-
-                    <!-- Bottom Jagged Edge -->
-                    <com.xeniaone.templeapp.util.ReceiptJaggedEdgeView
-                        android:id="@+id/view_bottom_jagged_edge"
-                        android:layout_width="match_parent"
-                        android:layout_height="10dp"
-                        android:tag="bottom"
-                        android:background="#F3F2EE" />
-
+                    <TextView
+                        android:id="@+id/tv_receipt_no"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="sans-serif-medium"
+                        android:text="27533365"
+                        android:textColor="#000000"
+                        android:textSize="@dimen/receipt_meta_text_size" />
                 </LinearLayout>
-            </androidx.cardview.widget.CardView>
 
-            <!-- Printing Status Indicator -->
-            <LinearLayout
-                android:id="@+id/ll_printing_status"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:gravity="center"
-                android:orientation="horizontal">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/receipt_spacing_small"
+                    android:orientation="horizontal">
 
-                <ProgressBar
-                    android:id="@+id/pb_printer"
-                    android:layout_width="18dp"
-                    android:layout_height="18dp"
-                    android:indeterminateTint="#FFA000" />
+                    <TextView
+                        android:layout_width="@dimen/receipt_meta_label_width"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="sans-serif-medium"
+                        android:text="Date :"
+                        android:textColor="#222222"
+                        android:textSize="@dimen/receipt_meta_text_size" />
+
+                    <TextView
+                        android:id="@+id/tv_receipt_date"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="04 - Sep - 2024  07: 50 AM"
+                        android:textColor="#222222"
+                        android:textSize="@dimen/receipt_meta_text_size" />
+                </LinearLayout>
 
                 <TextView
-                    android:id="@+id/tv_printer_status"
+                    android:id="@+id/tv_receipt_upi_ref"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:text="Connecting to Kiosk thermal printer..."
-                    android:textColor="#424242"
-                    android:textSize="13sp"
-                    android:fontFamily="sans-serif-medium" />
+                    android:layout_marginTop="@dimen/receipt_spacing_small"
+                    android:text="UPI Reference No: 5647784112"
+                    android:textColor="#444444"
+                    android:textSize="@dimen/receipt_meta_text_size" />
             </LinearLayout>
+        </androidx.cardview.widget.CardView>
 
+        <!-- Printing Status Indicator -->
+        <LinearLayout
+            android:id="@+id/ll_printing_status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/receipt_status_margin_top"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <ProgressBar
+                android:id="@+id/pb_printer"
+                android:layout_width="@dimen/receipt_status_progress_size"
+                android:layout_height="@dimen/receipt_status_progress_size"
+                android:indeterminateTint="#FFA000" />
+
+            <TextView
+                android:id="@+id/tv_printer_status"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:visibility="gone"
+                android:layout_marginStart="@dimen/receipt_status_text_margin_start"
+                android:fontFamily="sans-serif-medium"
+                android:text="Connecting to Kiosk thermal printer..."
+                android:textColor="#424242"
+                android:textSize="@dimen/receipt_meta_text_size" />
         </LinearLayout>
-    </ScrollView>
+
+        <!-- Kept hidden so PaymentActivity's existing bindings still work.
+             The printed receipt is drawn from a bitmap, not from these views. -->
+        <LinearLayout
+            android:id="@+id/ll_hidden_receipt"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:id="@+id/ll_receipt_items"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+            <ImageView
+                android:id="@+id/iv_receipt_qr"
+                android:layout_width="@dimen/receipt_qr_size"
+                android:layout_height="@dimen/receipt_qr_size"
+                android:contentDescription="Receipt QR"
+                tools:srcCompat="@tools:sample/avatars" />
+        </LinearLayout>
+
+    </LinearLayout>
 
     <!-- Bottom Actions Bar: Print Receipt & New Order -->
     <LinearLayout
         android:id="@+id/ll_bottom_bar"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginHorizontal="20dp"
-        android:layout_marginBottom="16dp"
+        android:layout_marginHorizontal="@dimen/receipt_bottom_bar_margin_horizontal"
+        android:layout_marginBottom="@dimen/receipt_bottom_bar_margin_bottom"
         android:gravity="center"
         android:orientation="horizontal"
+        app:layout_constrainedWidth="true"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent">
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintWidth_max="@dimen/receipt_content_max_width">
 
         <!-- Print Receipt Button -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_print_receipt"
             android:layout_width="0dp"
-            android:layout_height="50dp"
+            android:layout_height="@dimen/receipt_button_height"
+            android:layout_marginEnd="@dimen/receipt_button_gap_half"
             android:layout_weight="1"
-            android:layout_marginEnd="10dp"
+            android:visibility="gone"
             android:text="Print Receipt"
             android:textColor="#FFFFFF"
-            android:textSize="15sp"
+            android:textSize="@dimen/receipt_button_text_size"
             android:textStyle="bold"
             app:backgroundTint="#FFA000"
-            app:cornerRadius="25dp"
+            app:cornerRadius="@dimen/receipt_button_corner_radius"
             app:icon="@drawable/ic_print"
             app:iconGravity="textStart"
-            app:iconPadding="8dp"
+            app:iconPadding="@dimen/receipt_button_icon_padding"
             app:iconTint="#FFFFFF" />
 
         <!-- New Order / Done Button with Countdown -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_new_order"
             android:layout_width="0dp"
-            android:layout_height="50dp"
+            android:layout_height="@dimen/receipt_button_height"
+            android:layout_marginStart="@dimen/receipt_button_gap_half"
             android:layout_weight="1"
-            android:layout_marginStart="10dp"
             android:text="Done (15s)"
+            android:visibility="gone"
             android:textColor="#333333"
-            android:textSize="15sp"
+            android:textSize="@dimen/receipt_button_text_size"
             android:textStyle="bold"
             app:backgroundTint="#FFFFFF"
-            app:cornerRadius="25dp"
+            app:cornerRadius="@dimen/receipt_button_corner_radius"
             app:strokeColor="#CCCCCC"
             app:strokeWidth="1dp" />
 

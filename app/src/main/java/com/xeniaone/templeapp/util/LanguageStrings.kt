@@ -135,6 +135,15 @@ object LanguageStrings {
         else -> "Scan this code to Pay Amount"
     }
 
+    fun getCartEmptyMessage(lang: String): String = when (lang) {
+        "ml" -> "കാർട്ട് ശൂന്യമാണ്! ദയവായി പ്രസാദം തിരഞ്ഞെടുക്കുക"
+        "ta" -> "கார்ட் காலியாக உள்ளது! தயவுசெய்து பொருளைத் தேர்ந்தெடுக்கவும்"
+        "te" -> "కార్ట్ ఖాళీగా ఉంది! దయచేసి ప్రసాదాన్ని ఎంచుకోండి"
+        "kn" -> "ಕಾರ್ಟ್ ಖಾಲಿಯಾಗಿದೆ! ದಯವಿಟ್ಟು ಪ್ರಸಾದವನ್ನು ಆಯ್ಕೆಮಾಡಿ"
+        "hi" -> "कार्ट खाली है! कृपया प्रसाद चुनें"
+        else -> "Cart is empty! Please select a prasadam item."
+    }
+
     fun getLanguageDisplayName(code: String): String {
         return supportedLanguages.firstOrNull { it.code == code }?.nativeName ?: "English"
     }

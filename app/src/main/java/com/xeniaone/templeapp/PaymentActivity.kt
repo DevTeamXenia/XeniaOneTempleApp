@@ -62,6 +62,8 @@ class PaymentActivity : AppCompatActivity() {
     private var invoiceNumber: Long = 0L
     private var rrn: String = ""
     private var cardType: String = ""
+    private var orderCustomerName: String = ""
+    private var orderMobileNumber: String = ""
 
     // Launcher for Pine Labs App-to-App Print Intent (MethodId: 1002)
     private val pineLabsPrintLauncher = registerForActivityResult(
@@ -89,7 +91,7 @@ class PaymentActivity : AppCompatActivity() {
 
     // Kiosk Auto-return Timer
     private var autoReturnTimer: CountDownTimer? = null
-    private val autoReturnDurationMs = 15000L
+    private val autoReturnDurationMs = 2000L
 
     companion object {
         private const val TAG = "PaymentActivity"
@@ -104,6 +106,9 @@ class PaymentActivity : AppCompatActivity() {
         const val EXTRA_INVOICE_NUMBER = "extra_invoice_number"
         const val EXTRA_RRN = "extra_rrn"
         const val EXTRA_CARD_TYPE = "extra_card_type"
+        const val EXTRA_CUSTOMER_NAME = "extra_customer_name"
+
+        const val EXTRA_CUSTOMER_MOBILE = "extra_customer_mobile"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -116,6 +121,8 @@ class PaymentActivity : AppCompatActivity() {
         if (orderId == 0L) {
             orderId = intent.getIntExtra(EXTRA_ORDER_ID, 0).toLong()
         }
+        orderCustomerName = intent.getStringExtra(EXTRA_CUSTOMER_NAME) ?: ""
+        orderMobileNumber = intent.getStringExtra(EXTRA_CUSTOMER_MOBILE) ?: ""
         pspRefNo = intent.getStringExtra(EXTRA_PSP_REF_NO) ?: ""
         totalAmount = intent.getDoubleExtra(EXTRA_TOTAL_AMOUNT, 0.0)
         currentLanguage = intent.getStringExtra(EXTRA_LANGUAGE_CODE) ?: "en"
@@ -500,150 +507,194 @@ class PaymentActivity : AppCompatActivity() {
     // ─────────────────────────────────────────────────────────────────────────
 
     private fun generateThermalReceiptBitmap(): Bitmap {
-        val width = 576
-        val itemLineHeight = 36
-        val extraLines = (if (paymentMode.isNotBlank()) 1 else 0) +
-                (if (cardNumber.isNotBlank()) 1 else 0) +
-                (if (approvalCode.isNotBlank()) 1 else 0)
-        val dynamicHeight = 800 + ((receiptItems.size + extraLines) * itemLineHeight)
+        val width = 576                       // printer dot width (80mm) - keep as is
+        val margin = 24f
+        val right = width - margin
+        val maxTextWidth = width - 2 * margin
 
-        val bitmap = Bitmap.createBitmap(width, dynamicHeight, Bitmap.Config.ARGB_8888)
+        // Column positions (tuned for the larger text)
+        val colNo = margin
+        val colName = 84f
+        val colNameMaxWidth = 200f            // item names wrap inside this width
+        val colQtyCenter = 325f
+        val colAmountRight = 450f
+        val colTotalRight = right
+
+        // Draw on a generous canvas, then crop to the real content height at the end
+        val canvasHeight = 1900 + receiptItems.size * 160
+        val bitmap = Bitmap.createBitmap(width, canvasHeight, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         canvas.drawColor(Color.WHITE)
 
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.BLACK
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.BLACK }
+
+        var y = 46f
+
+        // Splits text into lines that fit maxWidth using the current paint settings
+        fun wrapLines(text: String, maxWidth: Float): List<String> {
+            val lines = mutableListOf<String>()
+            var remaining = text.trim()
+            while (remaining.isNotEmpty()) {
+                val count = paint.breakText(remaining, true, maxWidth, null)
+                if (count >= remaining.length) {
+                    lines.add(remaining)
+                    break
+                }
+                var cut = remaining.lastIndexOf(' ', count)
+                if (cut <= 0) cut = count
+                lines.add(remaining.substring(0, cut).trim())
+                remaining = remaining.substring(cut).trim()
+            }
+            return lines
         }
 
-        var y = 40f
+        // Draws wrapped text starting at current y; leaves y on the last line's baseline
+        fun drawWrapped(text: String, x: Float, maxWidth: Float, lineHeight: Float) {
+            val lines = wrapLines(text, maxWidth)
+            lines.forEachIndexed { index, line ->
+                if (index > 0) y += lineHeight
+                canvas.drawText(line, x, y, paint)
+            }
+        }
 
-        // Temple Header
+        // ---------------- Temple Header ----------------
         paint.textAlign = Paint.Align.CENTER
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-        paint.textSize = 26f
-        canvas.drawText("Sabarimala Sri Dharmasastha Temple", width / 2f, y, paint)
+        paint.textSize = 34f
+        drawWrapped("Sabarimala Sri Dharmasastha Temple", width / 2f, maxTextWidth, 40f)
 
-        y += 28f
+        y += 36f
         paint.typeface = Typeface.DEFAULT
-        paint.textSize = 17f
+        paint.textSize = 24f
         paint.color = Color.DKGRAY
-        canvas.drawText("Swamy Ayyappan Rd, Sannidhanam, Sabarimala, Kerala 689662", width / 2f, y, paint)
+        drawWrapped("Swamy Ayyappan Rd, Sannidhanam, Sabarimala, Kerala 689662", width / 2f, maxTextWidth, 30f)
 
-        y += 24f
-        canvas.drawText("Phone: (703) 690-9355; website: www.sabarimala.com", width / 2f, y, paint)
+        y += 32f
+        drawWrapped("Phone: (703) 690-9355; website: www.sabarimala.com", width / 2f, maxTextWidth, 30f)
 
-        y += 42f
+        y += 58f
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-        paint.textSize = 22f
+        paint.textSize = 32f
         paint.color = Color.BLACK
         canvas.drawText("Prasadam Receipt", width / 2f, y, paint)
 
-        // Metadata Left Aligned
-        y += 42f
+        // ---------------- Metadata (left aligned) ----------------
+        y += 52f
         paint.typeface = Typeface.DEFAULT
-        paint.textSize = 19f
+        paint.textSize = 27f
         paint.textAlign = Paint.Align.LEFT
         val displayOrderId = if (orderId > 0) orderId.toString() else "27533365"
         val displayPspRef = if (pspRefNo.isNotBlank()) pspRefNo else "5647784112"
         val displayTotal = if (totalAmount > 0.0) totalAmount else receiptItems.sumOf { it.total }
 
-        canvas.drawText("Receipt No :   $displayOrderId", 20f, y, paint)
-        y += 28f
-        canvas.drawText("Date       :   $formattedDate", 20f, y, paint)
+        canvas.drawText("Receipt No :   $displayOrderId", margin, y, paint)
+        y += 38f
+        canvas.drawText("Date       :   $formattedDate", margin, y, paint)
 
-        if (paymentMode.isNotBlank()) {
-            y += 28f
-            canvas.drawText("Payment    :   $paymentMode", 20f, y, paint)
+        // Devotee name and mobile: printed only when they are not empty
+        if (orderCustomerName.isNotBlank()) {
+            y += 38f
+            drawWrapped("Name       :   ${orderCustomerName.trim()}", margin, maxTextWidth, 34f)
         }
-        if (cardNumber.isNotBlank()) {
-            y += 28f
-            canvas.drawText("Card No    :   $cardNumber", 20f, y, paint)
-        }
-        if (approvalCode.isNotBlank()) {
-            y += 28f
-            canvas.drawText("Auth Code  :   $approvalCode", 20f, y, paint)
+        if (orderMobileNumber.isNotBlank()) {
+            y += 38f
+            canvas.drawText("Mobile     :   ${orderMobileNumber.trim()}", margin, y, paint)
         }
 
-        // Table Header Divider
-        y += 25f
-        paint.strokeWidth = 1.5f
-        canvas.drawLine(20f, y, width - 20f, y, paint)
+        // ---------------- Table header ----------------
+        y += 32f
+        paint.strokeWidth = 2f
+        canvas.drawLine(margin, y, right, y, paint)
 
-        // Columns: No. | Item Name | Qty | Amount | Total
-        y += 24f
+        y += 34f
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-        paint.textSize = 18f
-        canvas.drawText("No.", 20f, y, paint)
-        canvas.drawText("Item Name", 75f, y, paint)
+        paint.textSize = 24f
+        paint.textAlign = Paint.Align.LEFT
+        canvas.drawText("No.", colNo, y, paint)
+        canvas.drawText("Item Name", colName, y, paint)
 
         paint.textAlign = Paint.Align.CENTER
-        canvas.drawText("Qty", 330f, y, paint)
+        canvas.drawText("Qty", colQtyCenter, y, paint)
 
         paint.textAlign = Paint.Align.RIGHT
-        canvas.drawText("Amount", 450f, y, paint)
-        canvas.drawText("Total", width - 20f, y, paint)
+        canvas.drawText("Amount", colAmountRight, y, paint)
+        canvas.drawText("Total", colTotalRight, y, paint)
 
-        // Divider below header
-        y += 12f
-        canvas.drawLine(20f, y, width - 20f, y, paint)
+        y += 16f
+        canvas.drawLine(margin, y, right, y, paint)
 
-        // Dynamic Rows
+        // ---------------- Dynamic rows ----------------
         paint.typeface = Typeface.DEFAULT
-        paint.textSize = 18f
+        paint.textSize = 24f
+        val rowLineHeight = 30f
         receiptItems.forEach { item ->
-            y += 32f
+            y += 42f
+
+            // Item name may wrap onto several lines
             paint.textAlign = Paint.Align.LEFT
-            canvas.drawText("%02d".format(item.no), 20f, y, paint)
-            canvas.drawText(item.name, 75f, y, paint)
+            val nameLines = wrapLines(item.name, colNameMaxWidth)
+
+            canvas.drawText("%02d".format(item.no), colNo, y, paint)
+            nameLines.forEachIndexed { index, line ->
+                canvas.drawText(line, colName, y + index * rowLineHeight, paint)
+            }
 
             paint.textAlign = Paint.Align.CENTER
-            canvas.drawText(item.quantity.toString(), 330f, y, paint)
+            canvas.drawText(item.quantity.toString(), colQtyCenter, y, paint)
 
             paint.textAlign = Paint.Align.RIGHT
-            canvas.drawText("%.2f".format(Locale.US, item.rate), 450f, y, paint)
-            canvas.drawText("%.2f".format(Locale.US, item.total), width - 20f, y, paint)
+            canvas.drawText("%.2f".format(Locale.US, item.rate), colAmountRight, y, paint)
+            canvas.drawText("%.2f".format(Locale.US, item.total), colTotalRight, y, paint)
+
+            y += (nameLines.size - 1).coerceAtLeast(0) * rowLineHeight
         }
 
         // Divider after items
-        y += 18f
-        canvas.drawLine(20f, y, width - 20f, y, paint)
+        y += 24f
+        canvas.drawLine(margin, y, right, y, paint)
 
-        // Totals Section (Right-aligned)
-        y += 36f
+        // ---------------- Totals (right aligned) ----------------
+        y += 48f
         paint.textAlign = Paint.Align.RIGHT
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-        paint.textSize = 24f
-        canvas.drawText("Total Amount : ₹%.2f".format(Locale.US, displayTotal), width - 20f, y, paint)
+        paint.textSize = 34f
+        canvas.drawText("Total Amount : ₹%.2f".format(Locale.US, displayTotal), right, y, paint)
 
-        y += 28f
+        y += 38f
         paint.typeface = Typeface.DEFAULT
-        paint.textSize = 18f
+        paint.textSize = 24f
         paint.color = Color.DKGRAY
-        canvas.drawText("UPI Reference No: $displayPspRef", width - 20f, y, paint)
+        canvas.drawText("UPI Reference No: $displayPspRef", right, y, paint)
 
-        // Footer Section
-        y += 45f
+        // ---------------- Footer ----------------
+        y += 62f
         paint.color = Color.BLACK
         paint.textAlign = Paint.Align.CENTER
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-        paint.textSize = 20f
-        canvas.drawText("Thank you for Your Generosity", width / 2f, y, paint)
+        paint.textSize = 28f
+        drawWrapped("Thank you for Your Generosity", width / 2f, maxTextWidth, 34f)
 
-        y += 26f
+        y += 34f
         paint.typeface = Typeface.DEFAULT
-        paint.textSize = 16f
+        paint.textSize = 22f
         paint.color = Color.GRAY
-        canvas.drawText("Powered by www.xeniaonline.in", width / 2f, y, paint)
+        drawWrapped("Powered by www.xeniaonline.in", width / 2f, maxTextWidth, 28f)
 
-        // Centered QR Code
+        // ---------------- Centered QR Code ----------------
+        val qrSize = 280
         val qrData = "upi://pay?pa=sabarimala@sib&pn=SabarimalaTemple&tr=$displayOrderId&am=$displayTotal&cu=INR"
-        val qrBitmap = QrCodeGenerator.generate(qrData, 170)
-        y += 20f
-        val qrLeft = (width - 170) / 2f
+        val qrBitmap = QrCodeGenerator.generate(qrData, qrSize)
+        y += 30f
+        val qrLeft = (width - qrSize) / 2f
         canvas.drawBitmap(qrBitmap, qrLeft, y, null)
         qrBitmap.recycle()
+        y += qrSize + 40f                      // bottom padding so the cutter doesn't clip the QR
 
-        return bitmap
+        // Crop to actual content height
+        val finalHeight = y.toInt().coerceAtMost(canvasHeight)
+        val result = Bitmap.createBitmap(bitmap, 0, 0, width, finalHeight)
+        if (result !== bitmap) bitmap.recycle()
+        return result
     }
 
     override fun onDestroy() {

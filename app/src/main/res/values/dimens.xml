@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Pine Labs POS (handheld ~5", ~360x640dp, 58mm thermal printer) Dimension Set -->
+    <!-- Place in res/values/dimens.xml (default) or res/values-sw320dp/dimens.xml -->
+
+    <!-- Spacing & Margins -->
+    <dimen name="screen_margin_horizontal">16dp</dimen>
+    <dimen name="screen_margin_vertical">12dp</dimen>
+    <dimen name="card_margin">12dp</dimen>
+    <dimen name="card_padding">16dp</dimen>
+
+    <!-- Header & Banner Dimensions -->
+    <dimen name="banner_height">0dp</dimen>
+    <dimen name="header_title_size">20sp</dimen>
+    <dimen name="header_subtitle_size">14sp</dimen>
+
+    <!-- Buttons -->
+    <dimen name="button_height">48dp</dimen>
+    <dimen name="button_corner_radius">12dp</dimen>
+    <dimen name="button_text_size">16sp</dimen>
+
+    <!-- Cards & Containers -->
+    <dimen name="card_corner_radius">16dp</dimen>
+    <dimen name="card_elevation">6dp</dimen>
+
+    <!-- Typography / Text Sizes -->
+    <dimen name="text_size_small">12sp</dimen>
+    <dimen name="text_size_medium">14sp</dimen>
+    <dimen name="text_size_large">18sp</dimen>
+    <dimen name="text_size_title">22sp</dimen>
+    <dimen name="text_size_heading">18sp</dimen>
+
+    <!-- UI Component specific -->
+    <dimen name="login_card_width">328dp</dimen>
+    <dimen name="product_card_height">120dp</dimen>
+    <dimen name="table_row_height">44dp</dimen>
+
+    <!-- Billing screen -->
+    <dimen name="section_spacing">8dp</dimen>
+    <dimen name="back_button_size">40dp</dimen>
+    <dimen name="back_button_margin">4dp</dimen>
+    <dimen name="loading_height">80dp</dimen>
+    <dimen name="progress_size">28dp</dimen>
+    <dimen name="empty_state_height">56dp</dimen>
+    <dimen name="table_header_height">32dp</dimen>
+    <dimen name="table_header_text_size">11sp</dimen>
+    <dimen name="table_cell_padding">4dp</dimen>
+    <dimen name="col_no_width">24dp</dimen>
+    <dimen name="col_qty_width">36dp</dimen>
+    <dimen name="col_amount_width">52dp</dimen>
+    <dimen name="col_total_width">60dp</dimen>
+    <dimen name="col_action_width">32dp</dimen>
+    <dimen name="pay_button_width">120dp</dimen>
+    <dimen name="bottom_bar_padding_top">8dp</dimen>
+    <dimen name="bottom_bar_padding_bottom">12dp</dimen>
+
+    <!-- Payment QR screen -->
+    <dimen name="qr_size">180dp</dimen>
+    <dimen name="qr_amount_text_size">18sp</dimen>
+    <dimen name="qr_timer_text_size">13sp</dimen>
+    <dimen name="qr_hint_text_size">11sp</dimen>
+    <dimen name="qr_check_button_width">180dp</dimen>
+    <dimen name="qr_check_button_height">36dp</dimen>
+    <dimen name="qr_check_button_text_size">12sp</dimen>
+    <dimen name="qr_bank_logo_width">110dp</dimen>
+    <dimen name="qr_bank_logo_height">28dp</dimen>
+    <dimen name="qr_footer_logo_width">100dp</dimen>
+    <dimen name="qr_footer_logo_height">32dp</dimen>
+    <dimen name="qr_footer_text_size">10sp</dimen>
+    <dimen name="qr_block_padding_horizontal">16dp</dimen>
+    <dimen name="qr_spacing_qr_top">12dp</dimen>
+    <dimen name="qr_spacing_medium">8dp</dimen>
+    <dimen name="qr_spacing_small">6dp</dimen>
+    <dimen name="qr_back_button_size">40dp</dimen>
+    <dimen name="qr_progress_size">20dp</dimen>
+    <dimen name="qr_footer_margin_bottom">12dp</dimen>
+
+    <!-- ===================== Payment Receipt screen ===================== -->
+    <!-- Screen frame (58mm printer ~ 384 dots; on-screen preview kept within 340dp) -->
+    <dimen name="receipt_content_max_width">340dp</dimen>
+    <dimen name="receipt_title_text_size">20sp</dimen>
+    <dimen name="receipt_title_margin_top">8dp</dimen>
+    <dimen name="receipt_scroll_margin_top">8dp</dimen>
+    <dimen name="receipt_scroll_margin_bottom">4dp</dimen>
+    <dimen name="receipt_scroll_padding_horizontal">8dp</dimen>
+    <dimen name="receipt_scroll_padding_bottom">12dp</dimen>
+
+    <!-- Receipt card -->
+    <dimen name="receipt_card_margin_horizontal">4dp</dimen>
+    <dimen name="receipt_card_corner_radius">4dp</dimen>
+    <dimen name="receipt_card_elevation">4dp</dimen>
+    <dimen name="receipt_jagged_height">8dp</dimen>
+    <dimen name="receipt_content_padding_horizontal">12dp</dimen>
+    <dimen name="receipt_content_padding_vertical">10dp</dimen>
+
+    <!-- Receipt spacing scale -->
+    <dimen name="receipt_spacing_xxs">2dp</dimen>
+    <dimen name="receipt_spacing_xs">2dp</dimen>
+    <dimen name="receipt_spacing_small">4dp</dimen>
+    <dimen name="receipt_spacing_medium">8dp</dimen>
+    <dimen name="receipt_spacing_large">12dp</dimen>
+    <dimen name="receipt_spacing_xlarge">16dp</dimen>
+
+    <!-- Receipt text sizes -->
+    <dimen name="receipt_temple_name_text_size">15sp</dimen>
+    <dimen name="receipt_small_text_size">10sp</dimen>
+    <dimen name="receipt_type_title_text_size">13sp</dimen>
+    <dimen name="receipt_meta_text_size">11sp</dimen>
+    <dimen name="receipt_meta_label_width">80dp</dimen>
+    <dimen name="receipt_table_header_text_size">10sp</dimen>
+    <dimen name="receipt_table_header_padding_vertical">4dp</dimen>
+    <dimen name="receipt_total_text_size">16sp</dimen>
+    <dimen name="receipt_thank_text_size">12sp</dimen>
+
+    <!-- Receipt table columns (also use for dynamic rows in code) -->
+    <dimen name="receipt_col_no_width">24dp</dimen>
+    <dimen name="receipt_col_qty_width">32dp</dimen>
+    <dimen name="receipt_col_amount_width">52dp</dimen>
+    <dimen name="receipt_col_total_width">58dp</dimen>
+    <dimen name="receipt_item_text_size">11sp</dimen>
+    <dimen name="receipt_item_row_padding_vertical">3dp</dimen>
+
+    <!-- Receipt QR -->
+    <dimen name="receipt_qr_size">80dp</dimen>
+    <dimen name="receipt_qr_margin_bottom">4dp</dimen>
+
+    <!-- Printing status -->
+    <dimen name="receipt_status_margin_top">6dp</dimen>
+    <dimen name="receipt_status_progress_size">16dp</dimen>
+    <dimen name="receipt_status_text_margin_start">6dp</dimen>
+
+    <!-- Bottom action bar -->
+    <dimen name="receipt_bottom_bar_margin_horizontal">12dp</dimen>
+    <dimen name="receipt_bottom_bar_margin_bottom">12dp</dimen>
+    <dimen name="receipt_button_height">44dp</dimen>
+    <dimen name="receipt_button_text_size">14sp</dimen>
+    <dimen name="receipt_button_corner_radius">22dp</dimen>
+    <dimen name="receipt_button_gap_half">6dp</dimen>
+    <dimen name="receipt_button_icon_padding">6dp</dimen>
+
+    <!-- Product cards -->
+    <dimen name="product_card_width">128dp</dimen>
+    <dimen name="product_card_margin_horizontal">7dp</dimen>
+    <dimen name="product_card_padding">9dp</dimen>
+    <dimen name="product_image_size">56dp</dimen>
+    <dimen name="product_name_margin_top">7dp</dimen>
+    <dimen name="product_name_text_size">15sp</dimen>
+    <dimen name="product_price_margin_top">5dp</dimen>
+    <dimen name="product_price_text_size">14sp</dimen>
+    <dimen name="product_stepper_margin_top">9dp</dimen>
+    <dimen name="product_stepper_button_size">36dp</dimen>
+    <dimen name="product_stepper_icon_padding">7dp</dimen>
+    <dimen name="product_stepper_count_width">36dp</dimen>
+    <dimen name="product_stepper_count_margin">7dp</dimen>
+    <dimen name="product_stepper_count_text_size">17sp</dimen>
+    <dimen name="bottom_bar_min_clearance">2dp</dimen>
+
+    <dimen name="bottom_images_height">26dp</dimen>
+    <dimen name="bottom_images_margin_top">4dp</dimen>
+    <dimen name="bottom_images_gap">4dp</dimen>
+    <dimen name="bottom_logo_strip_padding_vertical">6dp</dimen>
+
+    <!-- Order row -->
+    <dimen name="order_row_height">40dp</dimen>
+    <dimen name="order_row_padding_horizontal">6dp</dimen>
+    <dimen name="order_row_text_size">11sp</dimen>
+
+    <!-- Column widths -->
+    <dimen name="order_row_index_width">24dp</dimen>
+    <dimen name="order_row_qty_width">30dp</dimen>
+    <dimen name="order_row_price_width">44dp</dimen>
+    <dimen name="order_row_total_width">52dp</dimen>
+
+    <!-- Spacing -->
+    <dimen name="order_row_item_name_margin_start">4dp</dimen>
+
+    <!-- Remove button -->
+    <dimen name="order_row_remove_size">28dp</dimen>
+    <dimen name="order_row_remove_margin_start">4dp</dimen>
+    <dimen name="order_row_remove_padding">6dp</dimen>
+    <dimen name="receipt_success_icon_size">44dp</dimen>
+
+</resources>

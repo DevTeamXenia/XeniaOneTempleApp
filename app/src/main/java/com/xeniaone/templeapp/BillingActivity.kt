@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
+import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
@@ -15,9 +16,11 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.gson.Gson
@@ -81,16 +84,13 @@ class BillingActivity : AppCompatActivity() {
         enableEdgeToEdge()
         binding = ActivityBillingBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        val base = resources.getDimensionPixelSize(R.dimen.bottom_bar_padding_bottom)
+        val minClear = resources.getDimensionPixelSize(R.dimen.bottom_bar_min_clearance)
 
         ViewCompat.setOnApplyWindowInsetsListener(binding.rootBilling) { _, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             binding.rootBilling.setPadding(systemBars.left, 0, systemBars.right, 0)
-            binding.bottomBar.setPadding(
-                binding.bottomBar.paddingLeft,
-                binding.bottomBar.paddingTop,
-                binding.bottomBar.paddingRight,
-                systemBars.bottom.coerceAtLeast(12)
-            )
+            binding.bottomBar.updatePadding(bottom = base + maxOf(systemBars.bottom, minClear))
             insets
         }
 
@@ -143,6 +143,11 @@ class BillingActivity : AppCompatActivity() {
 
         // Setup RecyclerView for Dynamic Products
         setupProductRecyclerView()
+        setupNavigationDrawer()
+
+        if (authManager.employeeImage.isNotBlank()) {
+            loadEmployeeBannerImage(authManager.employeeImage)
+        }
 
         // Initial empty render (No dummy table items, initial total ₹0.00)
         updateUi()
@@ -162,9 +167,15 @@ class BillingActivity : AppCompatActivity() {
                             branchId = d.defaultBranch,
                             userId = d.userId,
                             userName = d.userName,
-                            designation = d.designation
+                            designation = d.designation,
+                            imageUrl = d.image
                         )
                         Log.i(TAG, "Profile refreshed: CompanyId=${d.companyId}, DefaultBranch=${d.defaultBranch}")
+                        if (!d.image.isNullOrBlank()) {
+                            runOnUiThread {
+                                loadEmployeeBannerImage(d.image)
+                            }
+                        }
                     }
                 } catch (e: Exception) {
                     Log.w(TAG, "Profile fetch fallback to saved: ${e.message}")
@@ -200,19 +211,34 @@ class BillingActivity : AppCompatActivity() {
                 loadDefaultPrasadamItems()
             }
         }
+
+    }
+    private fun updateProductGridSpan() {
+        val smallestWidth = resources.configuration.smallestScreenWidthDp
+        val spanCount = when {
+            allItems.size == 1 -> 1
+            allItems.size == 2 -> 2
+            smallestWidth >= 700 -> 3
+            else -> 2
+        }
+        (binding.rvProducts.layoutManager as? GridLayoutManager)?.spanCount = spanCount
     }
 
     private fun setupProductRecyclerView() {
         productAdapter = ProductCardAdapter(allItems) { item, newQty ->
             updateUi()
         }
-        binding.rvProducts.layoutManager = LinearLayoutManager(
-            this,
-            RecyclerView.HORIZONTAL,
-            false
-        )
+        val smallestWidth = resources.configuration.smallestScreenWidthDp
+        val spanCount = when {
+            allItems.size == 1 -> 1
+            allItems.size == 2 -> 2
+            smallestWidth >= 700 -> 3
+            else -> 2
+        }
+        binding.rvProducts.layoutManager = GridLayoutManager(this, spanCount)
         binding.rvProducts.adapter = productAdapter
     }
+
 
     private fun showProductsLoader() {
         binding.layoutLoadingProducts.visibility = View.VISIBLE
@@ -234,7 +260,7 @@ class BillingActivity : AppCompatActivity() {
         allItems.add(PrasadamItem("9543", LanguageStrings.getItemAppam(currentLanguage), 45.00, R.drawable.item_appam, null, 0))
         allItems.add(PrasadamItem("9541", LanguageStrings.getItemAravana(currentLanguage), 100.00, R.drawable.item_aravana, null, 0))
         allItems.add(PrasadamItem("9546", LanguageStrings.getItemCombo(currentLanguage), 125.00, R.drawable.item_combo, null, 0))
-
+        updateProductGridSpan()
         productAdapter.updateItems(allItems)
         updateUi()
     }
@@ -271,6 +297,7 @@ class BillingActivity : AppCompatActivity() {
 
             allItems.clear()
             allItems.addAll(newItems)
+            updateProductGridSpan()
             productAdapter.updateItems(allItems)
             updateUi()
         }
@@ -292,8 +319,10 @@ class BillingActivity : AppCompatActivity() {
         val activeItems = allItems.filter { it.quantity > 0 }
 
         if (activeItems.isEmpty()) {
+            binding.tableCard.visibility = View.GONE
             binding.tvEmptyBillState.visibility = View.VISIBLE
         } else {
+            binding.tableCard.visibility = View.VISIBLE
             binding.tvEmptyBillState.visibility = View.GONE
             val inflater = LayoutInflater.from(this)
 
@@ -321,8 +350,8 @@ class BillingActivity : AppCompatActivity() {
         // Calculate and format Total Amount (Starts at ₹0.00 when no items)
         val totalAmount = allItems.sumOf { it.totalAmount }
         binding.tvTotalAmountValue.text = "₹%.2f".format(totalAmount)
-        binding.btnPay.isEnabled = activeItems.isNotEmpty()
-        binding.btnPay.alpha = if (activeItems.isNotEmpty()) 1.0f else 0.6f
+        binding.btnPay.isEnabled = true
+        binding.btnPay.alpha = if (activeItems.isNotEmpty()) 1.0f else 0.7f
     }
 
     override fun onResume() {
@@ -346,7 +375,8 @@ class BillingActivity : AppCompatActivity() {
         val activeItems = allItems.filter { it.quantity > 0 }
         val total = activeItems.sumOf { it.totalAmount }
         if (total <= 0.0 || activeItems.isEmpty()) {
-            Toast.makeText(this, getString(R.string.no_items_selected), Toast.LENGTH_SHORT).show()
+            val emptyMsg = LanguageStrings.getCartEmptyMessage(currentLanguage)
+            Toast.makeText(this, emptyMsg, Toast.LENGTH_LONG).show()
             return
         }
 
@@ -376,6 +406,11 @@ class BillingActivity : AppCompatActivity() {
         val btnOptionCard = dialogView.findViewById<View>(R.id.btnOptionCard)
         val btnOptionUpi = dialogView.findViewById<View>(R.id.btnOptionUpi)
         val btnOptionSibQr = dialogView.findViewById<View>(R.id.btnOptionSibQr)
+
+        val isPineLabs = PineLabsManager.isPineLabsAvailable(this)
+        if (isPineLabs) {
+            btnOptionSibQr.visibility = View.GONE
+        }
 
         tvDialogTotalAmount.text = "₹%.2f".format(Locale.US, total)
 
@@ -639,10 +674,15 @@ class BillingActivity : AppCompatActivity() {
                     timeZone = TimeZone.getTimeZone("UTC")
                 }.format(Date())
 
+                val devoteeName = binding.etDevoteeName.text?.toString()?.trim() ?: ""
+                val devoteeMobile = binding.etDevoteeMobile.text?.toString()?.trim() ?: ""
+
                 val orderRequest = OrderKioskRequest(
                     addressId = 0,
                     deliveryTypeId = 0,
                     deliverySlotId = 0,
+                    OrderMobileNumber=devoteeMobile,
+                    OrderCustomerName=devoteeName,
                     expectedDeliveryDate = nowIso,
                     remark = "Temple Kiosk Order",
                     orderChanel = "KIOSK",
@@ -710,6 +750,8 @@ class BillingActivity : AppCompatActivity() {
                     val receiptItemsJson = com.google.gson.Gson().toJson(receiptItems)
 
                     val intent = Intent(this@BillingActivity, PaymentQrActivity::class.java).apply {
+                        putExtra(PaymentQrActivity.EXTRA_CUSTOMER_NAME, devoteeName)
+                        putExtra(PaymentQrActivity.EXTRA_CUSTOMER_MOBILE, devoteeMobile)
                         putExtra(PaymentQrActivity.EXTRA_TOTAL_AMOUNT, total)
                         putExtra(PaymentQrActivity.EXTRA_QR_URL, qrUrl)
                         putExtra(PaymentQrActivity.EXTRA_ORDER_ID, orderResponse.orderId ?: 0)
@@ -728,6 +770,75 @@ class BillingActivity : AppCompatActivity() {
                 Log.e(TAG, "Error in proceedToPayment: ${e.message}", e)
                 Toast.makeText(this@BillingActivity, "Payment error: ${e.message}", Toast.LENGTH_SHORT).show()
             }
+        }
+    }
+
+    private fun loadEmployeeBannerImage(url: String) {
+        try {
+            com.bumptech.glide.Glide.with(this)
+                .load(url)
+                .placeholder(R.drawable.temple_banner)
+                .error(R.drawable.temple_banner)
+                .centerCrop()
+                .into(binding.ivTempleBanner)
+        } catch (e: Exception) {
+            Log.w(TAG, "Error loading employee banner image: ${e.message}")
+        }
+    }
+
+    private fun setupNavigationDrawer() {
+        val drawerLayout = findViewById<androidx.drawerlayout.widget.DrawerLayout>(R.id.drawerLayout)
+        val tvDrawerEmployeeName = findViewById<TextView>(R.id.tvDrawerEmployeeName)
+        val tvDrawerDesignation = findViewById<TextView>(R.id.tvDrawerDesignation)
+        val ivDrawerProfile = findViewById<ImageView>(R.id.ivDrawerProfile)
+        val tvAppVersion = findViewById<TextView>(R.id.tvAppVersion)
+        val menuTerminalInfo = findViewById<View>(R.id.menuTerminalInfo)
+        val menuLogout = findViewById<View>(R.id.menuLogout)
+
+        val name = authManager.employeeName
+        tvDrawerEmployeeName.text = if (name.isNotBlank()) name else "Counter Operator"
+
+        val desig = authManager.designation
+        tvDrawerDesignation.text = if (desig.isNotBlank()) desig else "Operations Manager"
+
+        if (authManager.employeeImage.isNotBlank()) {
+            try {
+                com.bumptech.glide.Glide.with(this)
+                    .load(authManager.employeeImage)
+                    .placeholder(R.drawable.ic_person)
+                    .error(R.drawable.ic_person)
+                    .circleCrop()
+                    .into(ivDrawerProfile)
+            } catch (_: Exception) {}
+        }
+
+        try {
+            val pInfo = packageManager.getPackageInfo(packageName, 0)
+            tvAppVersion.text = "Version ${pInfo.versionName ?: "1.0.0"}"
+        } catch (_: Exception) {
+            tvAppVersion.text = "Version 1.0.0"
+        }
+
+        menuTerminalInfo.setOnClickListener {
+            drawerLayout.closeDrawer(androidx.core.view.GravityCompat.START)
+            showPineLabsTerminalInfoDialog()
+        }
+
+        menuLogout.setOnClickListener {
+            drawerLayout.closeDrawer(androidx.core.view.GravityCompat.START)
+            androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Logout")
+                .setMessage("Are you sure you want to log out?")
+                .setPositiveButton("Logout") { _, _ ->
+                    authManager.logout()
+                    val intent = Intent(this, LoginActivity::class.java).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                    }
+                    startActivity(intent)
+                    finish()
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
         }
     }
 

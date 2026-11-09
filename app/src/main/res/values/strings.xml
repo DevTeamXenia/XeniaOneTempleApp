@@ -42,4 +42,15 @@
     <string name="payment_success_msg">Prasadam Token #%1$s generated for %2$s. Hand over tokens to devotee.</string>
     <string name="new_order">NEW BILL</string>
     <string name="logout">Logout</string>
+
+    <string name="cd_temple_banner">Sabarimala Temple Sanctorum Kodimaram</string>
+    <string name="cd_back_to_language">Back to Language Selection</string>
+    <string name="loading_products">Loading products...</string>
+    <string name="empty_bill_state">No items selected. Tap + above to add.</string>
+    <string name="pine_labs_ready">⚡ Pine Labs POS Ready</string>
+    <string name="cd_logo_xenia">Xenia logo</string>
+    <string name="cd_logo_sib">South Indian Bank logo</string>
+    <string name="cd_logo_travancore">Travancore Devaswom Board logo</string>
+    <string name="devotee_name_hint">Devotee Name </string>
+    <string name="mobile_number_hint">Mobile Number </string>
 </resources>

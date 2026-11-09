@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="#33A76505">
+
+    <item>
+        <selector>
+            <!-- Pressed State -->
+            <item android:state_pressed="true">
+                <layer-list>
+                    <item android:top="2dp">
+                        <shape android:shape="rectangle">
+                            <solid android:color="#F3D9A8" />
+                            <corners android:radius="100dp" />
+                        </shape>
+                    </item>
+                    <item android:top="1dp" android:bottom="1dp">
+                        <shape android:shape="rectangle">
+                            <gradient
+                                android:angle="90"
+                                android:startColor="#FFF1DA"
+                                android:endColor="#FFFAF0" />
+                            <corners android:radius="100dp" />
+                            <stroke
+                                android:width="1.5dp"
+                                android:color="@color/temple_gold_primary" />
+                        </shape>
+                    </item>
+                </layer-list>
+            </item>
+
+            <!-- Normal State: Stadium Pill Shape -->
+            <item>
+                <layer-list>
+                    <item android:top="2dp">
+                        <shape android:shape="rectangle">
+                            <solid android:color="#E3C48A" />
+                            <corners android:radius="100dp" />
+                        </shape>
+                    </item>
+                    <item android:bottom="2dp">
+                        <shape android:shape="rectangle">
+                            <gradient
+                                android:angle="90"
+                                android:startColor="#FFF4E0"
+                                android:endColor="#FFFFFF" />
+                            <corners android:radius="100dp" />
+                            <stroke
+                                android:width="1.5dp"
+                                android:color="@color/temple_gold_primary" />
+                        </shape>
+                    </item>
+                </layer-list>
+            </item>
+        </selector>
+    </item>
+
+    <item android:id="@android:id/mask">
+        <shape android:shape="rectangle">
+            <solid android:color="#FFFFFF" />
+            <corners android:radius="100dp" />
+        </shape>
+    </item>
+</ripple>

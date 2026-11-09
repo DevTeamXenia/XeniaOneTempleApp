@@ -25,6 +25,9 @@ import kotlin.time.Duration.Companion.milliseconds
 
 class PaymentQrActivity : AppCompatActivity() {
     companion object {
+
+        const val EXTRA_CUSTOMER_NAME = "extra_customer_name"
+        const val EXTRA_CUSTOMER_MOBILE = "extra_customer_mobile"
         const val EXTRA_TOTAL_AMOUNT = "extra_total_amount"
         const val EXTRA_QR_URL = "extra_qr_url"
         const val EXTRA_ORDER_ID = "extra_order_id"
@@ -123,8 +126,9 @@ class PaymentQrActivity : AppCompatActivity() {
             @SuppressLint("SetTextI18n")
             override fun onFinish() {
                 binding.tvTimer.text = "QR Expired"
+                binding.flCheckPaymentContainer.visibility = View.VISIBLE
                 if (!isPaymentCompleted && !isFinishing) {
-                    showPaymentExpiredDialog()
+//                    showPaymentExpiredDialog()
                 }
             }
         }.start()
@@ -162,6 +166,11 @@ class PaymentQrActivity : AppCompatActivity() {
                     "Payment is still pending. Please complete UPI payment and verify again.",
                     Toast.LENGTH_SHORT
                 ).show()
+
+                val intent = Intent(this@PaymentQrActivity, BillingActivity::class.java)
+                intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                startActivity(intent)
+                finish()
             }
         }
     }
@@ -198,6 +207,8 @@ class PaymentQrActivity : AppCompatActivity() {
         countDownTimer?.cancel()
 
         val intent = Intent(this@PaymentQrActivity, PaymentActivity::class.java).apply {
+            putExtra(PaymentActivity.EXTRA_CUSTOMER_NAME, intent.getStringExtra(EXTRA_CUSTOMER_NAME) ?: "")
+            putExtra(PaymentActivity.EXTRA_CUSTOMER_MOBILE, intent.getStringExtra(EXTRA_CUSTOMER_MOBILE) ?: "")
             putExtra(PaymentActivity.EXTRA_ORDER_ID, orderId.toLong())
             putExtra(PaymentActivity.EXTRA_PSP_REF_NO, pspRefNo)
             putExtra(PaymentActivity.EXTRA_TOTAL_AMOUNT, totalAmount)

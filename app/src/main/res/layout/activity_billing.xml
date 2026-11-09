@@ -1,11 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.drawerlayout.widget.DrawerLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
-    android:id="@+id/rootBilling"
+    android:id="@+id/drawerLayout"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@color/billing_screen_bg">
+    android:layout_height="match_parent">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/rootBilling"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/billing_screen_bg">
 
     <androidx.core.widget.NestedScrollView
         android:id="@+id/scrollViewContent"
@@ -24,24 +29,25 @@
 
             <FrameLayout
                 android:layout_width="match_parent"
-                android:layout_height="175dp">
+                android:layout_height="wrap_content">
 
                 <ImageView
                     android:id="@+id/ivTempleBanner"
                     android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:contentDescription="Sabarimala Temple Sanctorum Kodimaram"
+                    android:layout_height="@dimen/banner_height"
+                    android:contentDescription="@string/cd_temple_banner"
                     android:scaleType="centerCrop"
                     android:src="@drawable/temple_banner" />
 
                 <ImageButton
                     android:id="@+id/btnBackToLanguage"
-                    android:layout_width="38dp"
-                    android:layout_height="38dp"
+                    android:layout_width="@dimen/back_button_size"
+                    android:layout_height="@dimen/back_button_size"
                     android:layout_gravity="top|start"
-                    android:layout_margin="10dp"
+                    android:layout_margin="@dimen/back_button_margin"
+                    android:visibility="gone"
                     android:background="@drawable/bg_pill_operator"
-                    android:contentDescription="Back to Language Selection"
+                    android:contentDescription="@string/cd_back_to_language"
                     android:padding="8dp"
                     android:scaleType="fitCenter"
                     android:src="@drawable/ic_arrow_back"
@@ -49,32 +55,102 @@
 
             </FrameLayout>
 
+            <!-- Optional Devotee Name & Mobile Number (horizontal) -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="@dimen/screen_margin_horizontal"
+                android:layout_marginTop="25dp"
+                android:layout_marginBottom="12dp"
+                android:baselineAligned="false"
+                android:orientation="horizontal"
+                android:weightSum="2">
 
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilDevoteeName"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="6dp"
+                    android:layout_weight="1"
+                    android:hint="@string/devotee_name_hint"
+                    app:boxCornerRadiusBottomEnd="8dp"
+                    app:boxCornerRadiusBottomStart="8dp"
+                    app:boxCornerRadiusTopEnd="8dp"
+                    app:boxCornerRadiusTopStart="8dp"
+                    app:boxStrokeColor="@color/temple_gold_primary"
+                    app:hintTextColor="@color/temple_gold_primary">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etDevoteeName"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="sans-serif"
+                        android:includeFontPadding="true"
+                        android:inputType="textPersonName|textCapWords"
+                        android:maxLines="1"
+                        android:textColor="@color/text_dark"
+                        android:textSize="@dimen/text_size_small" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilDevoteeMobile"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:layout_weight="1"
+                    android:hint="@string/mobile_number_hint"
+                    app:boxCornerRadiusBottomEnd="8dp"
+                    app:boxCornerRadiusBottomStart="8dp"
+                    app:boxCornerRadiusTopEnd="8dp"
+                    app:boxCornerRadiusTopStart="8dp"
+                    app:boxStrokeColor="@color/temple_gold_primary"
+                    app:hintTextColor="@color/temple_gold_primary">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etDevoteeMobile"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="sans-serif"
+                        android:includeFontPadding="true"
+                        android:inputType="phone"
+                        android:maxLength="10"
+                        android:maxLines="1"
+                        android:textColor="@color/text_dark"
+                        android:textSize="@dimen/text_size_small" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+            </LinearLayout>
+
+            <!-- Malayalam: wrap_content + line spacing so tall glyphs are never clipped -->
             <TextView
                 android:id="@+id/tvSelectYourItem"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
+                android:layout_marginTop="@dimen/section_spacing"
                 android:layout_marginBottom="8dp"
                 android:fontFamily="sans-serif-medium"
                 android:gravity="center"
+                android:includeFontPadding="true"
+                android:lineSpacingExtra="2dp"
+                android:paddingHorizontal="12dp"
                 android:text="@string/select_your_item"
                 android:textColor="@color/text_dark"
-                android:textSize="15sp"
+                android:textSize="@dimen/text_size_heading"
                 android:textStyle="bold" />
-
 
             <LinearLayout
                 android:id="@+id/layoutLoadingProducts"
                 android:layout_width="match_parent"
-                android:layout_height="130dp"
+                android:layout_height="@dimen/loading_height"
                 android:gravity="center"
                 android:orientation="vertical"
                 android:visibility="visible">
 
                 <ProgressBar
-                    android:layout_width="36dp"
-                    android:layout_height="36dp"
+                    android:layout_width="@dimen/progress_size"
+                    android:layout_height="@dimen/progress_size"
                     android:indeterminateTint="@color/temple_gold_primary" />
 
                 <TextView
@@ -83,11 +159,11 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
                     android:fontFamily="sans-serif-medium"
-                    android:text="Loading products..."
+                    android:includeFontPadding="true"
+                    android:text="@string/loading_products"
                     android:textColor="@color/text_muted"
-                    android:textSize="13sp" />
+                    android:textSize="@dimen/text_size_medium" />
             </LinearLayout>
-
 
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/rvProducts"
@@ -95,8 +171,7 @@
                 android:layout_height="wrap_content"
                 android:clipToPadding="false"
                 android:nestedScrollingEnabled="false"
-                android:orientation="horizontal"
-                android:paddingHorizontal="6dp"
+                android:paddingHorizontal="@dimen/card_margin"
                 android:visibility="gone"
                 tools:listitem="@layout/item_product_card" />
 
@@ -104,30 +179,40 @@
                 android:id="@+id/tableCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginHorizontal="10dp"
-                android:layout_marginTop="14dp"
-                android:layout_marginBottom="16dp"
+                android:layout_marginHorizontal="@dimen/screen_margin_horizontal"
+                android:layout_marginTop="@dimen/screen_margin_vertical"
+                android:layout_marginBottom="@dimen/screen_margin_vertical"
                 android:background="@drawable/bg_table_container"
-                android:orientation="vertical">
+                android:orientation="vertical"
+                android:visibility="gone">
 
-
+                <!-- Header: minHeight (not fixed) + auto-size text so Malayalam column
+                     titles shrink to fit instead of clipping; column widths stay aligned
+                     with the row layout -->
                 <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="32dp"
+                    android:layout_height="wrap_content"
                     android:background="@drawable/bg_table_header"
                     android:gravity="center_vertical"
+                    android:minHeight="@dimen/table_header_height"
                     android:orientation="horizontal"
-                    android:paddingHorizontal="6dp">
+                    android:paddingHorizontal="@dimen/table_cell_padding"
+                    android:paddingVertical="4dp">
 
                     <TextView
-                        android:layout_width="28dp"
+                        android:layout_width="@dimen/col_no_width"
                         android:layout_height="wrap_content"
                         android:fontFamily="sans-serif-medium"
                         android:gravity="center"
+                        android:maxLines="1"
                         android:text="@string/col_no"
                         android:textColor="@color/table_header_text"
-                        android:textSize="11sp"
-                        android:textStyle="bold" />
+                        android:textSize="@dimen/table_header_text_size"
+                        android:textStyle="bold"
+                        app:autoSizeMaxTextSize="@dimen/table_header_text_size"
+                        app:autoSizeMinTextSize="8sp"
+                        app:autoSizeStepGranularity="0.5sp"
+                        app:autoSizeTextType="uniform" />
 
                     <TextView
                         android:id="@+id/tvColItemName"
@@ -135,51 +220,67 @@
                         android:layout_height="wrap_content"
                         android:layout_marginStart="4dp"
                         android:layout_weight="1"
+                        android:ellipsize="end"
                         android:fontFamily="sans-serif-medium"
+                        android:includeFontPadding="true"
+                        android:maxLines="1"
                         android:text="@string/col_item_name"
                         android:textColor="@color/table_header_text"
-                        android:textSize="11sp"
+                        android:textSize="@dimen/table_header_text_size"
                         android:textStyle="bold" />
 
                     <TextView
                         android:id="@+id/tvColQty"
-                        android:layout_width="32dp"
+                        android:layout_width="@dimen/col_qty_width"
                         android:layout_height="wrap_content"
                         android:fontFamily="sans-serif-medium"
                         android:gravity="center"
+                        android:maxLines="1"
                         android:text="@string/col_qty"
                         android:textColor="@color/table_header_text"
-                        android:textSize="11sp"
-                        android:textStyle="bold" />
+                        android:textSize="@dimen/table_header_text_size"
+                        android:textStyle="bold"
+                        app:autoSizeMaxTextSize="@dimen/table_header_text_size"
+                        app:autoSizeMinTextSize="8sp"
+                        app:autoSizeStepGranularity="0.5sp"
+                        app:autoSizeTextType="uniform" />
 
                     <TextView
                         android:id="@+id/tvColAmount"
-                        android:layout_width="48dp"
+                        android:layout_width="@dimen/col_amount_width"
                         android:layout_height="wrap_content"
                         android:fontFamily="sans-serif-medium"
                         android:gravity="end"
+                        android:maxLines="1"
                         android:text="@string/col_amount"
                         android:textColor="@color/table_header_text"
-                        android:textSize="11sp"
-                        android:textStyle="bold" />
+                        android:textSize="@dimen/table_header_text_size"
+                        android:textStyle="bold"
+                        app:autoSizeMaxTextSize="@dimen/table_header_text_size"
+                        app:autoSizeMinTextSize="8sp"
+                        app:autoSizeStepGranularity="0.5sp"
+                        app:autoSizeTextType="uniform" />
 
                     <TextView
                         android:id="@+id/tvColTotal"
-                        android:layout_width="56dp"
+                        android:layout_width="@dimen/col_total_width"
                         android:layout_height="wrap_content"
                         android:fontFamily="sans-serif-medium"
                         android:gravity="end"
+                        android:maxLines="1"
                         android:text="@string/col_total"
                         android:textColor="@color/table_header_text"
-                        android:textSize="11sp"
-                        android:textStyle="bold" />
-
+                        android:textSize="@dimen/table_header_text_size"
+                        android:textStyle="bold"
+                        app:autoSizeMaxTextSize="@dimen/table_header_text_size"
+                        app:autoSizeMinTextSize="8sp"
+                        app:autoSizeStepGranularity="0.5sp"
+                        app:autoSizeTextType="uniform" />
 
                     <View
-                        android:layout_width="24dp"
+                        android:layout_width="@dimen/col_action_width"
                         android:layout_height="1dp" />
                 </LinearLayout>
-
 
                 <LinearLayout
                     android:id="@+id/llOrderItemsContainer"
@@ -187,15 +288,18 @@
                     android:layout_height="wrap_content"
                     android:orientation="vertical" />
 
-
                 <TextView
                     android:id="@+id/tvEmptyBillState"
                     android:layout_width="match_parent"
-                    android:layout_height="60dp"
+                    android:layout_height="wrap_content"
                     android:gravity="center"
-                    android:text="No items selected. Tap + above to add."
+                    android:includeFontPadding="true"
+                    android:lineSpacingExtra="2dp"
+                    android:minHeight="@dimen/empty_state_height"
+                    android:paddingHorizontal="12dp"
+                    android:text="@string/empty_bill_state"
                     android:textColor="@color/text_subtle"
-                    android:textSize="12sp"
+                    android:textSize="@dimen/text_size_small"
                     android:visibility="visible" />
 
             </LinearLayout>
@@ -203,17 +307,17 @@
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 
-
+    <!-- Bottom bar: width 0dp (constraint-based) instead of match_parent -->
     <LinearLayout
         android:id="@+id/bottomBar"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:background="@color/bottom_bar_bg"
-        android:elevation="6dp"
+        android:elevation="@dimen/card_elevation"
         android:orientation="vertical"
-        android:paddingHorizontal="14dp"
-        android:paddingTop="10dp"
-        android:paddingBottom="12dp"
+        android:paddingHorizontal="@dimen/screen_margin_horizontal"
+        android:paddingTop="@dimen/bottom_bar_padding_top"
+        android:paddingBottom="@dimen/bottom_bar_padding_bottom"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent">
@@ -230,12 +334,13 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:fontFamily="sans-serif-medium"
+                android:includeFontPadding="true"
                 android:text="@string/total_amount_label"
                 android:textColor="@color/text_dark"
-                android:textSize="12sp"
+                android:textSize="@dimen/text_size_small"
                 android:textStyle="bold" />
 
-            <!-- Pine Labs Detected Badge -->
+            <!-- Pine Labs Detected Badge (kept from original layout) -->
             <LinearLayout
                 android:id="@+id/layoutPineLabsStatus"
                 android:layout_width="wrap_content"
@@ -252,7 +357,8 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:fontFamily="sans-serif-medium"
-                    android:text="⚡ Pine Labs POS Ready"
+                    android:includeFontPadding="true"
+                    android:text="@string/pine_labs_ready"
                     android:textColor="#2E7D32"
                     android:textSize="10sp"
                     android:textStyle="bold" />
@@ -266,42 +372,99 @@
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
-
             <FrameLayout
                 android:layout_width="0dp"
-                android:layout_height="44dp"
+                android:layout_height="wrap_content"
                 android:layout_marginEnd="10dp"
                 android:layout_weight="1"
-                android:background="@drawable/bg_total_box">
+                android:background="@drawable/bg_total_box"
+                android:minHeight="@dimen/button_height">
 
                 <TextView
                     android:id="@+id/tvTotalAmountValue"
                     android:layout_width="match_parent"
-                    android:layout_height="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
                     android:fontFamily="sans-serif-black"
                     android:gravity="center"
+                    android:maxLines="1"
                     android:text="₹0.00"
                     android:textColor="@color/text_dark"
-                    android:textSize="18sp"
+                    android:textSize="@dimen/text_size_large"
                     android:textStyle="bold" />
             </FrameLayout>
 
-
+            <!-- Pay button: minWidth/minHeight + auto-size so the Malayalam label fits -->
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btnPay"
-                android:layout_width="120dp"
-                android:layout_height="44dp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
                 android:background="@drawable/bg_pay_button"
                 android:elevation="2dp"
                 android:fontFamily="sans-serif-medium"
+                android:includeFontPadding="true"
                 android:letterSpacing="0.05"
+                android:maxLines="1"
+                android:minWidth="@dimen/pay_button_width"
+                android:minHeight="@dimen/button_height"
+                android:paddingHorizontal="12dp"
                 android:stateListAnimator="@null"
                 android:text="@string/pay"
                 android:textColor="@color/white"
-                android:textSize="15sp"
-                android:textStyle="bold" />
+                android:textSize="@dimen/button_text_size"
+                android:textStyle="bold"
+                app:autoSizeMaxTextSize="@dimen/button_text_size"
+                app:autoSizeMinTextSize="10sp"
+                app:autoSizeStepGranularity="0.5sp"
+                app:autoSizeTextType="uniform" />
+        </LinearLayout>
+
+        <!-- 3 images in one row, equal width -->
+        <LinearLayout
+            android:id="@+id/llBottomImages"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/bottom_images_margin_top"
+            android:baselineAligned="false"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:weightSum="3">
+
+            <ImageView
+                android:id="@+id/ivBottom1"
+                android:layout_width="0dp"
+                android:layout_height="@dimen/bottom_images_height"
+                android:layout_marginEnd="@dimen/bottom_images_gap"
+                android:layout_weight="1"
+                android:contentDescription="@string/cd_logo_xenia"
+                android:scaleType="fitCenter"
+                android:src="@drawable/img" />
+
+            <ImageView
+                android:id="@+id/ivBottom2"
+                android:layout_width="0dp"
+                android:layout_height="@dimen/bottom_images_height"
+                android:layout_marginHorizontal="@dimen/bottom_images_gap"
+                android:layout_weight="1"
+                android:contentDescription="@string/cd_logo_sib"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_sib" />
+
+            <ImageView
+                android:id="@+id/ivBottom3"
+                android:layout_width="0dp"
+                android:layout_height="@dimen/bottom_images_height"
+                android:layout_marginStart="@dimen/bottom_images_gap"
+                android:layout_weight="1"
+                android:contentDescription="@string/cd_logo_travancore"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_travancore" />
         </LinearLayout>
 
     </LinearLayout>
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <include layout="@layout/nav_drawer_content" />
+
+</androidx.drawerlayout.widget.DrawerLayout>

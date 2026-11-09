@@ -20,6 +20,7 @@ class AuthManager(context: Context) {
         private const val KEY_DEFAULT_BRANCH = "default_branch"
         private const val KEY_USER_ID = "user_id"
         private const val KEY_EMPLOYEE_NAME = "employee_name"
+        private const val KEY_EMPLOYEE_IMAGE = "employee_image"
         private const val KEY_PINELABS_APP_ID = "pinelabs_app_id"
         private const val KEY_PINELABS_USER_ID = "pinelabs_user_id"
     }
@@ -80,12 +81,19 @@ class AuthManager(context: Context) {
         get() = prefs.getString(KEY_EMPLOYEE_NAME, "") ?: ""
         set(value) = prefs.edit().putString(KEY_EMPLOYEE_NAME, value).apply()
 
-    fun saveProfile(companyId: Int, branchId: Int, userId: Int, userName: String, designation: String) {
+    var employeeImage: String
+        get() = prefs.getString(KEY_EMPLOYEE_IMAGE, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_EMPLOYEE_IMAGE, value).apply()
+
+    fun saveProfile(companyId: Int, branchId: Int, userId: Int, userName: String, designation: String, imageUrl: String? = null) {
         this.companyId = companyId
         this.defaultBranch = branchId
         this.userId = userId
         this.employeeName = userName
         this.designation = designation
+        if (!imageUrl.isNullOrBlank()) {
+            this.employeeImage = imageUrl
+        }
     }
 
     fun saveLogin(username: String, password: String, rememberMe: Boolean) {
@@ -105,5 +113,6 @@ class AuthManager(context: Context) {
         authToken = ""
         employeeId = ""
         designation = ""
+        employeeImage = ""
     }
 }

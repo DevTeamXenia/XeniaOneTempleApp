@@ -60,8 +60,8 @@ class LoginActivity : AppCompatActivity() {
             binding.etPassword.setText(authManager.savedPassword)
         } else {
             // Default prefill for live employee login
-            binding.etUsername.setText("9995728888")
-            binding.etPassword.setText("9995728888")
+            binding.etUsername.setText("")
+            binding.etPassword.setText("")
             binding.cbRememberMe.isChecked = true
         }
 

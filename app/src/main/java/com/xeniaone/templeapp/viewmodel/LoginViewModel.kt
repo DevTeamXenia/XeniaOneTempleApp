@@ -62,7 +62,8 @@ class LoginViewModel(
                                 branchId = data.defaultBranch,
                                 userId = data.userId,
                                 userName = data.userName,
-                                designation = data.designation
+                                designation = data.designation,
+                                imageUrl = data.image
                             )
                         }
                     } catch (e: Exception) {
