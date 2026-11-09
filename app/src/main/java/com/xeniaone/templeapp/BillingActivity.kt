@@ -405,6 +405,7 @@ class BillingActivity : AppCompatActivity() {
         val btnCloseDialog = dialogView.findViewById<View>(R.id.btnCloseDialog)
         val btnOptionCard = dialogView.findViewById<View>(R.id.btnOptionCard)
         val btnOptionUpi = dialogView.findViewById<View>(R.id.btnOptionUpi)
+        val btnOptionCash = dialogView.findViewById<View>(R.id.btnOptionCash)
         val btnOptionSibQr = dialogView.findViewById<View>(R.id.btnOptionSibQr)
 
         val isPineLabs = PineLabsManager.isPineLabsAvailable(this)
@@ -436,6 +437,11 @@ class BillingActivity : AppCompatActivity() {
                 txnType = PineLabsConstants.TXN_TYPE_UPI_SALE,
                 modeName = "Pine Labs UPI"
             )
+        }
+
+        btnOptionCash.setOnClickListener {
+            dialog.dismiss()
+            proceedWithCashPayment(activeItems, total)
         }
 
         btnOptionSibQr.setOnClickListener {
@@ -769,6 +775,107 @@ class BillingActivity : AppCompatActivity() {
                 CommonMethod.dismissLoader()
                 Log.e(TAG, "Error in proceedToPayment: ${e.message}", e)
                 Toast.makeText(this@BillingActivity, "Payment error: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun proceedWithCashPayment(activeItems: List<PrasadamItem>, total: Double) {
+        val cartItems = activeItems.map { item ->
+            OrderCartItem(
+                productId = item.id.toIntOrNull() ?: 9543,
+                variantId = 0,
+                quantity = item.quantity,
+                rate = item.unitPrice
+            )
+        }
+
+        if (cartItems.isEmpty()) {
+            Toast.makeText(this, "Cart is empty. Please select prasadam items.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        CommonMethod.showLoader(this, "Processing Cash Order...")
+
+        lifecycleScope.launch {
+            try {
+                val companyId = if (authManager.companyId > 0) authManager.companyId else 40
+                val branchId = if (authManager.defaultBranch > 0) authManager.defaultBranch else 85
+                val userId = if (authManager.userId > 0) authManager.userId else 23
+
+                val devoteeName = binding.etDevoteeName.text?.toString()?.trim() ?: ""
+                val devoteeMobile = binding.etDevoteeMobile.text?.toString()?.trim() ?: ""
+
+                val nowIso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
+                    timeZone = TimeZone.getTimeZone("UTC")
+                }.format(Date())
+
+                val orderRequest = OrderKioskRequest(
+                    addressId = 0,
+                    deliveryTypeId = 0,
+                    deliverySlotId = 0,
+                    OrderMobileNumber = devoteeMobile,
+                    OrderCustomerName = devoteeName,
+                    expectedDeliveryDate = nowIso,
+                    remark = "Counter Cash Order",
+                    orderChanel = "KIOSK",
+                    tableId = 0,
+                    dinningId = 0,
+                    paymentProviderId = 1,
+                    couponCode = "",
+                    isWalletAmount = false,
+                    isWalletLoyality = false,
+                    cartItems = cartItems
+                )
+
+                val orderResult = orderRepository.createKioskOrder(
+                    companyId = companyId,
+                    branchId = branchId,
+                    customerId = 0,
+                    userId = userId,
+                    request = orderRequest
+                )
+
+                CommonMethod.dismissLoader()
+                val orderResponse = orderResult.getOrNull()
+
+                if (orderResponse != null && orderResponse.status.equals("Success", ignoreCase = true)) {
+                    val orderId = orderResponse.orderId ?: System.currentTimeMillis()
+                    val pspRef = orderResponse.easeOrderId ?: "CASH-${System.currentTimeMillis()}"
+
+                    val receiptItems = activeItems.mapIndexed { index, item ->
+                        com.xeniaone.templeapp.model.ReceiptItem(
+                            no = index + 1,
+                            name = item.name,
+                            quantity = item.quantity,
+                            rate = item.unitPrice,
+                            total = item.totalAmount
+                        )
+                    }
+                    val receiptItemsJson = com.google.gson.Gson().toJson(receiptItems)
+
+                    val intent = Intent(this@BillingActivity, PaymentActivity::class.java).apply {
+                        putExtra(PaymentActivity.EXTRA_CUSTOMER_NAME, devoteeName)
+                        putExtra(PaymentActivity.EXTRA_CUSTOMER_MOBILE, devoteeMobile)
+                        putExtra(PaymentActivity.EXTRA_ORDER_ID, orderId.toLong())
+                        putExtra(PaymentActivity.EXTRA_PSP_REF_NO, pspRef)
+                        putExtra(PaymentActivity.EXTRA_TOTAL_AMOUNT, total)
+                        putExtra(PaymentActivity.EXTRA_RECEIPT_ITEMS_JSON, receiptItemsJson)
+                        putExtra(PaymentActivity.EXTRA_LANGUAGE_CODE, currentLanguage)
+                        putExtra(PaymentActivity.EXTRA_PAYMENT_MODE, "Cash on Delivery")
+                    }
+                    startActivity(intent)
+                    allItems.forEach { it.quantity = 0 }
+                    binding.etDevoteeName.text?.clear()
+                    binding.etDevoteeMobile.text?.clear()
+                    productAdapter.notifyDataSetChanged()
+                    updateUi()
+                } else {
+                    val errorMsg = orderResponse?.message ?: orderResult.exceptionOrNull()?.message ?: "Cash order creation failed"
+                    Toast.makeText(this@BillingActivity, errorMsg, Toast.LENGTH_LONG).show()
+                }
+            } catch (e: Exception) {
+                CommonMethod.dismissLoader()
+                Toast.makeText(this@BillingActivity, "Cash payment error: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
     }

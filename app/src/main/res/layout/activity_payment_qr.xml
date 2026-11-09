@@ -96,7 +96,7 @@
             android:layout_width="@dimen/qr_bank_logo_width"
             android:layout_height="@dimen/qr_bank_logo_height"
             android:layout_marginTop="@dimen/qr_spacing_small"
-            android:contentDescription="South Indian Bank Logo"
+            android:contentDescription="@string/bank_logo_description"
             android:scaleType="fitCenter"
             android:src="@drawable/ic_sib" />
 
@@ -131,6 +131,7 @@
                 android:textSize="@dimen/qr_check_button_text_size"
                 android:textStyle="bold" />
 
+
             <ProgressBar
                 android:id="@+id/progressBarChecking"
                 android:layout_width="@dimen/qr_progress_size"
@@ -139,6 +140,20 @@
                 android:indeterminateTint="@color/temple_gold_primary"
                 android:visibility="gone" />
         </FrameLayout>
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btnCancelPayment"
+            android:layout_width="@dimen/qr_check_button_width"
+            android:layout_height="@dimen/qr_check_button_height"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/bg_cancel_payment_button"
+            android:fontFamily="sans-serif-medium"
+            android:stateListAnimator="@null"
+            android:text="Cancel"
+            android:visibility="gone"
+            android:textColor="@color/delete_red"
+            android:textSize="@dimen/qr_check_button_text_size"
+            android:textStyle="bold" />
 
         <!-- Hidden simulation helper -->
         <TextView
@@ -154,22 +169,22 @@
 
     </LinearLayout>
 
-    <!-- Footer: "powered by XENIA TECHNOLOGIES" -->
     <LinearLayout
         android:id="@+id/llFooter"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
         android:layout_marginBottom="@dimen/qr_footer_margin_bottom"
         android:gravity="center"
         android:orientation="vertical"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent">
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:fontFamily="sans-serif"
+            android:visibility="gone"
             android:text="@string/powered_by"
             android:textColor="@color/text_subtle"
             android:textSize="@dimen/qr_footer_text_size" />
@@ -178,10 +193,21 @@
             android:id="@+id/ivFooterLogo"
             android:layout_width="@dimen/qr_footer_logo_width"
             android:layout_height="@dimen/qr_footer_logo_height"
-            android:layout_marginTop="3dp"
             android:contentDescription="@string/company_name"
             android:scaleType="fitCenter"
-            android:src="@drawable/xenia_logo" />
+            android:src="@drawable/img" />
     </LinearLayout>
+
+    <ImageView
+        android:id="@+id/ivFooterLogoRight"
+        android:layout_width="@dimen/qr_footer_logo_width"
+        android:layout_height="@dimen/qr_footer_logo_height"
+        android:layout_marginEnd="16dp"
+        android:contentDescription="@string/company_name"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_travancore"
+        app:layout_constraintBottom_toBottomOf="@id/llFooter"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@id/llFooter" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

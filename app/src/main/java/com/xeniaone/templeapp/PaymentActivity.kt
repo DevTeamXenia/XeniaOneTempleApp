@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -70,16 +71,31 @@ class PaymentActivity : AppCompatActivity() {
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         isPrintingInProgress = false
+        Log.d(TAG, "🖨️ [PineLabs Print Result] resultCode=${result.resultCode}, dataIsNull=${result.data == null}")
+        if (result.data != null) {
+            val extras = result.data?.extras
+            if (extras != null) {
+                for (key in extras.keySet()) {
+                    Log.d(TAG, "🖨️ [PineLabs Print Result Extra] $key = ${extras.get(key).toString()}")
+                }
+            }
+        }
+        val responseData = result.data?.getStringExtra(PineLabsConstants.EXTRA_RESPONSE_DATA)
+        Log.d(TAG, "🖨️ [PineLabs Print Response DATA]: $responseData")
+
         val printResponse = PineLabsManager.parsePrintResponse(result.data)
-        Log.d(TAG, "Pine Labs Print Response: isSuccess=${printResponse?.isSuccess}, code=${printResponse?.response?.responseCode}, msg=${printResponse?.response?.responseMsg}")
+        Log.d(TAG, "🖨️ [PineLabs Print Response Parsed]: isSuccess=${printResponse?.isSuccess}, code=${printResponse?.response?.responseCode}, msg=${printResponse?.response?.responseMsg}")
 
         binding.pbPrinter.visibility = View.GONE
         if (printResponse != null && printResponse.isSuccess) {
             binding.tvPrinterStatus.text = "✅ Receipt printed on Pine Labs POS!"
+            Log.i(TAG, "✅ [PineLabs Print] Receipt printed successfully on terminal!")
         } else {
             val msg = printResponse?.response?.responseMsg ?: "Printer busy or finished"
             binding.tvPrinterStatus.text = "Print status: $msg"
+            Log.w(TAG, "⚠️ [PineLabs Print] Print failed or returned warning: $msg (Code: ${printResponse?.response?.responseCode})")
         }
+        startAutoReturnTimer()
     }
 
     // Printer Connection state (Kiosk USB & POS)
@@ -238,6 +254,7 @@ class PaymentActivity : AppCompatActivity() {
             }
 
             override fun onFinish() {
+                if (isPrintingInProgress) return
                 returnToHome()
             }
         }.start()
@@ -388,10 +405,12 @@ class PaymentActivity : AppCompatActivity() {
     }
 
     /**
-     * Initiates Pine Labs app-to-app print request (MethodId: 1002).
+     * Initiates Pine Labs app-to-app text print request (MethodId: 1002 with PrintDataType=0).
      */
     private fun printReceiptOnPineLabs() {
         try {
+            autoReturnTimer?.cancel()
+
             isPrintingInProgress = true
             binding.pbPrinter.visibility = View.VISIBLE
             binding.tvPrinterStatus.text = "Printing on Pine Labs POS..."
@@ -405,6 +424,8 @@ class PaymentActivity : AppCompatActivity() {
             val displayTotal = if (totalAmount > 0.0) totalAmount else receiptItems.sumOf { it.total }
             val qrData = "upi://pay?pa=sabarimala@sib&pn=SabarimalaTemple&tr=$displayOrderId&am=$displayTotal&cu=INR"
 
+            Log.d(TAG, "🖨️ [PineLabs Text Print] Preparing print items for orderId=$displayOrderId, total=$displayTotal, mode=$displayPaymentMode")
+
             val printItems = PineLabsManager.buildTempleReceiptPrintItems(
                 orderId = displayOrderId,
                 dateFormatted = formattedDate,
@@ -416,6 +437,11 @@ class PaymentActivity : AppCompatActivity() {
                 printerWidth = PineLabsConstants.PRINTER_WIDTH_32
             )
 
+            Log.d(TAG, "🖨️ [PineLabs Text Print] Built ${printItems.size} text print items.")
+            printItems.forEachIndexed { index, item ->
+                Log.d(TAG, "🖨️ [PrintItem $index] Type=${item.printDataType}, Center=${item.isCenterAligned}, Data='${item.dataToPrint}'")
+            }
+
             val printIntent = PineLabsManager.createPrintIntent(
                 context = this,
                 printRefNo = displayOrderId,
@@ -424,10 +450,11 @@ class PaymentActivity : AppCompatActivity() {
                 userId = authManager.pineLabsUserId
             )
 
+            Log.d(TAG, "🖨️ [PineLabs Text Print] Launching print intent package=${printIntent.getPackage()}, action=${printIntent.action}")
             pineLabsPrintLauncher.launch(printIntent)
         } catch (e: Exception) {
             isPrintingInProgress = false
-            Log.e(TAG, "Error initiating Pine Labs print: ${e.message}", e)
+            Log.e(TAG, "❌ [PineLabs Print] Error initiating Pine Labs text print: ${e.message}", e)
             binding.pbPrinter.visibility = View.GONE
             binding.tvPrinterStatus.text = "Print error: ${e.message}"
         }
@@ -520,13 +547,34 @@ class PaymentActivity : AppCompatActivity() {
         val colAmountRight = 450f
         val colTotalRight = right
 
-        // Draw on a generous canvas, then crop to the real content height at the end
-        val canvasHeight = 1900 + receiptItems.size * 160
+        // ...column positions unchanged...
+
+        // Footer image: scaled to the printable width, keeping its aspect ratio
+        val footerTargetWidth = (width - 2 * margin).toInt()
+        val footerBitmap: Bitmap? = try {
+            val raw = BitmapFactory.decodeResource(resources, R.drawable.footer)
+            if (raw != null) {
+                val scaledHeight = (raw.height * footerTargetWidth.toFloat() / raw.width).toInt()
+                val scaled = Bitmap.createScaledBitmap(raw, footerTargetWidth, scaledHeight, true)
+                if (scaled !== raw) raw.recycle()
+                scaled
+            } else null
+        } catch (e: Exception) {
+            Log.e(TAG, "Could not load footer image: ${e.message}", e)
+            null
+        }
+        val footerExtraHeight = (footerBitmap?.height ?: 0) + 60
+
+        // Canvas now includes room for the footer image
+        val canvasHeight = 1900 + receiptItems.size * 160 + footerExtraHeight
         val bitmap = Bitmap.createBitmap(width, canvasHeight, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         canvas.drawColor(Color.WHITE)
 
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.BLACK }
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.BLACK
+            isFakeBoldText = true
+        }
 
         var y = 46f
 
@@ -559,29 +607,26 @@ class PaymentActivity : AppCompatActivity() {
 
         // ---------------- Temple Header ----------------
         paint.textAlign = Paint.Align.CENTER
-        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         paint.textSize = 34f
         drawWrapped("Sabarimala Sri Dharmasastha Temple", width / 2f, maxTextWidth, 40f)
 
         y += 36f
-        paint.typeface = Typeface.DEFAULT
         paint.textSize = 24f
-        paint.color = Color.DKGRAY
+        paint.color = Color.BLACK
         drawWrapped("Swamy Ayyappan Rd, Sannidhanam, Sabarimala, Kerala 689662", width / 2f, maxTextWidth, 30f)
 
         y += 32f
         drawWrapped("Phone: (703) 690-9355; website: www.sabarimala.com", width / 2f, maxTextWidth, 30f)
 
         y += 58f
-        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         paint.textSize = 32f
         paint.color = Color.BLACK
         canvas.drawText("Prasadam Receipt", width / 2f, y, paint)
 
         // ---------------- Metadata (left aligned) ----------------
         y += 52f
-        paint.typeface = Typeface.DEFAULT
         paint.textSize = 27f
+        paint.color = Color.BLACK
         paint.textAlign = Paint.Align.LEFT
         val displayOrderId = if (orderId > 0) orderId.toString() else "27533365"
         val displayPspRef = if (pspRefNo.isNotBlank()) pspRefNo else "5647784112"
@@ -603,12 +648,12 @@ class PaymentActivity : AppCompatActivity() {
 
         // ---------------- Table header ----------------
         y += 32f
-        paint.strokeWidth = 2f
+        paint.strokeWidth = 2.5f
         canvas.drawLine(margin, y, right, y, paint)
 
         y += 34f
-        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         paint.textSize = 24f
+        paint.color = Color.BLACK
         paint.textAlign = Paint.Align.LEFT
         canvas.drawText("No.", colNo, y, paint)
         canvas.drawText("Item Name", colName, y, paint)
@@ -624,8 +669,8 @@ class PaymentActivity : AppCompatActivity() {
         canvas.drawLine(margin, y, right, y, paint)
 
         // ---------------- Dynamic rows ----------------
-        paint.typeface = Typeface.DEFAULT
         paint.textSize = 24f
+        paint.color = Color.BLACK
         val rowLineHeight = 30f
         receiptItems.forEach { item ->
             y += 42f
@@ -689,6 +734,18 @@ class PaymentActivity : AppCompatActivity() {
         canvas.drawBitmap(qrBitmap, qrLeft, y, null)
         qrBitmap.recycle()
         y += qrSize + 40f                      // bottom padding so the cutter doesn't clip the QR
+
+        // ---------------- Footer image (below QR) ----------------
+        if (footerBitmap != null) {
+            val footerLeft = (width - footerBitmap.width) / 2f
+            canvas.drawBitmap(footerBitmap, footerLeft, y, null)
+            y += footerBitmap.height
+            footerBitmap.recycle()
+        }
+        y += 40f   // bottom padding so the cutter doesn't clip the image
+
+// Crop to actual content height
+
 
         // Crop to actual content height
         val finalHeight = y.toInt().coerceAtMost(canvasHeight)

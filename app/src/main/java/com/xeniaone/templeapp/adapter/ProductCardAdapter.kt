@@ -1,10 +1,12 @@
 package com.xeniaone.templeapp.adapter
 
 import android.graphics.Typeface
+import android.util.TypedValue
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.widget.AppCompatButton
 import androidx.recyclerview.widget.RecyclerView
@@ -96,32 +98,48 @@ class ProductCardAdapter(
 
         private fun showQuantityKeypadDialog(item: PrasadamItem) {
             val context = binding.root.context
-            val density = context.resources.displayMetrics.density
+            val res = context.resources
+
             var currentInput = if (item.quantity > 0) item.quantity.toString() else ""
             var isFreshInput = true
+
+            // Sizes from dimens.xml (already in px, scaled for the screen)
+            val keyHeightPx = res.getDimensionPixelSize(R.dimen.keypad_key_height)
+            val keyTextPx = res.getDimension(R.dimen.keypad_key_text_size)
+            val keyMarginPx = res.getDimensionPixelSize(R.dimen.keypad_key_margin)
+            val displayTextPx = res.getDimension(R.dimen.keypad_display_text_size)
+            val displayPadPx = res.getDimensionPixelSize(R.dimen.keypad_display_padding)
+            val displayMarginBottomPx = res.getDimensionPixelSize(R.dimen.keypad_display_margin_bottom)
+            val rowMarginBottomPx = res.getDimensionPixelSize(R.dimen.keypad_row_margin_bottom)
+            val actionHeightPx = res.getDimensionPixelSize(R.dimen.keypad_action_height)
+            val actionTextPx = res.getDimension(R.dimen.keypad_action_text_size)
+            val actionMarginTopPx = res.getDimensionPixelSize(R.dimen.keypad_action_margin_top)
+            val actionGapPx = res.getDimensionPixelSize(R.dimen.keypad_action_button_gap)
+            val rootPadPx = res.getDimensionPixelSize(R.dimen.keypad_root_padding)
+            val dialogWidthPercent = TypedValue().also {
+                res.getValue(R.dimen.keypad_dialog_width_percent, it, true)
+            }.float
 
             val rootLayout = LinearLayout(context).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER_HORIZONTAL
-                val pad = (16 * density).toInt()
-                setPadding(pad, pad, pad, pad)
+                setPadding(rootPadPx, rootPadPx, rootPadPx, rootPadPx)
             }
 
             // Display Box showing the current entered number
             val tvDisplay = TextView(context).apply {
-                textSize = 26f
+                setTextSize(TypedValue.COMPLEX_UNIT_PX, displayTextPx)
                 typeface = Typeface.DEFAULT_BOLD
                 gravity = Gravity.CENTER
                 setTextColor(context.getColor(R.color.text_dark))
                 text = if (currentInput.isEmpty()) "0" else currentInput
                 setBackgroundResource(R.drawable.bg_total_box)
-                val padBox = (12 * density).toInt()
-                setPadding(padBox, padBox, padBox, padBox)
+                setPadding(displayPadPx, displayPadPx, displayPadPx, displayPadPx)
                 layoutParams = LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT
                 ).apply {
-                    bottomMargin = (14 * density).toInt()
+                    bottomMargin = displayMarginBottomPx
                 }
             }
             rootLayout.addView(tvDisplay)
@@ -147,14 +165,14 @@ class ProductCardAdapter(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT
                     ).apply {
-                        bottomMargin = (6 * density).toInt()
+                        bottomMargin = rowMarginBottomPx
                     }
                 }
 
                 rowKeys.forEach { key ->
                     val btn = AppCompatButton(context).apply {
                         text = key
-                        textSize = 20f
+                        setTextSize(TypedValue.COMPLEX_UNIT_PX, keyTextPx)
                         typeface = Typeface.DEFAULT_BOLD
                         stateListAnimator = null
                         when (key) {
@@ -173,11 +191,10 @@ class ProductCardAdapter(
                         }
                         layoutParams = LinearLayout.LayoutParams(
                             0,
-                            (48 * density).toInt(),
+                            keyHeightPx,
                             1f
                         ).apply {
-                            val margin = (4 * density).toInt()
-                            setMargins(margin, margin, margin, margin)
+                            setMargins(keyMarginPx, keyMarginPx, keyMarginPx, keyMarginPx)
                         }
 
                         setOnClickListener {
@@ -214,7 +231,7 @@ class ProductCardAdapter(
                 rootLayout.addView(rowLayout)
             }
 
-            // Bottom Action Buttons Row (Cancel & Set) inside the box
+            // Bottom Action Buttons Row (Cancel & Add)
             val actionRow = LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
                 weightSum = 2f
@@ -222,41 +239,39 @@ class ProductCardAdapter(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT
                 ).apply {
-                    topMargin = (12 * density).toInt()
+                    topMargin = actionMarginTopPx
                 }
             }
 
             val btnCancel = AppCompatButton(context).apply {
                 text = "Cancel"
-                textSize = 15f
+                setTextSize(TypedValue.COMPLEX_UNIT_PX, actionTextPx)
                 typeface = Typeface.DEFAULT_BOLD
                 stateListAnimator = null
                 setTextColor(context.getColor(R.color.text_muted))
                 setBackgroundResource(R.drawable.bg_payment_card_selector)
                 layoutParams = LinearLayout.LayoutParams(
                     0,
-                    (44 * density).toInt(),
+                    actionHeightPx,
                     1f
                 ).apply {
-                    val m = (4 * density).toInt()
-                    setMargins(0, 0, m, 0)
+                    setMargins(0, 0, actionGapPx, 0)
                 }
             }
 
             val btnSet = AppCompatButton(context).apply {
-                text = "Set"
-                textSize = 15f
+                text = "Add"
+                setTextSize(TypedValue.COMPLEX_UNIT_PX, actionTextPx)
                 typeface = Typeface.DEFAULT_BOLD
                 stateListAnimator = null
                 setTextColor(context.getColor(R.color.white))
                 setBackgroundResource(R.drawable.bg_pay_button)
                 layoutParams = LinearLayout.LayoutParams(
                     0,
-                    (44 * density).toInt(),
+                    actionHeightPx,
                     1f
                 ).apply {
-                    val m = (4 * density).toInt()
-                    setMargins(m, 0, 0, 0)
+                    setMargins(actionGapPx, 0, 0, 0)
                 }
             }
 
@@ -264,9 +279,15 @@ class ProductCardAdapter(
             actionRow.addView(btnSet)
             rootLayout.addView(actionRow)
 
+            // ScrollView so the dialog still works on short screens
+            val scrollView = ScrollView(context).apply {
+                isFillViewport = true
+                addView(rootLayout)
+            }
+
             val dialog = MaterialAlertDialogBuilder(context)
-                .setTitle("Set Quantity for ${item.name}")
-                .setView(rootLayout)
+                .setTitle("Quantity for ${item.name}")
+                .setView(scrollView)
                 .create()
 
             btnCancel.setOnClickListener {
@@ -283,6 +304,13 @@ class ProductCardAdapter(
             }
 
             dialog.show()
+
+            // Widen the dialog window (must be called after show())
+            val screenWidth = res.displayMetrics.widthPixels
+            dialog.window?.setLayout(
+                (screenWidth * dialogWidthPercent).toInt(),
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
         }
     }
 }

@@ -192,11 +192,11 @@ object PineLabsManager {
     ): List<PineLabsPrintItem> {
         val list = mutableListOf<PineLabsPrintItem>()
 
-        fun addCenter(text: String) {
+        fun addCenter(text: String, width: Int = printerWidth) {
             list.add(
                 PineLabsPrintItem(
                     printDataType = PineLabsConstants.PRINT_DATA_TYPE_TEXT,
-                    printerWidth = printerWidth,
+                    printerWidth = width,
                     isCenterAligned = true,
                     dataToPrint = text
                 )
@@ -227,12 +227,13 @@ object PineLabsManager {
         }
 
         // 1. Temple Header
-        addCenter("Sabarimala Sri Dharmasastha Temple")
-        addCenter("Sannidhanam, Sabarimala, Kerala 689662")
-        addCenter("Ph: (703) 690-9355 | www.sabarimala.com")
-        addDivider('=')
-        addCenter("*** PRASADAM RECEIPT ***")
+        addCenter("Sabarimala ")
+        addCenter("Sri Dharmasastha Temple")
+//        addCenter("Sannidhanam, Sabarimala, Kerala 689662")
+//        addCenter("Ph: (703) 690-9355 | www.sabarimala.com")
         addDivider('-')
+        addCenter("*** RECEIPT *** ")
+
 
         // 2. Metadata
         addRow("Receipt No:", orderId)
@@ -377,16 +378,31 @@ object PineLabsManager {
      * Parses the PrintData response returned from Pine Labs MasterApp.
      */
     fun parsePrintResponse(data: Intent?): PineLabsPrintResponse? {
-        val json = data?.getStringExtra(PineLabsConstants.EXTRA_RESPONSE_DATA)
-        if (json.isNullOrBlank()) {
-            Log.w(TAG, "Empty or null RESPONSE_DATA from Pine Labs Print API")
+        if (data == null) {
+            Log.w(TAG, "❌ [PineLabs Print] result.data is NULL from MasterApp")
             return null
         }
-        Log.d(TAG, "Pine Labs Print Response JSON: $json")
+        val json = data.getStringExtra(PineLabsConstants.EXTRA_RESPONSE_DATA)
+            ?: data.getStringExtra("ResponseData")
+            ?: data.getStringExtra("response_data")
+
+        Log.d(TAG, "🖨️ [PineLabs Print Response Raw JSON]: $json")
+        if (json.isNullOrBlank()) {
+            val bundle = data.extras
+            if (bundle != null) {
+                for (key in bundle.keySet()) {
+                    Log.d(TAG, "🖨️ [PineLabs Print Bundle Extra] $key = ${bundle.get(key).toString()}")
+                }
+            }
+            Log.w(TAG, "⚠️ [PineLabs Print] Empty or null RESPONSE_DATA from Pine Labs Print API")
+            return null
+        }
         return try {
-            gson.fromJson(json, PineLabsPrintResponse::class.java)
+            val res = gson.fromJson(json, PineLabsPrintResponse::class.java)
+            Log.d(TAG, "🖨️ [PineLabs Print Parsed] ResponseCode=${res?.response?.responseCode}, Message=${res?.response?.responseMsg}")
+            res
         } catch (e: Exception) {
-            Log.e(TAG, "Error parsing Pine Labs print response: ${e.message}", e)
+            Log.e(TAG, "❌ [PineLabs Print] Error parsing Pine Labs print response: ${e.message}", e)
             null
         }
     }

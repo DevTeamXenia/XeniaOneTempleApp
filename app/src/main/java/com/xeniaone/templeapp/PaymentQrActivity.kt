@@ -95,6 +95,15 @@ class PaymentQrActivity : AppCompatActivity() {
             finish()
         }
 
+        binding.btnCancelPayment.setOnClickListener {
+            val intent = Intent(this@PaymentQrActivity, BillingActivity::class.java)
+            intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            startActivity(intent)
+            finish()
+        }
+
+
+
         binding.cardQr.setOnClickListener {
             navigateToReceiptScreen()
         }
@@ -127,6 +136,7 @@ class PaymentQrActivity : AppCompatActivity() {
             override fun onFinish() {
                 binding.tvTimer.text = "QR Expired"
                 binding.flCheckPaymentContainer.visibility = View.VISIBLE
+                binding.btnCancelPayment.visibility = View.VISIBLE
                 if (!isPaymentCompleted && !isFinishing) {
 //                    showPaymentExpiredDialog()
                 }
@@ -167,10 +177,7 @@ class PaymentQrActivity : AppCompatActivity() {
                     Toast.LENGTH_SHORT
                 ).show()
 
-                val intent = Intent(this@PaymentQrActivity, BillingActivity::class.java)
-                intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-                startActivity(intent)
-                finish()
+
             }
         }
     }
