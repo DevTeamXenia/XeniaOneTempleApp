@@ -188,6 +188,8 @@ object PineLabsManager {
         items: List<ReceiptItem>,
         totalAmount: Double,
         qrData: String,
+        customerName: String = "",
+        mobileNumber: String = "",
         printerWidth: Int = PineLabsConstants.PRINTER_WIDTH_32
     ): List<PineLabsPrintItem> {
         val list = mutableListOf<PineLabsPrintItem>()
@@ -227,17 +229,24 @@ object PineLabsManager {
         }
 
         // 1. Temple Header
-        addCenter("Sabarimala ")
+        addCenter("Sabarimala")
         addCenter("Sri Dharmasastha Temple")
 //        addCenter("Sannidhanam, Sabarimala, Kerala 689662")
 //        addCenter("Ph: (703) 690-9355 | www.sabarimala.com")
-        addDivider('-')
-        addCenter("*** RECEIPT *** ")
+        addDivider('=')
+        addCenter("       RECEIPT       ")
+        addDivider('=')
 
 
         // 2. Metadata
         addRow("Receipt No:", orderId)
         addRow("Date:", dateFormatted)
+        if (customerName.isNotBlank()) {
+            addRow("Name:", customerName.trim())
+        }
+        if (mobileNumber.isNotBlank()) {
+            addRow("Mobile:", mobileNumber.trim())
+        }
         addRow("Payment Mode:", paymentModeTitle)
         if (paymentRef.isNotBlank()) {
             addRow("Reference No:", paymentRef)

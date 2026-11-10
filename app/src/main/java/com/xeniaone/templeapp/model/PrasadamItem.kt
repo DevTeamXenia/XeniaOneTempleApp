@@ -8,7 +8,8 @@ data class PrasadamItem(
     val unitPrice: Double,
     val imageResId: Int = 0,
     val imageUrl: String? = null,
-    var quantity: Int = 0
+    var quantity: Int = 0,
+    val maxQtyPerOrder: Int? = null
 ) : Serializable {
     val totalAmount: Double
         get() = quantity * unitPrice

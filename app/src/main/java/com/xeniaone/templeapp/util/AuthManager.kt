@@ -2,6 +2,7 @@ package com.xeniaone.templeapp.util
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.xeniaone.templeapp.pinelabs.PineLabsConstants
 
 class AuthManager(context: Context) {
     private val prefs: SharedPreferences =
@@ -26,7 +27,14 @@ class AuthManager(context: Context) {
     }
 
     var pineLabsApplicationId: String
-        get() = prefs.getString(KEY_PINELABS_APP_ID, "307e5684edf24fb9844edfa48be92292") ?: "307e5684edf24fb9844edfa48be92292"
+        get() {
+            val saved = prefs.getString(KEY_PINELABS_APP_ID, null)
+            if (saved.isNullOrBlank() || saved == "307e5684edf24fb9844edfa48be92292") {
+                prefs.edit().putString(KEY_PINELABS_APP_ID, PineLabsConstants.DEFAULT_APPLICATION_ID).apply()
+                return PineLabsConstants.DEFAULT_APPLICATION_ID
+            }
+            return saved
+        }
         set(value) = prefs.edit().putString(KEY_PINELABS_APP_ID, value).apply()
 
     var pineLabsUserId: String

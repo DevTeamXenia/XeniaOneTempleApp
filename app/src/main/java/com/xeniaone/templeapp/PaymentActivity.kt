@@ -56,7 +56,6 @@ class PaymentActivity : AppCompatActivity() {
     private var currentLanguage: String = "en"
     private var formattedDate: String = ""
 
-    // Pine Labs Transaction Details
     private var paymentMode: String = ""
     private var cardNumber: String = ""
     private var approvalCode: String = ""
@@ -434,6 +433,8 @@ class PaymentActivity : AppCompatActivity() {
                 items = receiptItems,
                 totalAmount = displayTotal,
                 qrData = qrData,
+                customerName = orderCustomerName,
+                mobileNumber = orderMobileNumber,
                 printerWidth = PineLabsConstants.PRINTER_WIDTH_32
             )
 

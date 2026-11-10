@@ -194,7 +194,7 @@ class BillingActivity : AppCompatActivity() {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 socketManager.productsFlow.collect { socketProducts ->
                     if (socketProducts.isNotEmpty()) {
-                        Log.i(TAG, "Collected ${socketProducts.size} products from SocketFlow")
+                        Log.i(TAG, "📥 [Socket Products Flow] Collected ${socketProducts.size} products from SocketFlow stream!")
                         hideProductsLoader()
                         bindSocketProducts(socketProducts)
                     }
@@ -255,11 +255,11 @@ class BillingActivity : AppCompatActivity() {
     private fun loadDefaultPrasadamItems() {
         if (allItems.isNotEmpty()) return
 
-        // Standard Prasadam items with ZERO dummy quantity
+        // Standard Prasadam items with ZERO dummy quantity and default maxQtyPerOrder = 5 for testing
         allItems.clear()
-        allItems.add(PrasadamItem("9543", LanguageStrings.getItemAppam(currentLanguage), 45.00, R.drawable.item_appam, null, 0))
-        allItems.add(PrasadamItem("9541", LanguageStrings.getItemAravana(currentLanguage), 100.00, R.drawable.item_aravana, null, 0))
-        allItems.add(PrasadamItem("9546", LanguageStrings.getItemCombo(currentLanguage), 125.00, R.drawable.item_combo, null, 0))
+        allItems.add(PrasadamItem("9543", LanguageStrings.getItemAppam(currentLanguage), 45.00, R.drawable.item_appam, null, 0, 5))
+        allItems.add(PrasadamItem("9541", LanguageStrings.getItemAravana(currentLanguage), 100.00, R.drawable.item_aravana, null, 0, 5))
+        allItems.add(PrasadamItem("9546", LanguageStrings.getItemCombo(currentLanguage), 125.00, R.drawable.item_combo, null, 0, 5))
         updateProductGridSpan()
         productAdapter.updateItems(allItems)
         updateUi()
@@ -271,7 +271,10 @@ class BillingActivity : AppCompatActivity() {
             val existingQuantities = allItems.associate { it.name.lowercase() to it.quantity }
 
             val newItems = mutableListOf<PrasadamItem>()
+            val gson = Gson()
             for (p in socketProducts) {
+                Log.d("BillingActivity", "Parsed SocketProduct: ${gson.toJson(p)}")
+                Log.d("BillingActivity", "Product: ${p.productName}, maxQtyPerOrder: ${p.maxQtyPerOrder}")
                 val nameLower = p.productName.lowercase()
                 val fallbackRes = when {
                     nameLower.contains("appam") && !nameLower.contains("combo") -> R.drawable.item_appam
@@ -290,7 +293,8 @@ class BillingActivity : AppCompatActivity() {
                         unitPrice = unitPrice,
                         imageResId = fallbackRes,
                         imageUrl = p.image,
-                        quantity = currentQty // Starts at 0
+                        quantity = currentQty, // Starts at 0
+                        maxQtyPerOrder = p.maxQtyPerOrder
                     )
                 )
             }
@@ -300,6 +304,7 @@ class BillingActivity : AppCompatActivity() {
             updateProductGridSpan()
             productAdapter.updateItems(allItems)
             updateUi()
+            Log.i(TAG, "🖥️ [Product Display] Successfully displayed ${newItems.size} items on the product list grid.")
         }
     }
 

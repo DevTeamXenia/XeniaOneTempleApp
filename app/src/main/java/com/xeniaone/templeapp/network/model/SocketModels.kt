@@ -36,7 +36,10 @@ data class SocketProduct(
     @SerializedName("isVariantEnabled")
     val isVariantEnabled: Boolean? = null,
     @SerializedName("isComboEnabled")
-    val isComboEnabled: Boolean? = null
+    val isComboEnabled: Boolean? = null,
+    @SerializedName(value = "maxQtyPerOrder", alternate = ["MaxQtyPerOrder", "max_qty_per_order", "MaxQty", "maxQty", "quantityLimit", "Limit"])
+    val maxQtyPerOrder: Int? = null
+
 ) {
     val effectivePrice: Double
         get() = when {

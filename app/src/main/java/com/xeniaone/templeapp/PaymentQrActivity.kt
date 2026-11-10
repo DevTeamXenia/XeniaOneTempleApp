@@ -1,6 +1,7 @@
 package com.xeniaone.templeapp
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.os.Bundle
@@ -11,6 +12,7 @@ import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContentProviderCompat.requireContext
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
@@ -18,10 +20,14 @@ import com.xeniaone.templeapp.repository.OrderRepository
 import com.xeniaone.templeapp.util.LanguageStrings
 import com.xeniaone.templeapp.util.QrCodeGenerator
 import com.xeniaone.templeapp.databinding.ActivityPaymentQrBinding
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.Locale
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration.Companion.milliseconds
+
 
 class PaymentQrActivity : AppCompatActivity() {
     companion object {
@@ -182,8 +188,10 @@ class PaymentQrActivity : AppCompatActivity() {
         }
     }
 
+    private var isPaymentFailed = false
+
     private suspend fun checkStatusFromApi(isManual: Boolean): Boolean {
-        if (orderId <= 0 || isPaymentCompleted) return false
+        if (orderId <= 0 || isPaymentCompleted || isPaymentFailed) return false
 
         try {
             Log.d("KIOSK_PAYMENT_DEBUG", "🔍 Checking SIB payment status: orderId=$orderId, pspRefNo=$pspRefNo (manual=$isManual)")
@@ -194,6 +202,7 @@ class PaymentQrActivity : AppCompatActivity() {
 
             val statusItem = response?.data?.firstOrNull()
             val paymentStatus = statusItem?.status?.uppercase(Locale.US) ?: ""
+            val message = statusItem?.message ?: ""
 
             if (paymentStatus == "PAID" || paymentStatus == "SUCCESS" || paymentStatus == "COMPLETED" || paymentStatus == "S") {
                 Log.d("KIOSK_PAYMENT_DEBUG", "✅ Payment Verified Successfully: Status = $paymentStatus")
@@ -201,11 +210,37 @@ class PaymentQrActivity : AppCompatActivity() {
                 countDownTimer?.cancel()
                 navigateToReceiptScreen()
                 return true
+            } else if (paymentStatus == "F" || paymentStatus == "FAILED" || paymentStatus == "CANCELLED") {
+                Log.e("KIOSK_PAYMENT_DEBUG", "❌ Payment Failed: Status = $paymentStatus, Message = $message")
+                isPaymentFailed = true
+                countDownTimer?.cancel()
+                withContext(Dispatchers.Main) {
+                    showPaymentFailed(message)
+                }
+            } else {
+                Log.d("KIOSK_PAYMENT_DEBUG", "⏳ Payment still pending: '$paymentStatus'")
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "Error checking payment status: ${e.message}", e)
         }
         return false
+    }
+
+    private fun showPaymentFailed(apiMessage: String) {
+        val text = if (apiMessage.contains("Invalid PsprefNo", ignoreCase = true)) {
+            "We could not verify your payment. If money was deducted, please contact the counter with Order No. $orderId."
+        } else {
+            "Payment failed. Please try again or contact the counter."
+        }
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Payment not confirmed")
+            .setMessage(text)
+            .setCancelable(false)
+            .setPositiveButton("OK") { _, _ -> }
+            .show()
+
     }
 
     private fun navigateToReceiptScreen() {

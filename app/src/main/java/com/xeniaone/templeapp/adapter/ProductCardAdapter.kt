@@ -1,6 +1,7 @@
 package com.xeniaone.templeapp.adapter
 
 import android.graphics.Typeface
+import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.LayoutInflater
@@ -8,6 +9,7 @@ import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.widget.AppCompatButton
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
@@ -77,9 +79,20 @@ class ProductCardAdapter(
             }
 
             binding.btnPlus.setOnClickListener {
-                item.quantity++
-                binding.tvCount.text = item.quantity.toString()
-                onQuantityChanged(item, item.quantity)
+                val maxLimit = item.maxQtyPerOrder
+                Log.d("ProductCardAdapter", "Product: ${item.name}, currentQty: ${item.quantity}, maxLimit: $maxLimit")
+                if (maxLimit != null && maxLimit > 0 && item.quantity >= maxLimit) {
+                    Log.w("ProductCardAdapter", "Max limit reached for ${item.name}: limit=$maxLimit")
+                    Toast.makeText(
+                        binding.root.context,
+                        "Maximum allowed quantity per order is $maxLimit",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                } else {
+                    item.quantity++
+                    binding.tvCount.text = item.quantity.toString()
+                    onQuantityChanged(item, item.quantity)
+                }
             }
 
             binding.btnMinus.setOnClickListener {
@@ -296,7 +309,20 @@ class ProductCardAdapter(
 
             btnSet.setOnClickListener {
                 val newQty = currentInput.toIntOrNull() ?: 0
-                val clampedQty = newQty.coerceIn(0, 999)
+                val maxLimit = item.maxQtyPerOrder
+                Log.d("ProductCardAdapter", "Keypad Dialog Set for ${item.name}: enteredQty=$newQty, maxLimit=$maxLimit")
+                val finalQty = if (maxLimit != null && maxLimit > 0 && newQty > maxLimit) {
+                    Log.w("ProductCardAdapter", "Keypad input exceeds max limit for ${item.name}: entered=$newQty, limit=$maxLimit")
+                    Toast.makeText(
+                        context,
+                        "Maximum allowed quantity per order is $maxLimit",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    maxLimit
+                } else {
+                    newQty
+                }
+                val clampedQty = finalQty.coerceIn(0, 999)
                 item.quantity = clampedQty
                 binding.tvCount.text = item.quantity.toString()
                 onQuantityChanged(item, clampedQty)
