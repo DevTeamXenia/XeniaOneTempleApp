@@ -32,4 +32,30 @@ interface OrderApiService {
     suspend fun checkSibPaymentStatus(
         @Url fullUrl: String
     ): Response<SibCheckPaymentResponse>
+
+    @POST("api/Order/kiosk/placeOrder/{orderId}/Proccess")
+    suspend fun processOrder(
+        @Path("orderId") orderId: Int,
+        @Query("companyId") companyId: Int,
+        @Query("customerId") customerId: Int = 0,
+        @Query("settled") settled: Boolean
+    ): Response<OrderKioskSummaryResponse>
+
+    @GET("api/Order/status/checkPayment/{orderId}")
+    suspend fun checkRazorpayPaymentStatus(
+        @Path("orderId") orderId: Int,
+        @Query("razropayOrderId") razorpayOrderId: String
+    ): Response<SibCheckPaymentResponse>
+
+    @GET("api/Order/{orderId}")
+    suspend fun getOrderDetails(
+        @Path("orderId") orderId: Long
+    ): Response<com.xeniaone.templeapp.network.model.OrderDetailsResponse>
+
+    @POST("api/Order/kiosk/placeOrder/{orderId}/Cancel")
+    suspend fun cancelOrder(
+        @Path("orderId") orderId: Int,
+        @Query("companyId") companyId: Int,
+        @Query("settled") settled: Boolean = false
+    ): Response<OrderKioskSummaryResponse>
 }

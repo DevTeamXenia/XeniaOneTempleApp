@@ -19,4 +19,26 @@ interface OrderRepository {
     suspend fun checkSibPaymentStatus(
         orderId: Int,
     ): Result<SibCheckPaymentResponse>
+
+    suspend fun processOrder(
+        orderId: Int,
+        companyId: Int,
+        customerId: Int = 0,
+        settled: Boolean
+    ): Result<OrderKioskSummaryResponse>
+
+    suspend fun checkRazorpayPaymentStatus(
+        orderId: Int,
+        razorpayOrderId: String
+    ): Result<SibCheckPaymentResponse>
+
+    suspend fun getOrderDetails(
+        orderId: Long
+    ): Result<com.xeniaone.templeapp.network.model.OrderDetailsResponse>
+
+    suspend fun cancelOrder(
+        orderId: Int,
+        companyId: Int,
+        settled: Boolean = false
+    ): Result<OrderKioskSummaryResponse>
 }

@@ -230,10 +230,8 @@ class ProductCardAdapter(
                                         isFreshInput = false
                                         updateDisplay()
                                     } else {
-                                        if (currentInput.length < 3) {
-                                            currentInput = if (currentInput == "0") key else currentInput + key
-                                            updateDisplay()
-                                        }
+                                        currentInput = if (currentInput == "0") key else currentInput + key
+                                        updateDisplay()
                                     }
                                 }
                             }
@@ -322,7 +320,7 @@ class ProductCardAdapter(
                 } else {
                     newQty
                 }
-                val clampedQty = finalQty.coerceIn(0, 999)
+                val clampedQty = finalQty.coerceAtLeast(0)
                 item.quantity = clampedQty
                 binding.tvCount.text = item.quantity.toString()
                 onQuantityChanged(item, clampedQty)

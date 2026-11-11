@@ -56,6 +56,11 @@
             android:name=".PaymentActivity"
             android:exported="true" />
 
+        <!-- Razorpay SDK API Key metadata -->
+        <meta-data
+            android:name="com.razorpay.ApiKey"
+            android:value="@string/razorpay_api_key" />
+
     </application>
 
 </manifest>

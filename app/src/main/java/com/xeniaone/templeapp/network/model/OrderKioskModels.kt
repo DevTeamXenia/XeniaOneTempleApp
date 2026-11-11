@@ -162,3 +162,43 @@ data class OrderKioskSummaryResponse(
     @SerializedName("Message")
     val message: String?
 )
+
+data class OrderDetailsResponse(
+    @SerializedName("Status")
+    val status: String?,
+
+    @SerializedName("Data")
+    val data: OrderDetailsData?
+)
+
+data class OrderDetailsData(
+    @SerializedName("OrderId")
+    val orderId: Long?,
+
+    @SerializedName("OrderNo")
+    val orderNo: String?,
+
+    @SerializedName("InvoiceNo")
+    val invoiceNo: String?,
+
+    @SerializedName("EncryptedOrderId")
+    val encryptedOrderId: String?,
+
+    @SerializedName("OrderDate")
+    val orderDate: String?,
+
+    @SerializedName("OrderStatus")
+    val orderStatus: String?,
+
+    @SerializedName("PaymentMethod")
+    val paymentMethod: String?,
+
+    @SerializedName("PaymentStatus")
+    val paymentStatus: String?,
+
+    @SerializedName("PaymentOrderRef")
+    val paymentOrderRef: String?,
+
+    @SerializedName("TotalAmount")
+    val totalAmount: String?
+)

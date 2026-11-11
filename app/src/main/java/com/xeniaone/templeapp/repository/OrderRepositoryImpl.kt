@@ -84,4 +84,87 @@ class OrderRepositoryImpl(
             Result.failure(e)
         }
     }
+
+    override suspend fun processOrder(
+        orderId: Int,
+        companyId: Int,
+        customerId: Int,
+        settled: Boolean
+    ): Result<OrderKioskSummaryResponse> = withContext(ioDispatcher) {
+        try {
+            val response = orderApiService.processOrder(orderId, companyId, customerId, settled)
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                val errorBody = response.errorBody()?.string()
+                val parsedMessage = try {
+                    if (!errorBody.isNullOrBlank()) {
+                        val summary = com.google.gson.Gson().fromJson(errorBody, OrderKioskSummaryResponse::class.java)
+                        summary?.message
+                    } else null
+                } catch (_: Exception) {
+                    null
+                }
+                val errorMessage = if (!parsedMessage.isNullOrBlank()) {
+                    parsedMessage
+                } else {
+                    "HTTP ${response.code()}: $errorBody"
+                }
+                Result.failure(Exception(errorMessage))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun checkRazorpayPaymentStatus(
+        orderId: Int,
+        razorpayOrderId: String
+    ): Result<SibCheckPaymentResponse> = withContext(ioDispatcher) {
+        try {
+            val response = orderApiService.checkRazorpayPaymentStatus(orderId, razorpayOrderId)
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                val errorBody = response.errorBody()?.string()
+                Result.failure(Exception("HTTP ${response.code()}: $errorBody"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun getOrderDetails(
+        orderId: Long
+    ): Result<com.xeniaone.templeapp.network.model.OrderDetailsResponse> = withContext(ioDispatcher) {
+        try {
+            val response = orderApiService.getOrderDetails(orderId)
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                val errorBody = response.errorBody()?.string()
+                Result.failure(Exception("HTTP ${response.code()}: $errorBody"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun cancelOrder(
+        orderId: Int,
+        companyId: Int,
+        settled: Boolean
+    ): Result<OrderKioskSummaryResponse> = withContext(ioDispatcher) {
+        try {
+            val response = orderApiService.cancelOrder(orderId, companyId, settled)
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                val errorBody = response.errorBody()?.string()
+                Result.failure(Exception("HTTP ${response.code()}: $errorBody"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

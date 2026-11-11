@@ -193,7 +193,8 @@ object PineLabsManager {
         qrData: String,
         customerName: String = "",
         mobileNumber: String = "",
-        printerWidth: Int = PineLabsConstants.PRINTER_WIDTH_32
+        printerWidth: Int = PineLabsConstants.PRINTER_WIDTH_32,
+        imageBitmap: Bitmap? = null
     ): List<PineLabsPrintItem> {
         val list = mutableListOf<PineLabsPrintItem>()
 
@@ -278,6 +279,24 @@ object PineLabsManager {
                     dataToPrint = qrData
                 )
             )
+        }
+
+        // 8. Footer Image (Image Dump)
+        if (imageBitmap != null) {
+            Log.d(TAG, "🖨️ [PineLabs Footer Image] Processing bitmap: ${imageBitmap.width}x${imageBitmap.height}, hasAlpha=${imageBitmap.hasAlpha()}")
+            val preparedBmp = prepareForPrinter(imageBitmap, 384)
+            val hex = bitmapToHex(preparedBmp)
+            list.add(
+                PineLabsPrintItem(
+                    printDataType = PineLabsConstants.PRINT_DATA_TYPE_IMAGE_DUMP,
+                    printerWidth = printerWidth,
+                    isCenterAligned = true,
+                    imageData = hex
+                )
+            )
+            preparedBmp.recycle()
+        } else {
+            Log.w(TAG, "⚠️ [PineLabs Footer Image] imageBitmap is null, footer image skipped.")
         }
 
         // 9. Feed space at paper end
@@ -466,35 +485,37 @@ object PineLabsManager {
         return trimmedLeft + " ".repeat(spacesCount) + right
     }
 
-    /**
-     * Converts an Android Bitmap into a 1-bit monochrome hexadecimal dump string
-     * for Pine Labs PrintDataType = 2 (ImageDump).
-     */
     fun convertBitmapToHexDump(bitmap: Bitmap): String {
-        val width = bitmap.width
-        val height = bitmap.height
-        val widthInBytes = (width + 7) / 8
-        val hexChars = "0123456789ABCDEF".toCharArray()
-        val sb = StringBuilder(height * widthInBytes * 2)
+        val prepared = prepareForPrinter(bitmap, 384)
+        val hex = bitmapToHex(prepared)
+        prepared.recycle()
+        return hex
+    }
 
-        for (y in 0 until height) {
-            for (b in 0 until widthInBytes) {
-                var byteVal = 0
+    fun prepareForPrinter(src: Bitmap, targetWidth: Int = 384): Bitmap {
+        val h = (src.height * targetWidth.toFloat() / src.width).toInt()
+        val scaled = Bitmap.createScaledBitmap(src, targetWidth, h, true)
+        val out = Bitmap.createBitmap(targetWidth, h, Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(out)
+        canvas.drawColor(android.graphics.Color.WHITE)          // transparent → white
+        canvas.drawBitmap(scaled, 0f, 0f, null)
+        if (scaled !== src) scaled.recycle()
+        return out
+    }
+
+    fun bitmapToHex(bmp: Bitmap): String {
+        val sb = StringBuilder()
+        for (y in 0 until bmp.height) {
+            var x = 0
+            while (x < bmp.width) {
+                var b = 0
                 for (bit in 0 until 8) {
-                    val x = b * 8 + bit
-                    if (x < width) {
-                        val pixel = bitmap.getPixel(x, y)
-                        // Luminance check: standard 0.299R + 0.587G + 0.114B
-                        val gray = (Color.red(pixel) * 299 + Color.green(pixel) * 587 + Color.blue(pixel) * 114) / 1000
-                        val alpha = Color.alpha(pixel)
-                        // 1 represents black (dot to be printed), 0 represents white
-                        if (alpha > 128 && gray < 160) {
-                            byteVal = byteVal or (1 shl (7 - bit))
-                        }
-                    }
+                    val p = if (x + bit < bmp.width) bmp.getPixel(x + bit, y) else android.graphics.Color.WHITE
+                    val lum = (android.graphics.Color.red(p) * 0.299 + android.graphics.Color.green(p) * 0.587 + android.graphics.Color.blue(p) * 0.114)
+                    if (lum < 128) b = b or (0x80 shr bit)
                 }
-                sb.append(hexChars[(byteVal shr 4) and 0x0F])
-                sb.append(hexChars[byteVal and 0x0F])
+                sb.append(String.format(Locale.US, "%02X", b))
+                x += 8
             }
         }
         return sb.toString()

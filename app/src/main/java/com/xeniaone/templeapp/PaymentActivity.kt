@@ -425,6 +425,12 @@ class PaymentActivity : AppCompatActivity() {
 
             Log.d(TAG, "🖨️ [PineLabs Text Print] Preparing print items for orderId=$displayOrderId, total=$displayTotal, mode=$displayPaymentMode")
 
+            val footerBitmap = try {
+                BitmapFactory.decodeResource(resources, R.drawable.footer)
+            } catch (_: Exception) {
+                null
+            }
+
             val printItems = PineLabsManager.buildTempleReceiptPrintItems(
                 orderId = displayOrderId,
                 dateFormatted = formattedDate,
@@ -435,7 +441,8 @@ class PaymentActivity : AppCompatActivity() {
                 qrData = qrData,
                 customerName = orderCustomerName,
                 mobileNumber = orderMobileNumber,
-                printerWidth = PineLabsConstants.PRINTER_WIDTH_32
+                printerWidth = PineLabsConstants.PRINTER_WIDTH_32,
+                imageBitmap = footerBitmap
             )
 
             Log.d(TAG, "🖨️ [PineLabs Text Print] Built ${printItems.size} text print items.")
@@ -451,6 +458,8 @@ class PaymentActivity : AppCompatActivity() {
                 applicationId = authManager.pineLabsApplicationId,
                 userId = authManager.pineLabsUserId
             )
+
+            footerBitmap?.recycle()
 
             Log.d(TAG, "🖨️ [PineLabs Text Print] Launching print intent package=${printIntent.getPackage()}, action=${printIntent.action}")
             pineLabsPrintLauncher.launch(printIntent)

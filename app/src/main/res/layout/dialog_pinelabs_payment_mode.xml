@@ -409,7 +409,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:fontFamily="sans-serif-bold"
-                android:text="Kiosk Screen QR (SIB Gateway)"
+                android:text="Razorpay Payment Gateway"
                 android:textColor="@color/text_dark"
                 android:textSize="15sp" />
 
@@ -418,7 +418,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
                 android:fontFamily="sans-serif"
-                android:text="Display large QR code on this counter screen"
+                android:text="Open secure Razorpay checkout gateway"
                 android:textColor="@color/text_muted"
                 android:textSize="12sp" />
         </LinearLayout>
