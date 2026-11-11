@@ -29,7 +29,7 @@ class AuthManager(context: Context) {
     var pineLabsApplicationId: String
         get() {
             val saved = prefs.getString(KEY_PINELABS_APP_ID, null)
-            if (saved.isNullOrBlank() || saved == "307e5684edf24fb9844edfa48be92292") {
+            if (saved.isNullOrBlank() || saved != PineLabsConstants.DEFAULT_APPLICATION_ID) {
                 prefs.edit().putString(KEY_PINELABS_APP_ID, PineLabsConstants.DEFAULT_APPLICATION_ID).apply()
                 return PineLabsConstants.DEFAULT_APPLICATION_ID
             }

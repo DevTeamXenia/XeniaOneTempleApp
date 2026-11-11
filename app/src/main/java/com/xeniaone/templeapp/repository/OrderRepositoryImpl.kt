@@ -48,7 +48,20 @@ class OrderRepositoryImpl(
                 Result.success(response.body()!!)
             } else {
                 val errorBody = response.errorBody()?.string()
-                Result.failure(Exception("HTTP ${response.code()}: $errorBody"))
+                val parsedMessage = try {
+                    if (!errorBody.isNullOrBlank()) {
+                        val summary = com.google.gson.Gson().fromJson(errorBody, OrderKioskSummaryResponse::class.java)
+                        summary?.message
+                    } else null
+                } catch (_: Exception) {
+                    null
+                }
+                val errorMessage = if (!parsedMessage.isNullOrBlank()) {
+                    parsedMessage
+                } else {
+                    "HTTP ${response.code()}: $errorBody"
+                }
+                Result.failure(Exception(errorMessage))
             }
         } catch (e: Exception) {
             Result.failure(e)

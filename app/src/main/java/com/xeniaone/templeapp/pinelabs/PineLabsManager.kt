@@ -24,6 +24,7 @@ object PineLabsManager {
     private const val TAG = "PineLabsManager"
     private val gson = Gson()
 
+
     /**
      * Checks if Pine Labs environment is available on this device.
      * Looks for:
@@ -32,6 +33,7 @@ object PineLabsManager {
      * - Pine Labs POS hardware manufacturer / model attributes
      */
     fun isPineLabsAvailable(context: Context): Boolean {
+
         val pm = context.packageManager
 
         // 1. Check if MasterApp package is installed
@@ -107,6 +109,7 @@ object PineLabsManager {
         userId: String = PineLabsConstants.DEFAULT_USER_ID,
         mobileNumber: String? = null
     ): String {
+        Log.i(TAG, "🔑 [PineLabs AppId Log] buildTransactionPayload -> applicationId = $applicationId, userId = $userId")
         val amountInPaise = (amountRupees * 100.0).roundToLong()
         val request = PineLabsTransactionRequest(
             header = PineLabsHeader(
@@ -231,26 +234,17 @@ object PineLabsManager {
         // 1. Temple Header
         addCenter("Sabarimala")
         addCenter("Sri Dharmasastha Temple")
-//        addCenter("Sannidhanam, Sabarimala, Kerala 689662")
-//        addCenter("Ph: (703) 690-9355 | www.sabarimala.com")
         addDivider('=')
         addCenter("       RECEIPT       ")
         addDivider('=')
 
-
         // 2. Metadata
         addRow("Receipt No:", orderId)
         addRow("Date:", dateFormatted)
-        if (customerName.isNotBlank()) {
-            addRow("Name:", customerName.trim())
-        }
-        if (mobileNumber.isNotBlank()) {
-            addRow("Mobile:", mobileNumber.trim())
-        }
+        if (customerName.isNotBlank()) addRow("Name:", customerName.trim())
+        if (mobileNumber.isNotBlank()) addRow("Mobile:", mobileNumber.trim())
         addRow("Payment Mode:", paymentModeTitle)
-        if (paymentRef.isNotBlank()) {
-            addRow("Reference No:", paymentRef)
-        }
+        if (paymentRef.isNotBlank()) addRow("Reference No:", paymentRef)
         addDivider('-')
 
         // 3. Tabular Item Header
@@ -274,7 +268,7 @@ object PineLabsManager {
         addCenter("Powered by www.xeniaonline.in")
         addDivider('-')
 
-        // 7. QR Code (PrintDataType = 4)
+        // 7. QR Code
         if (qrData.isNotBlank()) {
             list.add(
                 PineLabsPrintItem(
@@ -286,7 +280,7 @@ object PineLabsManager {
             )
         }
 
-        // 8. Feed space at paper end
+        // 9. Feed space at paper end
         list.add(
             PineLabsPrintItem(
                 printDataType = PineLabsConstants.PRINT_DATA_TYPE_TEXT,
@@ -300,6 +294,13 @@ object PineLabsManager {
     }
 
     /**
+     * Resizes to paper width (default 384 dots for 2" paper).
+     */
+    fun scaleToWidth(source: Bitmap, targetWidth: Int = 384): Bitmap {
+        val targetHeight = (source.height * targetWidth.toFloat() / source.width).toInt()
+        return Bitmap.createScaledBitmap(source, targetWidth, targetHeight, true)
+    }
+    /**
      * Builds PrintData payload JSON.
      */
     fun buildPrintPayload(
@@ -308,6 +309,7 @@ object PineLabsManager {
         applicationId: String = PineLabsConstants.DEFAULT_APPLICATION_ID,
         userId: String = PineLabsConstants.DEFAULT_USER_ID
     ): String {
+        Log.i(TAG, "🔑 [PineLabs AppId Log] buildPrintPayload -> applicationId = $applicationId, userId = $userId")
         val request = PineLabsPrintRequest(
             header = PineLabsHeader(
                 applicationId = applicationId,

@@ -22,20 +22,37 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        getByName("debug") {
+            enableV1Signing = true
+            enableV2Signing = true
+        }
+        create("release") {
+            storeFile = file("C:/keystore/xeniamobi.jks")
+            storePassword = "Xeniatech@2025"
+            keyAlias = "xeniamobikey"
+            keyPassword = "Xeniatech@2025"
+            enableV1Signing = true
+            enableV2Signing = true
+        }
+    }
+
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("debug")
+            buildConfigField("String", "PINELABS_APP_ID", "\"b5ec66b79af44d7c871781e8125bbd63\"")
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            signingConfig = signingConfigs.getByName("release")
+            buildConfigField("String", "PINELABS_APP_ID", "\"4aa574308b9f4c4795d463797a48f65a\"")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            optimization {
-                enable = false
-            }
         }
     }
-
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
@@ -45,6 +62,13 @@ android {
         viewBinding = true
         aidl = true
         buildConfig = true
+    }
+}
+
+androidComponents {
+    onVariants { variant ->
+        val mainOutput = variant.outputs.singleOrNull { it.outputFileName.get().endsWith(".apk") }
+        mainOutput?.outputFileName?.set("xeniaone-v${android.defaultConfig.versionName}-${variant.name}.apk")
     }
 }
 

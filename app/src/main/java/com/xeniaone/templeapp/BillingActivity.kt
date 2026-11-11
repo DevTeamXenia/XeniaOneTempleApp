@@ -8,6 +8,7 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.widget.ImageView
+import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
@@ -446,7 +447,7 @@ class BillingActivity : AppCompatActivity() {
 
         btnOptionCash.setOnClickListener {
             dialog.dismiss()
-            proceedWithCashPayment(activeItems, total)
+            showCashReferenceDialog(activeItems, total)
         }
 
         btnOptionSibQr.setOnClickListener {
@@ -557,6 +558,7 @@ class BillingActivity : AppCompatActivity() {
                 pendingOrderId = orderId
 
                 Log.d(TAG, "Launching Pine Labs DoTransaction for Order #$orderId, Amount: ₹$total, Type: $txnType")
+                Log.i(TAG, "🔑 [PineLabs AppId Log] BillingActivity -> passing applicationId = ${authManager.pineLabsApplicationId}")
 
                 val pineIntent = PineLabsManager.createTransactionIntent(
                     context = this@BillingActivity,
@@ -772,8 +774,13 @@ class BillingActivity : AppCompatActivity() {
                     }
                     startActivity(intent)
                 } else {
-                    val errorMsg = orderResponse?.message ?: orderResult.exceptionOrNull()?.message ?: "Order creation failed"
+                    val errorMsg = if (!orderResponse?.message.isNullOrBlank()) {
+                        orderResponse.message
+                    } else {
+                        orderResult.exceptionOrNull()?.message ?: "Order creation failed"
+                    }
                     Log.e(TAG, "Order creation error: $errorMsg")
+                    showModernMessageDialog("Order Failed", errorMsg)
                     Toast.makeText(this@BillingActivity, errorMsg, Toast.LENGTH_LONG).show()
                 }
             } catch (e: Exception) {
@@ -784,7 +791,37 @@ class BillingActivity : AppCompatActivity() {
         }
     }
 
-    private fun proceedWithCashPayment(activeItems: List<PrasadamItem>, total: Double) {
+
+
+    private fun showCashReferenceDialog(activeItems: List<PrasadamItem>, total: Double) {
+        val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_cash_reference, null)
+        val dialog = AlertDialog.Builder(this)
+            .setView(dialogView)
+            .setCancelable(true)
+            .create()
+
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+
+        val etCashRefId = dialogView.findViewById<EditText>(R.id.etCashRefId)
+        val btnCashContinue = dialogView.findViewById<View>(R.id.btnCashContinue)
+
+        etCashRefId.setText("")
+        etCashRefId.hint = "Enter Payment Reference ID"
+
+        btnCashContinue.setOnClickListener {
+            val refId = etCashRefId.text?.toString()?.trim() ?: ""
+            if (refId.isEmpty()) {
+                Toast.makeText(this, "Please enter Payment Reference ID", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            dialog.dismiss()
+            proceedWithCashPayment(activeItems, total, refId)
+        }
+
+        dialog.show()
+    }
+
+    private fun proceedWithCashPayment(activeItems: List<PrasadamItem>, total: Double, customRefId: String? = null) {
         val cartItems = activeItems.map { item ->
             OrderCartItem(
                 productId = item.id.toIntOrNull() ?: 9543,
@@ -845,7 +882,9 @@ class BillingActivity : AppCompatActivity() {
 
                 if (orderResponse != null && orderResponse.status.equals("Success", ignoreCase = true)) {
                     val orderId = orderResponse.orderId ?: System.currentTimeMillis()
-                    val pspRef = orderResponse.easeOrderId ?: "CASH-${System.currentTimeMillis()}"
+                    val pspRef = customRefId.takeIf { !it.isNullOrBlank() }
+                        ?: orderResponse.easeOrderId
+                        ?: "CASH-${System.currentTimeMillis()}"
 
                     val receiptItems = activeItems.mapIndexed { index, item ->
                         com.xeniaone.templeapp.model.ReceiptItem(
@@ -875,7 +914,13 @@ class BillingActivity : AppCompatActivity() {
                     productAdapter.notifyDataSetChanged()
                     updateUi()
                 } else {
-                    val errorMsg = orderResponse?.message ?: orderResult.exceptionOrNull()?.message ?: "Cash order creation failed"
+                    val errorMsg = if (!orderResponse?.message.isNullOrBlank()) {
+                        orderResponse.message
+                    } else {
+                        orderResult.exceptionOrNull()?.message ?: "Cash order creation failed"
+                    }
+                    Log.e(TAG, "Cash order creation error: $errorMsg")
+                    showModernMessageDialog("Order Failed", errorMsg)
                     Toast.makeText(this@BillingActivity, errorMsg, Toast.LENGTH_LONG).show()
                 }
             } catch (e: Exception) {

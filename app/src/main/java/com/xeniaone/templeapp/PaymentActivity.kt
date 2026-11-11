@@ -442,6 +442,7 @@ class PaymentActivity : AppCompatActivity() {
             printItems.forEachIndexed { index, item ->
                 Log.d(TAG, "🖨️ [PrintItem $index] Type=${item.printDataType}, Center=${item.isCenterAligned}, Data='${item.dataToPrint}'")
             }
+            Log.i(TAG, "🔑 [PineLabs AppId Log] PaymentActivity -> passing applicationId = ${authManager.pineLabsApplicationId}")
 
             val printIntent = PineLabsManager.createPrintIntent(
                 context = this,
