@@ -16,9 +16,8 @@ android {
         applicationId = "com.xeniaone.templeapp"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
-
+        versionCode = 2
+        versionName = "1.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -40,13 +39,11 @@ android {
     buildTypes {
         debug {
             signingConfig = signingConfigs.getByName("debug")
-            buildConfigField("String", "PINELABS_APP_ID", "\"b5ec66b79af44d7c871781e8125bbd63\"")
         }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             signingConfig = signingConfigs.getByName("release")
-            buildConfigField("String", "PINELABS_APP_ID", "\"4aa574308b9f4c4795d463797a48f65a\"")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

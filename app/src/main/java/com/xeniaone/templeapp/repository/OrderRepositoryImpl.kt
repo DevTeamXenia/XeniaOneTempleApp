@@ -89,10 +89,11 @@ class OrderRepositoryImpl(
         orderId: Int,
         companyId: Int,
         customerId: Int,
-        settled: Boolean
+        settled: Boolean,
+        isWhatsApp: Boolean
     ): Result<OrderKioskSummaryResponse> = withContext(ioDispatcher) {
         try {
-            val response = orderApiService.processOrder(orderId, companyId, customerId, settled)
+            val response = orderApiService.processOrder(orderId, companyId, customerId, settled, isWhatsApp)
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {

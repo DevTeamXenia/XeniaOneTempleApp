@@ -2,6 +2,7 @@ package com.xeniaone.templeapp
 
 import android.app.Application
 import android.util.Log
+import com.google.firebase.FirebaseApp
 import com.google.firebase.crashlytics.BuildConfig
 import com.google.firebase.crashlytics.FirebaseCrashlytics
 import com.xeniaone.templeapp.di.DependencyContainer
@@ -17,12 +18,18 @@ class TempleApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+
+
+        try {
+            FirebaseApp.initializeApp(this)
+            FirebaseCrashlytics.getInstance().setCrashlyticsCollectionEnabled(true)
+        } catch (e: Exception) {
+            Log.e("TempleApp", "Crashlytics init failed", e)
+        }
+
+
         container = DependencyContainer(this)
         isPineLabsDevice = PineLabsManager.isPineLabsAvailable(this)
         Log.i("TempleApp", "Device initialized: ${PineLabsManager.getDeviceStatusDescription(this)}")
-
-        FirebaseCrashlytics.getInstance().apply {
-            setCrashlyticsCollectionEnabled(true)
-        }
     }
 }

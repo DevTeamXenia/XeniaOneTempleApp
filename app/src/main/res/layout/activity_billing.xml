@@ -55,133 +55,14 @@
 
             </FrameLayout>
 
-            <!-- Optional Devotee Name & Mobile Number (horizontal) -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginHorizontal="@dimen/screen_margin_horizontal"
-                android:layout_marginTop="25dp"
-                android:layout_marginBottom="12dp"
-                android:baselineAligned="false"
-                android:orientation="horizontal"
-                android:weightSum="2">
-
-                <com.google.android.material.textfield.TextInputLayout
-                    android:id="@+id/tilDevoteeName"
-                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginEnd="6dp"
-                    android:layout_weight="1"
-                    android:hint="@string/devotee_name_hint"
-                    app:boxCornerRadiusBottomEnd="8dp"
-                    app:boxCornerRadiusBottomStart="8dp"
-                    app:boxCornerRadiusTopEnd="8dp"
-                    app:boxCornerRadiusTopStart="8dp"
-                    app:boxStrokeColor="@color/temple_gold_primary"
-                    app:hintTextColor="@color/temple_gold_primary">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etDevoteeName"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:fontFamily="sans-serif"
-                        android:includeFontPadding="true"
-                        android:inputType="textPersonName|textCapWords"
-                        android:maxLines="1"
-                        android:textColor="@color/text_dark"
-                        android:textSize="@dimen/text_size_small" />
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <com.google.android.material.textfield.TextInputLayout
-                    android:id="@+id/tilDevoteeMobile"
-                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="6dp"
-                    android:layout_weight="1"
-                    android:hint="@string/mobile_number_hint"
-                    app:boxCornerRadiusBottomEnd="8dp"
-                    app:boxCornerRadiusBottomStart="8dp"
-                    app:boxCornerRadiusTopEnd="8dp"
-                    app:boxCornerRadiusTopStart="8dp"
-                    app:boxStrokeColor="@color/temple_gold_primary"
-                    app:hintTextColor="@color/temple_gold_primary">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etDevoteeMobile"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:fontFamily="sans-serif"
-                        android:includeFontPadding="true"
-                        android:inputType="phone"
-                        android:maxLength="10"
-                        android:maxLines="1"
-                        android:textColor="@color/text_dark"
-                        android:textSize="@dimen/text_size_small" />
-                </com.google.android.material.textfield.TextInputLayout>
-
-            </LinearLayout>
-
-            <!-- Malayalam: wrap_content + line spacing so tall glyphs are never clipped -->
-            <TextView
-                android:id="@+id/tvSelectYourItem"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/section_spacing"
-                android:layout_marginBottom="8dp"
-                android:fontFamily="sans-serif-medium"
-                android:gravity="center"
-                android:includeFontPadding="true"
-                android:lineSpacingExtra="2dp"
-                android:paddingHorizontal="12dp"
-                android:text="@string/select_your_item"
-                android:textColor="@color/text_dark"
-                android:textSize="@dimen/text_size_heading"
-                android:textStyle="bold" />
-
-            <LinearLayout
-                android:id="@+id/layoutLoadingProducts"
-                android:layout_width="match_parent"
-                android:layout_height="@dimen/loading_height"
-                android:gravity="center"
-                android:orientation="vertical"
-                android:visibility="visible">
-
-                <ProgressBar
-                    android:layout_width="@dimen/progress_size"
-                    android:layout_height="@dimen/progress_size"
-                    android:indeterminateTint="@color/temple_gold_primary" />
-
-                <TextView
-                    android:id="@+id/tvLoadingProductsHint"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:fontFamily="sans-serif-medium"
-                    android:includeFontPadding="true"
-                    android:text="@string/loading_products"
-                    android:textColor="@color/text_muted"
-                    android:textSize="@dimen/text_size_medium" />
-            </LinearLayout>
-
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/rvProducts"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:clipToPadding="false"
-                android:nestedScrollingEnabled="false"
-                android:paddingHorizontal="@dimen/card_margin"
-                android:visibility="gone"
-                tools:listitem="@layout/item_product_card" />
-
+            <!-- Cart Table (Moved to TOP for Pine Labs layout) -->
             <LinearLayout
                 android:id="@+id/tableCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginHorizontal="@dimen/screen_margin_horizontal"
-                android:layout_marginTop="@dimen/screen_margin_vertical"
-                android:layout_marginBottom="@dimen/screen_margin_vertical"
+                android:layout_marginTop="22dp"
+                android:layout_marginBottom="10dp"
                 android:background="@drawable/bg_table_container"
                 android:orientation="vertical"
                 android:visibility="gone">
@@ -303,6 +184,96 @@
                     android:visibility="visible" />
 
             </LinearLayout>
+
+            <!-- Optional Devotee Mobile Number -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="@dimen/screen_margin_horizontal"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="12dp"
+                android:orientation="vertical">
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilDevoteeMobile"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="@string/mobile_number_hint"
+                    app:boxCornerRadiusBottomEnd="8dp"
+                    app:boxCornerRadiusBottomStart="8dp"
+                    app:boxCornerRadiusTopEnd="8dp"
+                    app:boxCornerRadiusTopStart="8dp"
+                    app:boxStrokeColor="@color/temple_gold_primary"
+                    app:hintTextColor="@color/temple_gold_primary">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etDevoteeMobile"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="sans-serif"
+                        android:includeFontPadding="true"
+                        android:inputType="phone"
+                        android:maxLength="10"
+                        android:maxLines="1"
+                        android:textColor="@color/text_dark"
+                        android:textSize="@dimen/text_size_small" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+            </LinearLayout>
+
+            <!-- Malayalam: wrap_content + line spacing so tall glyphs are never clipped -->
+            <TextView
+                android:id="@+id/tvSelectYourItem"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/section_spacing"
+                android:layout_marginBottom="8dp"
+                android:fontFamily="sans-serif-medium"
+                android:gravity="center"
+                android:includeFontPadding="true"
+                android:lineSpacingExtra="2dp"
+                android:paddingHorizontal="12dp"
+                android:text="@string/select_your_item"
+                android:textColor="@color/text_dark"
+                android:textSize="@dimen/text_size_heading"
+                android:textStyle="bold"
+                android:visibility="gone" />
+
+            <LinearLayout
+                android:id="@+id/layoutLoadingProducts"
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/loading_height"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:visibility="visible">
+
+                <ProgressBar
+                    android:layout_width="@dimen/progress_size"
+                    android:layout_height="@dimen/progress_size"
+                    android:indeterminateTint="@color/temple_gold_primary" />
+
+                <TextView
+                    android:id="@+id/tvLoadingProductsHint"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:fontFamily="sans-serif-medium"
+                    android:includeFontPadding="true"
+                    android:text="@string/loading_products"
+                    android:textColor="@color/text_muted"
+                    android:textSize="@dimen/text_size_medium" />
+            </LinearLayout>
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvProducts"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:clipToPadding="false"
+                android:nestedScrollingEnabled="false"
+                android:paddingHorizontal="@dimen/card_margin"
+                android:visibility="gone"
+                tools:listitem="@layout/item_product_card" />
 
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>

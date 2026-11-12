@@ -199,5 +199,10 @@
     <dimen name="keypad_root_padding">12dp</dimen>
     <item name="keypad_dialog_width_percent" format="float" type="dimen">0.88</item>
 
+    <!-- Cart & Mobile field margins -->
+    <dimen name="cart_margin_top">12dp</dimen>
+    <dimen name="cart_margin_bottom">12dp</dimen>
+    <dimen name="mobile_field_margin_top">12dp</dimen>
+    <dimen name="mobile_field_margin_bottom">12dp</dimen>
 
 </resources>

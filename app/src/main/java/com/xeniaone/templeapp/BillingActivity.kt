@@ -4,6 +4,8 @@ import android.content.Intent
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
+import android.os.CountDownTimer
+import android.view.MotionEvent
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
@@ -306,7 +308,8 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
                         imageResId = fallbackRes,
                         imageUrl = p.image,
                         quantity = currentQty, // Starts at 0
-                        maxQtyPerOrder = p.maxQtyPerOrder
+                        maxQtyPerOrder = p.maxQtyPerOrder,
+                        stock = p.stock
                     )
                 )
             }
@@ -389,6 +392,7 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
     }
 
     private fun proceedToPayment() {
+        if (!validateMobileNumberForWhatsApp()) return
         val activeItems = allItems.filter { it.quantity > 0 }
         val total = activeItems.sumOf { it.totalAmount }
         if (total <= 0.0 || activeItems.isEmpty()) {
@@ -504,6 +508,7 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
         txnType: Long,
         modeName: String
     ) {
+        if (!validateMobileNumberForWhatsApp()) return
         val cartItems = activeItems.map { item ->
             OrderCartItem(
                 productId = item.id.toIntOrNull() ?: 9543,
@@ -621,7 +626,15 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
                 putExtra(PaymentActivity.EXTRA_RRN, rrn)
                 putExtra(PaymentActivity.EXTRA_CARD_TYPE, cardType)
             }
-            startActivity(intent)
+            if (isPrintEnabled()) {
+                startActivity(intent)
+            } else {
+                Toast.makeText(this, "Payment approved successfully (Print Disabled)", Toast.LENGTH_LONG).show()
+                allItems.forEach { it.quantity = 0 }
+                binding.etDevoteeMobile.text?.clear()
+                productAdapter.notifyDataSetChanged()
+                updateUi()
+            }
         } else if (response != null && response.isUpiPending) {
             Toast.makeText(this, "UPI Transaction initiated on terminal. Complete on device.", Toast.LENGTH_LONG).show()
         } else {
@@ -691,7 +704,6 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
                     timeZone = TimeZone.getTimeZone("UTC")
                 }.format(Date())
 
-                val devoteeName = binding.etDevoteeName.text?.toString()?.trim() ?: ""
                 val devoteeMobile = binding.etDevoteeMobile.text?.toString()?.trim() ?: ""
 
                 val orderRequest = OrderKioskRequest(
@@ -699,7 +711,7 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
                     deliveryTypeId = 0,
                     deliverySlotId = 0,
                     OrderMobileNumber = devoteeMobile,
-                    OrderCustomerName = devoteeName,
+                    OrderCustomerName = "",
                     expectedDeliveryDate = nowIso,
                     remark = "Razorpay Online Order",
                     orderChanel = "KIOSK",
@@ -739,7 +751,8 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
                     orderId = initialOrderId,
                     companyId = companyId,
                     customerId = 0,
-                    settled = false
+                    settled = false,
+                    isWhatsApp = isWhatsAppEnabled()
                 )
 
                 CommonMethod.dismissLoader()
@@ -749,7 +762,7 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
                     pendingOrderId = processResponse.orderId?.toLong() ?: initialOrderId.toLong()
                     pendingRazorpayOrderId = processResponse.data ?: rzpOrderIdFromSummary
                     pendingTotal = total
-                    pendingCustomerName = devoteeName
+                    pendingCustomerName = ""
                     pendingCustomerMobile = devoteeMobile
 
                     Log.d(TAG, "Process order (settled=false) success: OrderId=$pendingOrderId, RzpOrderId=$pendingRazorpayOrderId")
@@ -759,7 +772,7 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
                         orderId = pendingOrderId.toInt(),
                         razorpayOrderId = pendingRazorpayOrderId,
                         totalAmount = total,
-                        customerName = devoteeName,
+                        customerName = "",
                         customerMobile = devoteeMobile
                     )
                 } else {
@@ -840,7 +853,8 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
                         orderId = orderId,
                         companyId = companyId,
                         customerId = 0,
-                        settled = true
+                        settled = true,
+                        isWhatsApp = isWhatsAppEnabled()
                     )
                     CommonMethod.dismissLoader()
                     val settleResp = settleResult.getOrNull()
@@ -922,7 +936,6 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
 
                     // Clear cart & devotee inputs
                     allItems.forEach { it.quantity = 0 }
-                    binding.etDevoteeName.text?.clear()
                     binding.etDevoteeMobile.text?.clear()
                     productAdapter.notifyDataSetChanged()
                     updateUi()
@@ -950,12 +963,11 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
             )
         }
         val receiptItemsJson = Gson().toJson(receiptItems)
-        val devoteeName = binding.etDevoteeName.text?.toString()?.trim() ?: ""
         val devoteeMobile = binding.etDevoteeMobile.text?.toString()?.trim() ?: ""
         val total = activeItems.sumOf { it.totalAmount }
 
         val intent = Intent(this@BillingActivity, PaymentActivity::class.java).apply {
-            putExtra(PaymentActivity.EXTRA_CUSTOMER_NAME, devoteeName)
+            putExtra(PaymentActivity.EXTRA_CUSTOMER_NAME, "")
             putExtra(PaymentActivity.EXTRA_CUSTOMER_MOBILE, devoteeMobile)
             putExtra(PaymentActivity.EXTRA_ORDER_ID, orderId.toLong())
             putExtra(PaymentActivity.EXTRA_PSP_REF_NO, rzpOrderId)
@@ -964,9 +976,12 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
             putExtra(PaymentActivity.EXTRA_LANGUAGE_CODE, currentLanguage)
             putExtra(PaymentActivity.EXTRA_PAYMENT_MODE, "Razorpay")
         }
-        startActivity(intent)
+        if (isPrintEnabled()) {
+            startActivity(intent)
+        } else {
+            Toast.makeText(this, "Razorpay payment successful (Print Disabled)", Toast.LENGTH_LONG).show()
+        }
         allItems.forEach { it.quantity = 0 }
-        binding.etDevoteeName.text?.clear()
         binding.etDevoteeMobile.text?.clear()
         productAdapter.notifyDataSetChanged()
         updateUi()
@@ -990,6 +1005,7 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
         etCashRefId.hint = "Enter Payment Reference ID"
 
         btnCashContinue.setOnClickListener {
+            if (!validateMobileNumberForWhatsApp()) return@setOnClickListener
             val refId = etCashRefId.text?.toString()?.trim() ?: ""
             if (refId.isEmpty()) {
                 Toast.makeText(this, "Please enter Payment Reference ID", Toast.LENGTH_SHORT).show()
@@ -1025,7 +1041,6 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
                 val branchId = if (authManager.defaultBranch > 0) authManager.defaultBranch else 85
                 val userId = if (authManager.userId > 0) authManager.userId else 23
 
-                val devoteeName = binding.etDevoteeName.text?.toString()?.trim() ?: ""
                 val devoteeMobile = binding.etDevoteeMobile.text?.toString()?.trim() ?: ""
 
                 val nowIso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
@@ -1037,7 +1052,7 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
                     deliveryTypeId = 0,
                     deliverySlotId = 0,
                     OrderMobileNumber = devoteeMobile,
-                    OrderCustomerName = devoteeName,
+                    OrderCustomerName = "",
                     expectedDeliveryDate = nowIso,
                     remark = "Counter Cash Order",
                     orderChanel = "KIOSK",
@@ -1079,7 +1094,7 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
                     val receiptItemsJson = com.google.gson.Gson().toJson(receiptItems)
 
                     val intent = Intent(this@BillingActivity, PaymentActivity::class.java).apply {
-                        putExtra(PaymentActivity.EXTRA_CUSTOMER_NAME, devoteeName)
+                        putExtra(PaymentActivity.EXTRA_CUSTOMER_NAME, "")
                         putExtra(PaymentActivity.EXTRA_CUSTOMER_MOBILE, devoteeMobile)
                         putExtra(PaymentActivity.EXTRA_ORDER_ID, orderId.toLong())
                         putExtra(PaymentActivity.EXTRA_PSP_REF_NO, pspRef)
@@ -1088,9 +1103,12 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
                         putExtra(PaymentActivity.EXTRA_LANGUAGE_CODE, currentLanguage)
                         putExtra(PaymentActivity.EXTRA_PAYMENT_MODE, "Cash on Delivery")
                     }
-                    startActivity(intent)
-                    allItems.forEach { it.quantity = 0 }
-                    binding.etDevoteeName.text?.clear()
+                    if (isPrintEnabled()) {
+                        startActivity(intent)
+                    } else {
+                        Toast.makeText(this@BillingActivity, "Cash order completed successfully (Print Disabled)", Toast.LENGTH_LONG).show()
+                    }
+                    allItems.forEach { item -> item.quantity = 0 }
                     binding.etDevoteeMobile.text?.clear()
                     productAdapter.notifyDataSetChanged()
                     updateUi()
@@ -1124,6 +1142,11 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
         }
     }
 
+    private var isDrawerAuthenticated = false
+    private var isPromptShowing = false
+    private var lastPromptDismissTime: Long = 0L
+    private var drawerTimeoutTimer: CountDownTimer? = null
+
     private fun setupNavigationDrawer() {
         val drawerLayout = findViewById<androidx.drawerlayout.widget.DrawerLayout>(R.id.drawerLayout)
         val tvDrawerEmployeeName = findViewById<TextView>(R.id.tvDrawerEmployeeName)
@@ -1132,6 +1155,31 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
         val tvAppVersion = findViewById<TextView>(R.id.tvAppVersion)
         val menuTerminalInfo = findViewById<View>(R.id.menuTerminalInfo)
         val menuLogout = findViewById<View>(R.id.menuLogout)
+
+        drawerLayout.setDrawerLockMode(androidx.drawerlayout.widget.DrawerLayout.LOCK_MODE_LOCKED_CLOSED)
+
+        drawerLayout.addDrawerListener(object : androidx.drawerlayout.widget.DrawerLayout.DrawerListener {
+            override fun onDrawerSlide(drawerView: View, slideOffset: Float) {
+                if (!isDrawerAuthenticated && slideOffset > 0.01f) {
+                    drawerLayout.closeDrawer(androidx.core.view.GravityCompat.START, false)
+                }
+            }
+
+            override fun onDrawerOpened(drawerView: View) {
+                isPromptShowing = false
+                startDrawerAutoCloseTimer(drawerLayout)
+            }
+
+            override fun onDrawerClosed(drawerView: View) {
+                isDrawerAuthenticated = false
+                isPromptShowing = false
+                lastPromptDismissTime = System.currentTimeMillis()
+                drawerLayout.setDrawerLockMode(androidx.drawerlayout.widget.DrawerLayout.LOCK_MODE_LOCKED_CLOSED)
+                drawerAutoCloseTimer?.cancel()
+            }
+
+            override fun onDrawerStateChanged(newState: Int) {}
+        })
 
         val name = authManager.employeeName
         tvDrawerEmployeeName.text = if (name.isNotBlank()) name else "Counter Operator"
@@ -1178,10 +1226,197 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
                 .setNegativeButton("Cancel", null)
                 .show()
         }
+
+        val switchWhatsApp = findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.switchWhatsApp)
+        val switchPrint = findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.switchPrint)
+
+        val prefs = getSharedPreferences("kiosk_settings", MODE_PRIVATE)
+        var isWhatsAppOn = prefs.getBoolean("pref_whatsapp_enabled", true)
+        var isPrintOn = prefs.getBoolean("pref_print_enabled", true)
+
+        switchWhatsApp?.isChecked = isWhatsAppOn
+        switchPrint?.isChecked = isPrintOn
+
+        switchWhatsApp?.setOnCheckedChangeListener { _, isChecked ->
+            if (!isChecked && switchPrint != null && !switchPrint.isChecked) {
+                switchWhatsApp.isChecked = true
+                Toast.makeText(this, "Select at least one: WhatsApp or Print", Toast.LENGTH_SHORT).show()
+            } else {
+                isWhatsAppOn = isChecked
+                prefs.edit().putBoolean("pref_whatsapp_enabled", isWhatsAppOn).apply()
+            }
+        }
+
+        switchPrint?.setOnCheckedChangeListener { _, isChecked ->
+            if (!isChecked && switchWhatsApp != null && !switchWhatsApp.isChecked) {
+                switchPrint.isChecked = true
+                Toast.makeText(this, "Select at least one: WhatsApp or Print", Toast.LENGTH_SHORT).show()
+            } else {
+                isPrintOn = isChecked
+                prefs.edit().putBoolean("pref_print_enabled", isPrintOn).apply()
+            }
+        }
+    }
+
+    private fun isWhatsAppEnabled(): Boolean {
+        if (PineLabsManager.isPineLabsAvailable(this)) {
+            return false // Pine Labs devices always bypass WhatsApp switch
+        }
+        val prefs = getSharedPreferences("kiosk_settings", MODE_PRIVATE)
+        return prefs.getBoolean("pref_whatsapp_enabled", true)
+    }
+
+    private fun isPrintEnabled(): Boolean {
+        if (PineLabsManager.isPineLabsAvailable(this)) {
+            return true // Pine Labs devices always have printing enabled
+        }
+        val prefs = getSharedPreferences("kiosk_settings", MODE_PRIVATE)
+        return prefs.getBoolean("pref_print_enabled", true)
+    }
+
+    private fun validateMobileNumberForWhatsApp(): Boolean {
+        if (PineLabsManager.isPineLabsAvailable(this)) {
+            binding.tilDevoteeMobile.error = null
+            return true // Bypasses mobile number validation on Pine Labs devices
+        }
+        if (isWhatsAppEnabled()) {
+            val mobile = binding.etDevoteeMobile.text?.toString()?.trim() ?: ""
+            if (mobile.isBlank() || mobile.length < 10) {
+                binding.tilDevoteeMobile.error = "Mobile number is mandatory when WhatsApp is enabled"
+                Toast.makeText(this, "Please enter a valid 10-digit mobile number for WhatsApp receipt", Toast.LENGTH_LONG).show()
+                binding.etDevoteeMobile.requestFocus()
+                return false
+            } else {
+                binding.tilDevoteeMobile.error = null
+            }
+        } else {
+            binding.tilDevoteeMobile.error = null
+        }
+        return true
+    }
+
+    private var drawerAutoCloseTimer: CountDownTimer? = null
+
+    private fun startDrawerAutoCloseTimer(drawerLayout: androidx.drawerlayout.widget.DrawerLayout) {
+        drawerAutoCloseTimer?.cancel()
+        drawerAutoCloseTimer = object : CountDownTimer(10000L, 1000L) {
+            override fun onTick(millisUntilFinished: Long) {}
+
+            override fun onFinish() {
+                if (!isFinishing && !isDestroyed && drawerLayout.isDrawerOpen(androidx.core.view.GravityCompat.START)) {
+                    drawerLayout.closeDrawer(androidx.core.view.GravityCompat.START)
+                    Toast.makeText(this@BillingActivity, "Navigation menu closed due to inactivity", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }.start()
+    }
+
+    private fun showDrawerPasswordDialog(onDismissCallback: () -> Unit) {
+        if (isFinishing || isDestroyed) return
+        drawerTimeoutTimer?.cancel()
+
+        val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_nav_auth, null)
+        val dialog = AlertDialog.Builder(this)
+            .setView(dialogView)
+            .setCancelable(false)
+            .create()
+
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+
+        val tvNavAuthMessage = dialogView.findViewById<TextView>(R.id.tvNavAuthMessage)
+        val etNavPassword = dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.etNavPassword)
+        val btnNavAuthVerify = dialogView.findViewById<View>(R.id.btnNavAuthVerify)
+        val btnNavAuthCancel = dialogView.findViewById<View>(R.id.btnNavAuthCancel)
+
+        btnNavAuthVerify?.setOnClickListener {
+            val password = etNavPassword?.text?.toString()?.trim().orEmpty()
+            val loginPassword = authManager.savedPassword
+            val isValid = loginPassword.isNotBlank() && password == loginPassword
+
+            if (isValid) {
+                drawerTimeoutTimer?.cancel()
+                isDrawerAuthenticated = true
+                isPromptShowing = false
+                lastPromptDismissTime = System.currentTimeMillis()
+                dialog.dismiss()
+                val drawerLayout = findViewById<androidx.drawerlayout.widget.DrawerLayout>(R.id.drawerLayout)
+                drawerLayout.setDrawerLockMode(androidx.drawerlayout.widget.DrawerLayout.LOCK_MODE_UNLOCKED)
+                drawerLayout.openDrawer(androidx.core.view.GravityCompat.START)
+            } else {
+                Toast.makeText(this, "Incorrect password. Enter your login password.", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        btnNavAuthCancel?.setOnClickListener {
+            drawerTimeoutTimer?.cancel()
+            isPromptShowing = false
+            lastPromptDismissTime = System.currentTimeMillis()
+            dialog.dismiss()
+        }
+
+        dialog.setOnDismissListener {
+            drawerTimeoutTimer?.cancel()
+            isPromptShowing = false
+            lastPromptDismissTime = System.currentTimeMillis()
+            onDismissCallback()
+        }
+
+        dialog.show()
+
+        // 10-second countdown timer
+        drawerTimeoutTimer = object : CountDownTimer(10000L, 1000L) {
+            override fun onTick(millisUntilFinished: Long) {
+                val sec = millisUntilFinished / 1000
+                if (dialog.isShowing) {
+                    tvNavAuthMessage?.text = "Please enter operator password to continue.\nPopup auto-closes in ${sec}s"
+                }
+            }
+
+            override fun onFinish() {
+                if (dialog.isShowing) {
+                    dialog.dismiss()
+                    Toast.makeText(this@BillingActivity, "Navigation authentication timed out", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }.start()
+    }
+
+    private var swipeStartX = 0f
+    private var swipeStartY = 0f
+
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        val edgeThresholdPx = 120f * resources.displayMetrics.density
+        val now = System.currentTimeMillis()
+
+        when (ev.action) {
+            MotionEvent.ACTION_DOWN -> {
+                swipeStartX = ev.x
+                swipeStartY = ev.y
+            }
+            MotionEvent.ACTION_MOVE -> {
+                val dx = ev.x - swipeStartX
+                val dy = Math.abs(ev.y - swipeStartY)
+                if (swipeStartX < edgeThresholdPx && dx > 30f && dy < 100f) {
+                    val drawerLayout = findViewById<androidx.drawerlayout.widget.DrawerLayout>(R.id.drawerLayout)
+                    val isOpened = drawerLayout?.isDrawerOpen(androidx.core.view.GravityCompat.START) == true
+                    if (!isOpened && !isDrawerAuthenticated && !isPromptShowing && (now - lastPromptDismissTime > 1500L)) {
+                        isPromptShowing = true
+                        showDrawerPasswordDialog {
+                            isPromptShowing = false
+                            lastPromptDismissTime = System.currentTimeMillis()
+                        }
+                        return true
+                    }
+                }
+            }
+        }
+        return super.dispatchTouchEvent(ev)
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        drawerTimeoutTimer?.cancel()
+        drawerAutoCloseTimer?.cancel()
         CommonMethod.dismissLoader()
     }
 }

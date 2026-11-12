@@ -24,7 +24,8 @@ interface OrderRepository {
         orderId: Int,
         companyId: Int,
         customerId: Int = 0,
-        settled: Boolean
+        settled: Boolean,
+        isWhatsApp: Boolean
     ): Result<OrderKioskSummaryResponse>
 
     suspend fun checkRazorpayPaymentStatus(

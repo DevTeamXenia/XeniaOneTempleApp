@@ -248,16 +248,28 @@ class PaymentQrActivity : AppCompatActivity() {
         isPaymentCompleted = true
         countDownTimer?.cancel()
 
-        val intent = Intent(this@PaymentQrActivity, PaymentActivity::class.java).apply {
-            putExtra(PaymentActivity.EXTRA_CUSTOMER_NAME, intent.getStringExtra(EXTRA_CUSTOMER_NAME) ?: "")
-            putExtra(PaymentActivity.EXTRA_CUSTOMER_MOBILE, intent.getStringExtra(EXTRA_CUSTOMER_MOBILE) ?: "")
-            putExtra(PaymentActivity.EXTRA_ORDER_ID, orderId.toLong())
-            putExtra(PaymentActivity.EXTRA_PSP_REF_NO, pspRefNo)
-            putExtra(PaymentActivity.EXTRA_TOTAL_AMOUNT, totalAmount)
-            putExtra(PaymentActivity.EXTRA_RECEIPT_ITEMS_JSON, receiptItemsJson)
-            putExtra(PaymentActivity.EXTRA_LANGUAGE_CODE, currentLanguage)
+        val isPineLabs = com.xeniaone.templeapp.pinelabs.PineLabsManager.isPineLabsAvailable(this)
+        val prefs = getSharedPreferences("kiosk_settings", Context.MODE_PRIVATE)
+        val isPrintOn = if (isPineLabs) true else prefs.getBoolean("pref_print_enabled", true)
+
+        if (isPrintOn) {
+            val intent = Intent(this@PaymentQrActivity, PaymentActivity::class.java).apply {
+                putExtra(PaymentActivity.EXTRA_CUSTOMER_NAME, intent.getStringExtra(EXTRA_CUSTOMER_NAME) ?: "")
+                putExtra(PaymentActivity.EXTRA_CUSTOMER_MOBILE, intent.getStringExtra(EXTRA_CUSTOMER_MOBILE) ?: "")
+                putExtra(PaymentActivity.EXTRA_ORDER_ID, orderId.toLong())
+                putExtra(PaymentActivity.EXTRA_PSP_REF_NO, pspRefNo)
+                putExtra(PaymentActivity.EXTRA_TOTAL_AMOUNT, totalAmount)
+                putExtra(PaymentActivity.EXTRA_RECEIPT_ITEMS_JSON, receiptItemsJson)
+                putExtra(PaymentActivity.EXTRA_LANGUAGE_CODE, currentLanguage)
+            }
+            startActivity(intent)
+        } else {
+            Toast.makeText(this, "Payment successful (Print Disabled)", Toast.LENGTH_SHORT).show()
+            val intent = Intent(this@PaymentQrActivity, BillingActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            }
+            startActivity(intent)
         }
-        startActivity(intent)
         finish()
     }
 

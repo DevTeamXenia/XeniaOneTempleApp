@@ -27,14 +27,7 @@ class AuthManager(context: Context) {
     }
 
     var pineLabsApplicationId: String
-        get() {
-            val saved = prefs.getString(KEY_PINELABS_APP_ID, null)
-            if (saved.isNullOrBlank() || saved != PineLabsConstants.DEFAULT_APPLICATION_ID) {
-                prefs.edit().putString(KEY_PINELABS_APP_ID, PineLabsConstants.DEFAULT_APPLICATION_ID).apply()
-                return PineLabsConstants.DEFAULT_APPLICATION_ID
-            }
-            return saved
-        }
+        get() = PineLabsConstants.DEFAULT_APPLICATION_ID
         set(value) = prefs.edit().putString(KEY_PINELABS_APP_ID, value).apply()
 
     var pineLabsUserId: String
@@ -107,12 +100,11 @@ class AuthManager(context: Context) {
     fun saveLogin(username: String, password: String, rememberMe: Boolean) {
         isLoggedIn = true
         isRememberMe = rememberMe
+        savedPassword = password
         if (rememberMe) {
             savedUsername = username
-            savedPassword = password
         } else {
             savedUsername = ""
-            savedPassword = ""
         }
     }
 
@@ -122,5 +114,6 @@ class AuthManager(context: Context) {
         employeeId = ""
         designation = ""
         employeeImage = ""
+        savedPassword = ""
     }
 }

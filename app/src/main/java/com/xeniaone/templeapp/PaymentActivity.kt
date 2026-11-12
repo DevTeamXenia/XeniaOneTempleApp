@@ -27,6 +27,7 @@ import androidx.lifecycle.lifecycleScope
 import com.xeniaone.templeapp.model.ReceiptItem
 import com.xeniaone.templeapp.pinelabs.PineLabsConstants
 import com.xeniaone.templeapp.pinelabs.PineLabsManager
+import com.xeniaone.templeapp.repository.OrderRepository
 import com.xeniaone.templeapp.util.QrCodeGenerator
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -108,9 +109,13 @@ class PaymentActivity : AppCompatActivity() {
     private var autoReturnTimer: CountDownTimer? = null
     private val autoReturnDurationMs = 2000L
 
+    private lateinit var orderRepository: OrderRepository
+    private var encryptedOrderId: String = ""
+
     companion object {
         private const val TAG = "PaymentActivity"
         const val EXTRA_ORDER_ID = "extra_order_id"
+        const val EXTRA_ENCRYPTED_ORDER_ID = "extra_encrypted_order_id"
         const val EXTRA_PSP_REF_NO = "extra_psp_ref_no"
         const val EXTRA_TOTAL_AMOUNT = "extra_total_amount"
         const val EXTRA_RECEIPT_ITEMS_JSON = "extra_receipt_items_json"
@@ -130,6 +135,10 @@ class PaymentActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityPaymentBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        val app = application as TempleApp
+        orderRepository = app.container.orderRepository
+        encryptedOrderId = intent.getStringExtra(EXTRA_ENCRYPTED_ORDER_ID) ?: ""
 
         // Read Intent Extras
         orderId = intent.getLongExtra(EXTRA_ORDER_ID, 0L)
@@ -156,6 +165,36 @@ class PaymentActivity : AppCompatActivity() {
         // Generate formatted date matching proposal design: "04 - Sep - 2024  07: 50 AM"
         formattedDate = SimpleDateFormat("dd - MMM - yyyy  hh: mm a", Locale.ENGLISH).format(Date())
 
+        fetchOrderDetailsAndInitializePrint()
+    }
+
+    private fun fetchOrderDetailsAndInitializePrint() {
+        if (orderId <= 0L) {
+            initializeUiAndPrinting()
+            return
+        }
+
+        lifecycleScope.launch {
+            try {
+                Log.d(TAG, "Fetching order details for orderId=$orderId from GET api/Order/$orderId")
+                val result = orderRepository.getOrderDetails(orderId)
+                val orderData = result.getOrNull()?.data
+                if (orderData != null && !orderData.encryptedOrderId.isNullOrBlank()) {
+                    encryptedOrderId = orderData.encryptedOrderId
+                    Log.d(TAG, "Fetched EncryptedOrderId successfully: $encryptedOrderId")
+                } else {
+                    Log.w(TAG, "getOrderDetails failed or returned null encryptedOrderId: ${result.exceptionOrNull()?.message}")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error fetching order details for orderId=$orderId: ${e.message}", e)
+            }
+            withContext(Dispatchers.Main) {
+                initializeUiAndPrinting()
+            }
+        }
+    }
+
+    private fun initializeUiAndPrinting() {
         setupUI()
         setupListeners()
 
@@ -738,7 +777,7 @@ class PaymentActivity : AppCompatActivity() {
 
         // ---------------- Centered QR Code ----------------
         val qrSize = 280
-        val qrData = "upi://pay?pa=sabarimala@sib&pn=SabarimalaTemple&tr=$displayOrderId&am=$displayTotal&cu=INR"
+        val qrData = if (encryptedOrderId.isNotBlank()) encryptedOrderId else if (orderId > 0) orderId.toString() else "27533365"
         val qrBitmap = QrCodeGenerator.generate(qrData, qrSize)
         y += 30f
         val qrLeft = (width - qrSize) / 2f
