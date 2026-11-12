@@ -194,7 +194,9 @@ object PineLabsManager {
         customerName: String = "",
         mobileNumber: String = "",
         printerWidth: Int = PineLabsConstants.PRINTER_WIDTH_32,
-        imageBitmap: Bitmap? = null
+        imageBitmap: Bitmap? = null,
+        footerMessage: String = "",
+        companyBrand: String = ""
     ): List<PineLabsPrintItem> {
         val list = mutableListOf<PineLabsPrintItem>()
 
@@ -264,10 +266,23 @@ object PineLabsManager {
         addRow("TOTAL AMOUNT:", "₹%.2f".format(Locale.US, totalAmount))
         addDivider('=')
 
-        // 6. Footer Notes
-        addCenter("Thank you for Your Generosity")
-        addCenter("Powered by www.xeniaonline.in")
-        addDivider('-')
+
+
+        // 6. Footer Notes / Helper
+        fun addMultiLine(text: String) {
+            if (text.isBlank()) return
+            val normalized = text.replace("\\n", "\n")
+            normalized.split("\n").forEach { line ->
+                val trimmed = line.trim()
+                if (trimmed.isNotBlank()) {
+                    addCenter(trimmed)
+                }
+            }
+        }
+        if (footerMessage.isNotBlank()) {
+            addMultiLine(footerMessage)
+        }
+
 
         // 7. QR Code
         if (qrData.isNotBlank()) {
@@ -280,6 +295,13 @@ object PineLabsManager {
                 )
             )
         }
+
+        // 7.5. Footer Message & Company Brand (below QR code)
+        if (companyBrand.isNotBlank() && companyBrand != footerMessage) {
+            addMultiLine(companyBrand)
+        }
+
+
 
         // 8. Footer Image (Image Dump)
         if (imageBitmap != null) {

@@ -184,6 +184,8 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
                             designation = d.designation,
                             imageUrl = d.image
                         )
+                        authManager.footerMessage = profileRes.data.footerMessage ?: ""
+                        authManager.companyBrand = profileRes.data.companyBrand ?: ""
                         Log.i(TAG, "Profile refreshed: CompanyId=${d.companyId}, DefaultBranch=${d.defaultBranch}")
                         if (!d.image.isNullOrBlank()) {
                             runOnUiThread {

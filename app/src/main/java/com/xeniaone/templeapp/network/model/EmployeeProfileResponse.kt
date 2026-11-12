@@ -8,7 +8,11 @@ data class EmployeeProfileResponse(
     @SerializedName("Data")
     val data: EmployeeProfileData? = null,
     @SerializedName("Message")
-    val message: String? = null
+    val message: String? = null,
+    @SerializedName("FooterMessage")
+    val footerMessage: String? = null,
+    @SerializedName("CompanyBrand")
+    val companyBrand: String? = null
 ) {
     val isSuccess: Boolean
         get() = status.equals("Success", ignoreCase = true) && data != null

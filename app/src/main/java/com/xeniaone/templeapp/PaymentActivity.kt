@@ -456,11 +456,11 @@ class PaymentActivity : AppCompatActivity() {
             val app = application as TempleApp
             val authManager = app.container.authManager
 
-            val displayOrderId = if (orderId > 0) orderId.toString() else "27533365"
+            val displayOrderId = if (orderId > 0) orderId.toString() else ""
             val displayPaymentMode = if (paymentMode.isNotBlank()) paymentMode else "Pine Labs POS"
             val displayRef = if (rrn.isNotBlank()) rrn else if (approvalCode.isNotBlank()) approvalCode else pspRefNo
             val displayTotal = if (totalAmount > 0.0) totalAmount else receiptItems.sumOf { it.total }
-            val qrData = "upi://pay?pa=sabarimala@sib&pn=SabarimalaTemple&tr=$displayOrderId&am=$displayTotal&cu=INR"
+            val qrData = if (encryptedOrderId.isNotBlank()) encryptedOrderId else ""
 
             Log.d(TAG, "🖨️ [PineLabs Text Print] Preparing print items for orderId=$displayOrderId, total=$displayTotal, mode=$displayPaymentMode")
 
@@ -481,7 +481,9 @@ class PaymentActivity : AppCompatActivity() {
                 customerName = orderCustomerName,
                 mobileNumber = orderMobileNumber,
                 printerWidth = PineLabsConstants.PRINTER_WIDTH_32,
-                imageBitmap = footerBitmap
+                imageBitmap = footerBitmap,
+                footerMessage = authManager.footerMessage,
+                companyBrand = authManager.companyBrand
             )
 
             Log.d(TAG, "🖨️ [PineLabs Text Print] Built ${printItems.size} text print items.")

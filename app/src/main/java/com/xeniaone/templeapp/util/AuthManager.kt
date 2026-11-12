@@ -24,7 +24,17 @@ class AuthManager(context: Context) {
         private const val KEY_EMPLOYEE_IMAGE = "employee_image"
         private const val KEY_PINELABS_APP_ID = "pinelabs_app_id"
         private const val KEY_PINELABS_USER_ID = "pinelabs_user_id"
+        private const val KEY_FOOTER_MESSAGE = "footer_message"
+        private const val KEY_COMPANY_BRAND = "company_brand"
     }
+
+    var footerMessage: String
+        get() = prefs.getString(KEY_FOOTER_MESSAGE, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_FOOTER_MESSAGE, value).apply()
+
+    var companyBrand: String
+        get() = prefs.getString(KEY_COMPANY_BRAND, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_COMPANY_BRAND, value).apply()
 
     var pineLabsApplicationId: String
         get() = PineLabsConstants.DEFAULT_APPLICATION_ID

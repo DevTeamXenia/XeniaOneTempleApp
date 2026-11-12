@@ -65,6 +65,8 @@ class LoginViewModel(
                                 designation = data.designation,
                                 imageUrl = data.image
                             )
+                            authManager.footerMessage = profileResult.data.footerMessage ?: ""
+                            authManager.companyBrand = profileResult.data.companyBrand ?: ""
                         }
                     } catch (e: Exception) {
                         e.printStackTrace()
