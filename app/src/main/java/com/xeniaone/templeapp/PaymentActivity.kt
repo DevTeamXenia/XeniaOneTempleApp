@@ -761,7 +761,7 @@ class PaymentActivity : AppCompatActivity() {
         paint.typeface = Typeface.DEFAULT
         paint.textSize = 24f
         paint.color = Color.DKGRAY
-        canvas.drawText("UPI Reference No: $displayPspRef", right, y, paint)
+        canvas.drawText(" Reference No: $displayPspRef", right, y, paint)
 
         // ---------------- Footer ----------------
         y += 62f
@@ -771,11 +771,30 @@ class PaymentActivity : AppCompatActivity() {
         paint.textSize = 28f
         drawWrapped("Thank you for Your Generosity", width / 2f, maxTextWidth, 34f)
 
-        y += 34f
-        paint.typeface = Typeface.DEFAULT
-        paint.textSize = 22f
-        paint.color = Color.GRAY
-        drawWrapped("Powered by www.xeniaonline.in", width / 2f, maxTextWidth, 28f)
+        // ---------------- Footer Message & Company Brand (below QR) ----------------
+        val app = application as TempleApp
+        val authManager = app.container.authManager
+        val footerMsg = authManager.footerMessage
+        val compBrand = authManager.companyBrand
+
+        fun drawMultiLine(text: String) {
+            if (text.isBlank()) return
+            val normalized = text.replace("\\n", "\n")
+            normalized.split("\n").forEach { line ->
+                val trimmed = line.trim()
+                if (trimmed.isNotBlank()) {
+                    y += 32f
+                    paint.typeface = Typeface.DEFAULT
+                    paint.textSize = 22f
+                    paint.color = Color.DKGRAY
+                    drawWrapped(trimmed, width / 2f, maxTextWidth, 28f)
+                }
+            }
+        }
+
+        if (footerMsg.isNotBlank()) {
+            drawMultiLine(footerMsg)
+        }
 
         // ---------------- Centered QR Code ----------------
         val qrSize = 280
@@ -786,6 +805,12 @@ class PaymentActivity : AppCompatActivity() {
         canvas.drawBitmap(qrBitmap, qrLeft, y, null)
         qrBitmap.recycle()
         y += qrSize + 40f                      // bottom padding so the cutter doesn't clip the QR
+
+
+
+       
+
+       
 
         // ---------------- Footer image (below QR) ----------------
         if (footerBitmap != null) {
