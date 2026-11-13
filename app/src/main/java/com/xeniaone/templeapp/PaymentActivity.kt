@@ -591,12 +591,11 @@ class PaymentActivity : AppCompatActivity() {
         val right = width - margin
         val maxTextWidth = width - 2 * margin
 
-        // Column positions (tuned for the larger text)
-        val colNo = margin
-        val colName = 84f
-        val colNameMaxWidth = 200f            // item names wrap inside this width
-        val colQtyCenter = 325f
-        val colAmountRight = 450f
+        // Column positions (tuned for the larger text, without No. column)
+        val colName = margin
+        val colNameMaxWidth = 230f            // item names wrap inside this width
+        val colQtyCenter = 340f
+        val colAmountRight = 460f
         val colTotalRight = right
 
         // ...column positions unchanged...
@@ -604,7 +603,7 @@ class PaymentActivity : AppCompatActivity() {
         // Footer image: scaled to the printable width, keeping its aspect ratio
         val footerTargetWidth = (width - 2 * margin).toInt()
         val footerBitmap: Bitmap? = try {
-            val raw = BitmapFactory.decodeResource(resources, R.drawable.footer)
+            val raw = BitmapFactory.decodeResource(resources, R.drawable.footersib)
             if (raw != null) {
                 val scaledHeight = (raw.height * footerTargetWidth.toFloat() / raw.width).toInt()
                 val scaled = Bitmap.createScaledBitmap(raw, footerTargetWidth, scaledHeight, true)
@@ -707,7 +706,7 @@ class PaymentActivity : AppCompatActivity() {
         paint.textSize = 24f
         paint.color = Color.BLACK
         paint.textAlign = Paint.Align.LEFT
-        canvas.drawText("No.", colNo, y, paint)
+//        canvas.drawText("No.", colNo, y, paint)
         canvas.drawText("Item Name", colName, y, paint)
 
         paint.textAlign = Paint.Align.CENTER
@@ -731,7 +730,6 @@ class PaymentActivity : AppCompatActivity() {
             paint.textAlign = Paint.Align.LEFT
             val nameLines = wrapLines(item.name, colNameMaxWidth)
 
-            canvas.drawText("%02d".format(item.no), colNo, y, paint)
             nameLines.forEachIndexed { index, line ->
                 canvas.drawText(line, colName, y + index * rowLineHeight, paint)
             }
@@ -807,13 +805,14 @@ class PaymentActivity : AppCompatActivity() {
         y += qrSize + 40f                      // bottom padding so the cutter doesn't clip the QR
 
 
+        if (compBrand.isNotBlank()) {
+            drawMultiLine(compBrand)
+        }
 
-       
-
-       
 
         // ---------------- Footer image (below QR) ----------------
         if (footerBitmap != null) {
+            y += 35f // Added space between footer text and footer image
             val footerLeft = (width - footerBitmap.width) / 2f
             canvas.drawBitmap(footerBitmap, footerLeft, y, null)
             y += footerBitmap.height

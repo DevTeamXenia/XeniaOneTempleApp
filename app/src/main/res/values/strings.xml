@@ -56,6 +56,10 @@
     <string name="bank_logo_description">South Indian Bank Logo</string>
 
     <!-- Razorpay API Key -->
-    <string name="razorpay_api_key">rzp_test_SxtzzKtPJYb7Zg</string>
+    <!-- Razorpay API Key uat -->
+<!--    <string name="razorpay_api_key">rzp_test_SxtzzKtPJYb7Zg</string>-->
+
+    <!-- Razorpay API Key live-->
+    <string name="razorpay_api_key">rzp_live_TypfQXzCVw989Y</string>
 
 </resources>

@@ -798,10 +798,10 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
             }
 
             val options = JSONObject().apply {
-                put("name", "Sabarimala Temple")
+                put("name", "Travancore Devaswom Board")
                 put("description", "Prasadam Order #$orderId")
                 put("currency", "INR")
-                put("amount", (totalAmount * 100).toLong()) // Amount in paise
+                put("amount", (totalAmount * 100).toLong())
                 put("order_id", razorpayOrderId)
                 put("prefill", JSONObject().apply {
                     put("name", customerName)
