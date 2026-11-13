@@ -47,7 +47,6 @@
         android:text="Please enter the reference ID for this cash transaction"
         android:textColor="@color/text_muted"
         android:textSize="14sp" />
-
     <!-- EditText for Reference ID -->
     <EditText
         android:id="@+id/etCashRefId"
@@ -61,6 +60,22 @@
         android:paddingHorizontal="16dp"
         android:textColor="@color/text_dark"
         android:textSize="15sp" />
+
+    <!-- NEW: Admin Password -->
+    <EditText
+        android:id="@+id/etAdminPassword"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginBottom="12dp"
+        android:background="@drawable/bg_row_border"
+        android:fontFamily="sans-serif-medium"
+        android:hint="Enter Admin Password"
+        android:inputType="textPassword"
+        android:paddingHorizontal="16dp"
+        android:textColor="@color/text_dark"
+        android:textSize="15sp" />
+
+
 
     <!-- Continue Button -->
     <androidx.appcompat.widget.AppCompatButton

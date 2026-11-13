@@ -12,20 +12,25 @@
         android:layout_height="match_parent"
         android:background="@color/billing_screen_bg">
 
-    <androidx.core.widget.NestedScrollView
-        android:id="@+id/scrollViewContent"
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:id="@+id/swipeRefreshLayout"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:fillViewport="true"
         app:layout_constraintBottom_toTopOf="@id/bottomBar"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
-        <LinearLayout
+        <androidx.core.widget.NestedScrollView
+            android:id="@+id/scrollViewContent"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical">
+            android:layout_height="match_parent"
+            android:fillViewport="true">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
 
             <FrameLayout
                 android:layout_width="match_parent"
@@ -185,40 +190,68 @@
 
             </LinearLayout>
 
-            <!-- Optional Devotee Mobile Number -->
+            <!-- Optional Devotee Mobile Number & Manual Print Button -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginHorizontal="@dimen/screen_margin_horizontal"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="20dp"
                 android:layout_marginBottom="12dp"
-                android:orientation="vertical">
+                android:gravity="center_vertical"
+                app:boxStrokeWidth="2.5dp"
+                app:boxStrokeWidthFocused="3.5dp"
+                android:orientation="horizontal">
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/tilDevoteeMobile"
                     style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                    android:layout_width="match_parent"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:layout_weight="1"
                     android:hint="@string/mobile_number_hint"
                     app:boxCornerRadiusBottomEnd="8dp"
                     app:boxCornerRadiusBottomStart="8dp"
                     app:boxCornerRadiusTopEnd="8dp"
                     app:boxCornerRadiusTopStart="8dp"
                     app:boxStrokeColor="@color/temple_gold_primary"
+                    app:boxStrokeWidth="2.5dp"
+                    app:boxStrokeWidthFocused="3.5dp"
                     app:hintTextColor="@color/temple_gold_primary">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etDevoteeMobile"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:fontFamily="sans-serif"
+                        android:fontFamily="sans-serif-black"
                         android:includeFontPadding="true"
                         android:inputType="phone"
                         android:maxLength="10"
                         android:maxLines="1"
-                        android:textColor="@color/text_dark"
-                        android:textSize="@dimen/text_size_small" />
+                        app:boxStrokeWidth="2.5dp"
+                        app:boxStrokeWidthFocused="3.5dp"
+                        android:textColor="@color/black"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
                 </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnManualPrint"
+                    android:layout_width="55dp"
+                    android:layout_height="55dp"
+                    android:layout_marginStart="8dp"
+                    android:backgroundTint="@color/pay_button_orange"
+                    android:contentDescription="@string/cd_generate_print"
+                    android:fontFamily="sans-serif-bold"
+                    android:paddingHorizontal="14dp"
+                    android:text="@string/btn_print"
+                    android:textColor="@color/white"
+                    android:textSize="8sp"
+                    android:visibility="gone"
+                    app:cornerRadius="10dp"
+                    app:iconGravity="textStart"
+                    app:iconPadding="6dp"
+                    app:iconSize="28dp"
+                    app:iconTint="@color/white" />
 
             </LinearLayout>
 
@@ -277,6 +310,7 @@
 
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
     <!-- Bottom bar: width 0dp (constraint-based) instead of match_parent -->
     <LinearLayout

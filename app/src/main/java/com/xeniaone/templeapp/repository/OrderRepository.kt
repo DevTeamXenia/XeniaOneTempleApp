@@ -20,6 +20,8 @@ interface OrderRepository {
         orderId: Int,
     ): Result<SibCheckPaymentResponse>
 
+
+
     suspend fun processOrder(
         orderId: Int,
         companyId: Int,
@@ -27,6 +29,7 @@ interface OrderRepository {
         settled: Boolean,
         isWhatsApp: Boolean
     ): Result<OrderKioskSummaryResponse>
+
 
     suspend fun checkRazorpayPaymentStatus(
         orderId: Int,

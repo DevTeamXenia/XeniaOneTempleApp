@@ -107,4 +107,7 @@ dependencies {
 
     // Razorpay SDK
     implementation("com.razorpay:checkout:1.6.38")
+
+    // SwipeRefreshLayout
+    implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
 }

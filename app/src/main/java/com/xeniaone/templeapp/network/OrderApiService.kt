@@ -33,6 +33,7 @@ interface OrderApiService {
         @Url fullUrl: String
     ): Response<SibCheckPaymentResponse>
 
+
     @POST("api/Order/kiosk/placeOrder/{orderId}/Proccess")
     suspend fun processOrder(
         @Path("orderId") orderId: Int,

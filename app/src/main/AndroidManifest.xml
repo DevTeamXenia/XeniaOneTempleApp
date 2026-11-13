@@ -33,6 +33,7 @@
         <activity
             android:name=".LoginActivity"
             android:exported="true"
+            android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -44,17 +45,20 @@
         <activity
             android:name=".BillingActivity"
             android:exported="true"
+            android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustPan" />
 
         <!-- Screen 2: Payment QR Code -->
         <activity
             android:name=".PaymentQrActivity"
-            android:exported="true" />
+            android:exported="true"
+            android:screenOrientation="portrait" />
 
         <!-- Screen 3: Payment Receipt & Thermal Printing -->
         <activity
             android:name=".PaymentActivity"
-            android:exported="true" />
+            android:exported="true"
+            android:screenOrientation="portrait" />
 
         <!-- Razorpay SDK API Key metadata -->
         <meta-data

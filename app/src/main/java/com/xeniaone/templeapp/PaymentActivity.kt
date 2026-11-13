@@ -51,6 +51,7 @@ class PaymentActivity : AppCompatActivity() {
     private lateinit var binding: ActivityPaymentBinding
 
     private var orderId: Long = 0
+    private var orderNo: String = ""
     private var pspRefNo: String = ""
     private var totalAmount: Double = 0.0
     private var receiptItems: List<ReceiptItem> = emptyList()
@@ -88,14 +89,49 @@ class PaymentActivity : AppCompatActivity() {
 
         binding.pbPrinter.visibility = View.GONE
         if (printResponse != null && printResponse.isSuccess) {
+            PineLabsManager.resetRetryState()
             binding.tvPrinterStatus.text = "✅ Receipt printed on Pine Labs POS!"
             Log.i(TAG, "✅ [PineLabs Print] Receipt printed successfully on terminal!")
+            startAutoReturnTimer()
         } else {
             val msg = printResponse?.response?.responseMsg ?: "Printer busy or finished"
-            binding.tvPrinterStatus.text = "Print status: $msg"
             Log.w(TAG, "⚠️ [PineLabs Print] Print failed or returned warning: $msg (Code: ${printResponse?.response?.responseCode})")
+
+            if (PineLabsManager.shouldRetry(printResponse)) {
+                binding.tvPrinterStatus.text = "Retrying print (${PineLabsManager.currentRetryCount}/${PineLabsManager.MAX_PINE_LABS_RETRIES})..."
+                Handler(Looper.getMainLooper()).postDelayed({
+                    try {
+                        val app = application as TempleApp
+                        val authManager = app.container.authManager
+                        val retryIntent = PineLabsManager.createRetryPrintIntent(
+                            context = this,
+                            applicationId = authManager.pineLabsApplicationId,
+                            userId = authManager.pineLabsUserId
+                        )
+                        if (retryIntent != null) {
+                            isPrintingInProgress = true
+                            binding.pbPrinter.visibility = View.VISIBLE
+                            launchPineLabsPrint(retryIntent)
+                        } else {
+                            binding.tvPrinterStatus.text = "Print status: $msg"
+                            startAutoReturnTimer()
+                        }
+                    } catch (e: Exception) {
+                        isPrintingInProgress = false
+                        Log.e(TAG, "❌ [PineLabs Print Retry Error] ${e.message}", e)
+                        binding.tvPrinterStatus.text = "Print error: ${e.message}"
+                        startAutoReturnTimer()
+                    }
+                }, 15000L)
+            } else {
+                binding.tvPrinterStatus.text = "Print status: $msg"
+                startAutoReturnTimer()
+            }
         }
-        startAutoReturnTimer()
+    }
+
+    private fun launchPineLabsPrint(intent: Intent) {
+        pineLabsPrintLauncher.launch(intent)
     }
 
     // Printer Connection state (Kiosk USB & POS)
@@ -107,7 +143,7 @@ class PaymentActivity : AppCompatActivity() {
 
     // Kiosk Auto-return Timer
     private var autoReturnTimer: CountDownTimer? = null
-    private val autoReturnDurationMs = 2000L
+    private val autoReturnDurationMs = 10000L
 
     private lateinit var orderRepository: OrderRepository
     private var encryptedOrderId: String = ""
@@ -115,6 +151,7 @@ class PaymentActivity : AppCompatActivity() {
     companion object {
         private const val TAG = "PaymentActivity"
         const val EXTRA_ORDER_ID = "extra_order_id"
+        const val EXTRA_ORDER_NO = "extra_order_no"
         const val EXTRA_ENCRYPTED_ORDER_ID = "extra_encrypted_order_id"
         const val EXTRA_PSP_REF_NO = "extra_psp_ref_no"
         const val EXTRA_TOTAL_AMOUNT = "extra_total_amount"
@@ -145,6 +182,7 @@ class PaymentActivity : AppCompatActivity() {
         if (orderId == 0L) {
             orderId = intent.getIntExtra(EXTRA_ORDER_ID, 0).toLong()
         }
+        orderNo = intent.getStringExtra(EXTRA_ORDER_NO) ?: ""
         orderCustomerName = intent.getStringExtra(EXTRA_CUSTOMER_NAME) ?: ""
         orderMobileNumber = intent.getStringExtra(EXTRA_CUSTOMER_MOBILE) ?: ""
         pspRefNo = intent.getStringExtra(EXTRA_PSP_REF_NO) ?: ""
@@ -179,11 +217,16 @@ class PaymentActivity : AppCompatActivity() {
                 Log.d(TAG, "Fetching order details for orderId=$orderId from GET api/Order/$orderId")
                 val result = orderRepository.getOrderDetails(orderId)
                 val orderData = result.getOrNull()?.data
-                if (orderData != null && !orderData.encryptedOrderId.isNullOrBlank()) {
-                    encryptedOrderId = orderData.encryptedOrderId
-                    Log.d(TAG, "Fetched EncryptedOrderId successfully: $encryptedOrderId")
+                if (orderData != null) {
+                    if (!orderData.encryptedOrderId.isNullOrBlank()) {
+                        encryptedOrderId = orderData.encryptedOrderId
+                    }
+                    if (!orderData.orderNo.isNullOrBlank()) {
+                        orderNo = orderData.orderNo
+                    }
+                    Log.d(TAG, "Fetched order details: orderNo=$orderNo, encryptedOrderId=$encryptedOrderId")
                 } else {
-                    Log.w(TAG, "getOrderDetails failed or returned null encryptedOrderId: ${result.exceptionOrNull()?.message}")
+                    Log.w(TAG, "getOrderDetails failed or returned null: ${result.exceptionOrNull()?.message}")
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error fetching order details for orderId=$orderId: ${e.message}", e)
@@ -234,7 +277,7 @@ class PaymentActivity : AppCompatActivity() {
 
     @SuppressLint("SetTextI18n")
     private fun setupUI() {
-        val displayOrderId = if (orderId > 0) orderId.toString() else "27533365"
+        val displayOrderId = if (orderNo.isNotBlank()) orderNo else if (orderId > 0L) orderId.toString() else "27533365"
         val displayPspRef = if (pspRefNo.isNotBlank()) pspRefNo else "5647784112"
         val displayTotal = if (totalAmount > 0.0) totalAmount else receiptItems.sumOf { it.total }
 
@@ -456,7 +499,7 @@ class PaymentActivity : AppCompatActivity() {
             val app = application as TempleApp
             val authManager = app.container.authManager
 
-            val displayOrderId = if (orderId > 0) orderId.toString() else ""
+            val displayOrderId = if (orderNo.isNotBlank()) orderNo else if (orderId > 0L) orderId.toString() else ""
             val displayPaymentMode = if (paymentMode.isNotBlank()) paymentMode else "Pine Labs POS"
             val displayRef = if (rrn.isNotBlank()) rrn else if (approvalCode.isNotBlank()) approvalCode else pspRefNo
             val displayTotal = if (totalAmount > 0.0) totalAmount else receiptItems.sumOf { it.total }
@@ -470,6 +513,7 @@ class PaymentActivity : AppCompatActivity() {
                 null
             }
 
+            val currentUserName = authManager.employeeName.ifBlank { authManager.savedUsername }
             val printItems = PineLabsManager.buildTempleReceiptPrintItems(
                 orderId = displayOrderId,
                 dateFormatted = formattedDate,
@@ -480,11 +524,14 @@ class PaymentActivity : AppCompatActivity() {
                 qrData = qrData,
                 customerName = orderCustomerName,
                 mobileNumber = orderMobileNumber,
+                userName = currentUserName,
                 printerWidth = PineLabsConstants.PRINTER_WIDTH_32,
                 imageBitmap = footerBitmap,
                 footerMessage = authManager.footerMessage,
                 companyBrand = authManager.companyBrand
             )
+
+            PineLabsManager.cachePrintSession(displayOrderId, printItems)
 
             Log.d(TAG, "🖨️ [PineLabs Text Print] Built ${printItems.size} text print items.")
             printItems.forEachIndexed { index, item ->
@@ -503,7 +550,7 @@ class PaymentActivity : AppCompatActivity() {
             footerBitmap?.recycle()
 
             Log.d(TAG, "🖨️ [PineLabs Text Print] Launching print intent package=${printIntent.getPackage()}, action=${printIntent.action}")
-            pineLabsPrintLauncher.launch(printIntent)
+            launchPineLabsPrint(printIntent)
         } catch (e: Exception) {
             isPrintingInProgress = false
             Log.e(TAG, "❌ [PineLabs Print] Error initiating Pine Labs text print: ${e.message}", e)
@@ -679,7 +726,7 @@ class PaymentActivity : AppCompatActivity() {
         paint.textSize = 27f
         paint.color = Color.BLACK
         paint.textAlign = Paint.Align.LEFT
-        val displayOrderId = if (orderId > 0) orderId.toString() else "27533365"
+        val displayOrderId = if (orderNo.isNotBlank()) orderNo else if (orderId > 0L) orderId.toString() else "27533365"
         val displayPspRef = if (pspRefNo.isNotBlank()) pspRefNo else "5647784112"
         val displayTotal = if (totalAmount > 0.0) totalAmount else receiptItems.sumOf { it.total }
 
@@ -761,6 +808,14 @@ class PaymentActivity : AppCompatActivity() {
         paint.color = Color.DKGRAY
         canvas.drawText(" Reference No: $displayPspRef", right, y, paint)
 
+        val app = application as TempleApp
+        val authManager = app.container.authManager
+        val currentUserName = authManager.employeeName.ifBlank { authManager.savedUsername }
+        if (currentUserName.isNotBlank()) {
+            y += 34f
+            canvas.drawText(" User: ${currentUserName.trim()}", right, y, paint)
+        }
+
         // ---------------- Footer ----------------
         y += 62f
         paint.color = Color.BLACK
@@ -770,8 +825,6 @@ class PaymentActivity : AppCompatActivity() {
         drawWrapped("Thank you for Your Generosity", width / 2f, maxTextWidth, 34f)
 
         // ---------------- Footer Message & Company Brand (below QR) ----------------
-        val app = application as TempleApp
-        val authManager = app.container.authManager
         val footerMsg = authManager.footerMessage
         val compBrand = authManager.companyBrand
 

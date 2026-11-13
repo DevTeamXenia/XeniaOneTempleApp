@@ -184,7 +184,8 @@ object PineLabsManager {
      * supports Left and Center alignment natively, requiring spaces for table alignment.
      */
     fun buildTempleReceiptPrintItems(
-        orderId: String,
+        orderId: String = "",
+        orderNo: String = "",
         dateFormatted: String,
         paymentRef: String,
         paymentModeTitle: String,
@@ -193,6 +194,7 @@ object PineLabsManager {
         qrData: String,
         customerName: String = "",
         mobileNumber: String = "",
+        userName: String = "",
         printerWidth: Int = PineLabsConstants.PRINTER_WIDTH_32,
         imageBitmap: Bitmap? = null,
         footerMessage: String = "",
@@ -235,23 +237,22 @@ object PineLabsManager {
         }
 
         // 1. Temple Header
-        addCenter("Sabarimala")
-        addCenter("Sri Dharmasastha Temple")
+        addCenter("Sabarimala Sri Dharmasastha Temple")
         addDivider('=')
-        addCenter("       RECEIPT       ")
+        addCenter("Prebooking Prasadam Receipt")
         addDivider('=')
 
         // 2. Metadata
-        addRow("Receipt No:", orderId)
+        val displayOrderId = if (orderNo.isNotBlank()) orderNo else if (orderId > 0.toString()) orderId.toString() else ""
+        addRow("Receipt No:", displayOrderId)
         addRow("Date:", dateFormatted)
+        if (paymentModeTitle.isNotBlank()) addRow("Payment Mode:", paymentModeTitle)
         if (customerName.isNotBlank()) addRow("Name:", customerName.trim())
         if (mobileNumber.isNotBlank()) addRow("Mobile:", mobileNumber.trim())
-        addRow("Payment Mode:", paymentModeTitle)
-        if (paymentRef.isNotBlank()) addRow("Reference No:", paymentRef)
         addDivider('-')
 
         // 3. Tabular Item Header
-        addRow("Item (Qty)", "Total (₹)")
+        addRow("Item (Qty)", "Total Amount (₹)")
         addDivider('-')
 
         // 4. Line Items
@@ -263,12 +264,28 @@ object PineLabsManager {
         addDivider('-')
 
         // 5. Total
-        addRow("TOTAL AMOUNT:", "₹%.2f".format(Locale.US, totalAmount))
+        addRow("Total Amount:", "₹%.2f".format(Locale.US, totalAmount))
+        if (paymentRef.isNotBlank()) {
+            addRow("Reference No:", paymentRef)
+        }
+        if (userName.isNotBlank()) {
+            addRow("User:", userName.trim())
+        }
         addDivider('=')
 
+        if (qrData.isNotBlank()) {
+            list.add(
+                PineLabsPrintItem(
+                    printDataType = PineLabsConstants.PRINT_DATA_TYPE_QR_CODE,
+                    printerWidth = printerWidth,
+                    isCenterAligned = true,
+                    dataToPrint = qrData
+                )
+            )
+        }
 
 
-        // 6. Footer Notes / Helper
+
         fun addMultiLine(text: String) {
             if (text.isBlank()) return
             val normalized = text.replace("\\n", "\n")
@@ -301,49 +318,18 @@ object PineLabsManager {
                 }
             }
         }
+
         if (footerMessage.isNotBlank()) {
             addMultiLine(footerMessage)
         }
 
 
-        // 7. QR Code
-        if (qrData.isNotBlank()) {
-            list.add(
-                PineLabsPrintItem(
-                    printDataType = PineLabsConstants.PRINT_DATA_TYPE_QR_CODE,
-                    printerWidth = printerWidth,
-                    isCenterAligned = true,
-                    dataToPrint = qrData
-                )
-            )
-        }
-
-        // 7.5. Footer Message & Company Brand (below QR code)
-        if (companyBrand.isNotBlank() && companyBrand != footerMessage) {
+        // 9. Company Brand (below Footer Image)
+        if (companyBrand.isNotBlank() && companyBrand.trim() != footerMessage.trim()) {
             addMultiLine(companyBrand)
         }
 
-
-
-        // 8. Footer Image (Image Dump)
-        if (imageBitmap != null) {
-            Log.d(TAG, "🖨️ [PineLabs Footer Image] Processing bitmap: ${imageBitmap.width}x${imageBitmap.height}, hasAlpha=${imageBitmap.hasAlpha()}")
-            val preparedBmp = prepareForPrinter(imageBitmap, 384)
-            val hex = bitmapToHex(preparedBmp)
-            list.add(
-                PineLabsPrintItem(
-                    printDataType = PineLabsConstants.PRINT_DATA_TYPE_IMAGE_DUMP,
-                    printerWidth = printerWidth,
-                    isCenterAligned = true,
-                    imageData = hex
-                )
-            )
-            preparedBmp.recycle()
-        } else {
-            Log.w(TAG, "⚠️ [PineLabs Footer Image] imageBitmap is null, footer image skipped.")
-        }
-
-        // 9. Feed space at paper end
+        // 10. Feed space at paper end
         list.add(
             PineLabsPrintItem(
                 printDataType = PineLabsConstants.PRINT_DATA_TYPE_TEXT,
@@ -479,6 +465,63 @@ object PineLabsManager {
             Log.e(TAG, "❌ [PineLabs Print] Error parsing Pine Labs print response: ${e.message}", e)
             null
         }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // PRINT RETRY MANAGEMENT
+    // ─────────────────────────────────────────────────────────────────────────
+
+    var lastCachedPrintItems: List<PineLabsPrintItem>? = null
+        private set
+    var lastCachedPrintRefNo: String = ""
+        private set
+    var currentRetryCount: Int = 0
+        private set
+    const val MAX_PINE_LABS_RETRIES = 2
+
+    fun cachePrintSession(refNo: String, items: List<PineLabsPrintItem>) {
+        lastCachedPrintRefNo = refNo
+        lastCachedPrintItems = items
+        currentRetryCount = 0
+        Log.d(TAG, "🖨️ [PineLabs Retry] Cached ${items.size} print items for refNo=$refNo")
+    }
+
+    fun resetRetryState() {
+        lastCachedPrintItems = null
+        lastCachedPrintRefNo = ""
+        currentRetryCount = 0
+        Log.d(TAG, "🖨️ [PineLabs Retry] Reset retry state cache.")
+    }
+
+    fun shouldRetry(response: PineLabsPrintResponse?): Boolean {
+        val isSuccess = response != null && response.isSuccess
+        if (isSuccess) {
+            resetRetryState()
+            return false
+        }
+        if (currentRetryCount < MAX_PINE_LABS_RETRIES && !lastCachedPrintItems.isNullOrEmpty()) {
+            currentRetryCount++
+            Log.i(TAG, "🔄 [PineLabs Print Retry] Attempt $currentRetryCount of $MAX_PINE_LABS_RETRIES using cached print items.")
+            return true
+        }
+        resetRetryState()
+        return false
+    }
+
+    fun createRetryPrintIntent(
+        context: Context,
+        applicationId: String = PineLabsConstants.DEFAULT_APPLICATION_ID,
+        userId: String = PineLabsConstants.DEFAULT_USER_ID
+    ): Intent? {
+        val items = lastCachedPrintItems ?: return null
+        val refNo = lastCachedPrintRefNo.ifBlank { "RETRY" }
+        return createPrintIntent(
+            context = context,
+            printRefNo = refNo,
+            printItems = items,
+            applicationId = applicationId,
+            userId = userId
+        )
     }
 
     // ─────────────────────────────────────────────────────────────────────────

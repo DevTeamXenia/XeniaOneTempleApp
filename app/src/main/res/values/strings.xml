@@ -51,6 +51,11 @@
     <string name="cd_logo_xenia">Xenia logo</string>
     <string name="cd_logo_sib">South Indian Bank logo</string>
     <string name="cd_logo_travancore">Travancore Devaswom Board logo</string>
+    <string name="cd_generate_print">Generate Print</string>
+    <string name="btn_print">PRINT</string>
+    <string name="btn_add">ADD</string>
+    <string name="powered_by_prefix">Powered by </string>
+    <string name="razorpay_brand">Razorpay</string>
     <string name="devotee_name_hint">Devotee Name </string>
     <string name="mobile_number_hint">Mobile Number </string>
     <string name="bank_logo_description">South Indian Bank Logo</string>

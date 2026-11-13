@@ -5,6 +5,7 @@ import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -36,8 +37,8 @@ class ProductCardAdapter(
         val view = LayoutInflater.from(context).inflate(layoutRes, parent, false)
         val binding = ItemProductCardBinding.bind(view)
 
-        // If exactly 3 items, proportionally stretch each card to fill the container width evenly
-        if (items.size == 3) {
+        // If exactly 3 items on standard Kiosk, proportionally stretch each card; on Pine Labs use MATCH_PARENT in grid
+        if (items.size == 3 && !isPineLabs) {
             val displayWidth = context.resources.displayMetrics.widthPixels
             val density = context.resources.displayMetrics.density
             val available = if (parent.measuredWidth > 0) parent.measuredWidth else displayWidth
@@ -45,6 +46,10 @@ class ProductCardAdapter(
             val cardWidth = ((available - totalMargins) / 3).coerceAtLeast((105 * density).toInt())
             val lp = binding.root.layoutParams
             lp.width = cardWidth
+            binding.root.layoutParams = lp
+        } else if (isPineLabs) {
+            val lp = binding.root.layoutParams
+            lp.width = ViewGroup.LayoutParams.MATCH_PARENT
             binding.root.layoutParams = lp
         }
 
@@ -64,7 +69,7 @@ class ProductCardAdapter(
         fun bind(item: PrasadamItem) {
             binding.tvProductName.text = item.name
             binding.tvProductPrice.text = item.formattedPrice
-            binding.tvCount.text = item.quantity.toString()
+            updateCountBadge(item.quantity)
 
             // Image loading with Glide and fallback
             val fallbackRes = if (item.imageResId != 0) item.imageResId else R.drawable.item_appam
@@ -80,7 +85,11 @@ class ProductCardAdapter(
             }
 
             binding.root.setOnClickListener {
-                increaseQuantity(item)
+                showQuantityKeypadDialog(item)
+            }
+
+            binding.btnAdd.setOnClickListener {
+                showQuantityKeypadDialog(item)
             }
 
             binding.btnPlus.setOnClickListener {
@@ -90,7 +99,7 @@ class ProductCardAdapter(
             binding.btnMinus.setOnClickListener {
                 if (item.quantity > 0) {
                     item.quantity--
-                    binding.tvCount.text = item.quantity.toString()
+                    updateCountBadge(item.quantity)
                     onQuantityChanged(item, item.quantity)
                 }
             }
@@ -98,6 +107,19 @@ class ProductCardAdapter(
             // Tapping tvCount opens a custom numeric keypad popup dialog
             binding.tvCount.setOnClickListener {
                 showQuantityKeypadDialog(item)
+            }
+        }
+
+        private fun updateCountBadge(quantity: Int) {
+            binding.tvCount.text = quantity.toString()
+            if (quantity > 0) {
+                binding.tvCount.visibility = View.VISIBLE
+                binding.btnAdd.visibility = View.GONE
+                binding.layoutStepper.visibility = View.VISIBLE
+            } else {
+                binding.tvCount.visibility = View.GONE
+                binding.btnAdd.visibility = View.VISIBLE
+                binding.layoutStepper.visibility = View.GONE
             }
         }
 
@@ -122,7 +144,7 @@ class ProductCardAdapter(
                 ).show()
             } else {
                 item.quantity++
-                binding.tvCount.text = item.quantity.toString()
+                updateCountBadge(item.quantity)
                 onQuantityChanged(item, item.quantity)
             }
         }
@@ -349,7 +371,7 @@ class ProductCardAdapter(
                 }
                 val clampedQty = finalQty.coerceAtLeast(0)
                 item.quantity = clampedQty
-                binding.tvCount.text = item.quantity.toString()
+                updateCountBadge(clampedQty)
                 onQuantityChanged(item, clampedQty)
                 dialog.dismiss()
             }

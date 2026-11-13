@@ -61,6 +61,7 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
         const val EXTRA_OPERATOR_NAME = "extra_operator_name"
         const val EXTRA_LANGUAGE_CODE = "extra_language_code"
         private const val TAG = "BillingActivity"
+        var lastOrderIntent: Intent? = null
     }
 
     private lateinit var binding: ActivityBillingBinding

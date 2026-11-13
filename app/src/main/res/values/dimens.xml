@@ -36,7 +36,7 @@
     <dimen name="table_row_height">44dp</dimen>
 
     <!-- Billing screen -->
-    <dimen name="section_spacing">8dp</dimen>
+    <dimen name="section_spacing">12dp</dimen>
     <dimen name="back_button_size">40dp</dimen>
     <dimen name="back_button_margin">4dp</dimen>
     <dimen name="loading_height">80dp</dimen>

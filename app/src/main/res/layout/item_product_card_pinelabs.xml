@@ -23,7 +23,6 @@
             android:layout_gravity="end|top"
             android:background="@drawable/bg_stepper_count"
             android:gravity="center"
-            android:text="0"
             android:textColor="@color/text_dark"
             android:textSize="@dimen/product_stepper_count_text_size"
             android:textStyle="bold" />
@@ -65,38 +64,58 @@
         android:textColor="@color/text_muted"
         android:textSize="@dimen/product_price_text_size" />
 
-    <!-- (-) (+) buttons stay in the existing place -->
-    <LinearLayout
-        android:layout_width="wrap_content"
+    <!-- Stepper / ADD Widget Container at bottom -->
+    <FrameLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="center_horizontal"
-        android:layout_marginTop="@dimen/product_stepper_margin_top"
-        android:gravity="center"
-        android:orientation="horizontal">
+        android:layout_marginTop="@dimen/product_stepper_margin_top">
 
-        <ImageButton
-            android:id="@+id/btnMinus"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:background="@drawable/bg_stepper_minus"
-            android:contentDescription="Decrease quantity"
-            android:padding="10dp"
-            android:scaleType="fitCenter"
-            android:src="@drawable/ic_remove" />
+        <!-- ADD Button (shown when quantity == 0) -->
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btnAdd"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:background="@drawable/bg_pay_button"
+            android:fontFamily="sans-serif-bold"
+            android:text="@string/btn_add"
+            android:textColor="@color/white"
+            android:textSize="14sp" />
 
-        <Space
-            android:layout_width="@dimen/product_stepper_count_width"
-            android:layout_height="0dp" />
+        <!-- Stepper Layout (shown when quantity > 0) -->
+        <LinearLayout
+            android:id="@+id/layoutStepper"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:visibility="gone">
 
-        <ImageButton
-            android:id="@+id/btnPlus"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:background="@drawable/bg_stepper_plus"
-            android:contentDescription="Increase quantity"
-            android:padding="10dp"
-            android:scaleType="fitCenter"
-            android:src="@drawable/ic_add" />
-    </LinearLayout>
+            <ImageButton
+                android:id="@+id/btnMinus"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="@drawable/bg_stepper_minus"
+                android:contentDescription="Decrease quantity"
+                android:padding="10dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_remove" />
+
+            <Space
+                android:layout_width="@dimen/product_stepper_count_width"
+                android:layout_height="0dp" />
+
+            <ImageButton
+                android:id="@+id/btnPlus"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="@drawable/bg_stepper_plus"
+                android:contentDescription="Increase quantity"
+                android:padding="10dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_add" />
+        </LinearLayout>
+    </FrameLayout>
 
 </LinearLayout>
