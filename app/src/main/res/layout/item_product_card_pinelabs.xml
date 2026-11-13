@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/cardProductRoot"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="8dp"
+    android:background="@drawable/bg_item_card"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="@dimen/product_card_padding">
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="@dimen/product_name_margin_top">
+
+        <TextView
+            android:id="@+id/tvCount"
+            android:layout_width="@dimen/product_stepper_count_width"
+            android:layout_height="48dp"
+            android:layout_gravity="end|top"
+            android:background="@drawable/bg_stepper_count"
+            android:gravity="center"
+            android:text="0"
+            android:textColor="@color/text_dark"
+            android:textSize="@dimen/product_stepper_count_text_size"
+            android:textStyle="bold" />
+    </FrameLayout>
+
+    <ImageView
+        android:id="@+id/ivProduct"
+        android:layout_width="@dimen/product_image_size"
+        android:layout_height="@dimen/product_image_size"
+        android:layout_gravity="center_horizontal"
+        android:background="#15000000"
+        android:contentDescription="Product Image"
+        android:scaleType="fitCenter"
+        android:src="@drawable/item_appam" />
+
+    <TextView
+        android:id="@+id/tvProductName"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/product_name_margin_top"
+        android:ellipsize="end"
+        android:fontFamily="sans-serif-medium"
+        android:gravity="center"
+        android:maxLines="1"
+        android:text="Appam"
+        android:textAlignment="center"
+        android:textColor="@color/text_dark"
+        android:textSize="@dimen/product_name_text_size"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/tvProductPrice"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/product_price_margin_top"
+        android:gravity="center"
+        android:text="₹40.00"
+        android:textAlignment="center"
+        android:textColor="@color/text_muted"
+        android:textSize="@dimen/product_price_text_size" />
+
+    <!-- (-) (+) buttons stay in the existing place -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="@dimen/product_stepper_margin_top"
+        android:gravity="center"
+        android:orientation="horizontal">
+
+        <ImageButton
+            android:id="@+id/btnMinus"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@drawable/bg_stepper_minus"
+            android:contentDescription="Decrease quantity"
+            android:padding="10dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_remove" />
+
+        <Space
+            android:layout_width="@dimen/product_stepper_count_width"
+            android:layout_height="0dp" />
+
+        <ImageButton
+            android:id="@+id/btnPlus"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@drawable/bg_stepper_plus"
+            android:contentDescription="Increase quantity"
+            android:padding="10dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_add" />
+    </LinearLayout>
+
+</LinearLayout>

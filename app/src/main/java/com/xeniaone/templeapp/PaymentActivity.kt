@@ -805,9 +805,6 @@ class PaymentActivity : AppCompatActivity() {
         y += qrSize + 40f                      // bottom padding so the cutter doesn't clip the QR
 
 
-        if (compBrand.isNotBlank()) {
-            drawMultiLine(compBrand)
-        }
 
 
         // ---------------- Footer image (below QR) ----------------
@@ -819,6 +816,12 @@ class PaymentActivity : AppCompatActivity() {
             footerBitmap.recycle()
         }
         y += 40f   // bottom padding so the cutter doesn't clip the image
+
+
+        if (compBrand.isNotBlank()) {
+            drawMultiLine(compBrand)
+        }
+
 
 // Crop to actual content height
 

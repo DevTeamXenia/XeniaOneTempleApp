@@ -272,10 +272,32 @@ object PineLabsManager {
         fun addMultiLine(text: String) {
             if (text.isBlank()) return
             val normalized = text.replace("\\n", "\n")
-            normalized.split("\n").forEach { line ->
-                val trimmed = line.trim()
-                if (trimmed.isNotBlank()) {
-                    addCenter(trimmed)
+            normalized.split("\n").forEach { paragraph ->
+                val trimmedPara = paragraph.trim()
+                if (trimmedPara.isNotBlank()) {
+                    val words = trimmedPara.split(" ")
+                    var currentLine = StringBuilder()
+                    words.forEach { word ->
+                        if ((currentLine.length + word.length + 1) <= printerWidth) {
+                            if (currentLine.isNotEmpty()) currentLine.append(" ")
+                            currentLine.append(word)
+                        } else {
+                            if (currentLine.isNotEmpty()) {
+                                addCenter(currentLine.toString())
+                                currentLine = StringBuilder(word)
+                            } else {
+                                var remainingWord = word
+                                while (remainingWord.length > printerWidth) {
+                                    addCenter(remainingWord.substring(0, printerWidth))
+                                    remainingWord = remainingWord.substring(printerWidth)
+                                }
+                                currentLine = StringBuilder(remainingWord)
+                            }
+                        }
+                    }
+                    if (currentLine.isNotEmpty()) {
+                        addCenter(currentLine.toString())
+                    }
                 }
             }
         }

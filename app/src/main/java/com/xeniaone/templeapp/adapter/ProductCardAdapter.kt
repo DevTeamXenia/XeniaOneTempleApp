@@ -17,6 +17,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.xeniaone.templeapp.model.PrasadamItem
 import com.xeniaone.templeapp.R
 import com.xeniaone.templeapp.databinding.ItemProductCardBinding
+import com.xeniaone.templeapp.pinelabs.PineLabsManager
 
 class ProductCardAdapter(
     private var items: List<PrasadamItem>,
@@ -29,16 +30,16 @@ class ProductCardAdapter(
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ProductViewHolder {
-        val binding = ItemProductCardBinding.inflate(
-            LayoutInflater.from(parent.context),
-            parent,
-            false
-        )
+        val context = parent.context
+        val isPineLabs = PineLabsManager.isPineLabsAvailable(context)
+        val layoutRes = if (isPineLabs) R.layout.item_product_card_pinelabs else R.layout.item_product_card
+        val view = LayoutInflater.from(context).inflate(layoutRes, parent, false)
+        val binding = ItemProductCardBinding.bind(view)
 
         // If exactly 3 items, proportionally stretch each card to fill the container width evenly
         if (items.size == 3) {
-            val displayWidth = parent.context.resources.displayMetrics.widthPixels
-            val density = parent.context.resources.displayMetrics.density
+            val displayWidth = context.resources.displayMetrics.widthPixels
+            val density = context.resources.displayMetrics.density
             val available = if (parent.measuredWidth > 0) parent.measuredWidth else displayWidth
             val totalMargins = (36 * density).toInt()
             val cardWidth = ((available - totalMargins) / 3).coerceAtLeast((105 * density).toInt())
@@ -78,30 +79,12 @@ class ProductCardAdapter(
                 binding.ivProduct.setImageResource(fallbackRes)
             }
 
-            binding.btnPlus.setOnClickListener {
-                val maxLimit = item.maxQtyPerOrder
-                val stockLimit = item.stock?.toInt() ?: 0
-                Log.d("ProductCardAdapter", "Product: ${item.name}, currentQty: ${item.quantity}, maxLimit: $maxLimit, stockLimit: $stockLimit")
+            binding.root.setOnClickListener {
+                increaseQuantity(item)
+            }
 
-                if (stockLimit > 0 && item.quantity >= stockLimit) {
-                    Log.w("ProductCardAdapter", "Stock limit reached for ${item.name}: stock=$stockLimit")
-                    Toast.makeText(
-                        binding.root.context,
-                        "Maximum available stock is $stockLimit",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                } else if (maxLimit != null && maxLimit > 0 && item.quantity >= maxLimit) {
-                    Log.w("ProductCardAdapter", "Max limit reached for ${item.name}: limit=$maxLimit")
-                    Toast.makeText(
-                        binding.root.context,
-                        "Maximum allowed quantity per order is $maxLimit",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                } else {
-                    item.quantity++
-                    binding.tvCount.text = item.quantity.toString()
-                    onQuantityChanged(item, item.quantity)
-                }
+            binding.btnPlus.setOnClickListener {
+                increaseQuantity(item)
             }
 
             binding.btnMinus.setOnClickListener {
@@ -115,6 +98,32 @@ class ProductCardAdapter(
             // Tapping tvCount opens a custom numeric keypad popup dialog
             binding.tvCount.setOnClickListener {
                 showQuantityKeypadDialog(item)
+            }
+        }
+
+        private fun increaseQuantity(item: PrasadamItem) {
+            val maxLimit = item.maxQtyPerOrder
+            val stockLimit = item.stock?.toInt() ?: 0
+            Log.d("ProductCardAdapter", "Product: ${item.name}, currentQty: ${item.quantity}, maxLimit: $maxLimit, stockLimit: $stockLimit")
+
+            if (stockLimit > 0 && item.quantity >= stockLimit) {
+                Log.w("ProductCardAdapter", "Stock limit reached for ${item.name}: stock=$stockLimit")
+                Toast.makeText(
+                    binding.root.context,
+                    "Maximum available stock is $stockLimit",
+                    Toast.LENGTH_SHORT
+                ).show()
+            } else if (maxLimit != null && maxLimit > 0 && item.quantity >= maxLimit) {
+                Log.w("ProductCardAdapter", "Max limit reached for ${item.name}: limit=$maxLimit")
+                Toast.makeText(
+                    binding.root.context,
+                    "Maximum allowed quantity per order is $maxLimit",
+                    Toast.LENGTH_SHORT
+                ).show()
+            } else {
+                item.quantity++
+                binding.tvCount.text = item.quantity.toString()
+                onQuantityChanged(item, item.quantity)
             }
         }
 

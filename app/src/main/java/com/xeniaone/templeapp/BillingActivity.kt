@@ -9,6 +9,7 @@ import android.view.MotionEvent
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
+import android.view.WindowManager
 import android.widget.ImageView
 import android.widget.EditText
 import android.widget.TextView
@@ -999,12 +1000,23 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
             .create()
 
         dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        dialog.setCanceledOnTouchOutside(false)
+        dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
 
         val etCashRefId = dialogView.findViewById<EditText>(R.id.etCashRefId)
         val btnCashContinue = dialogView.findViewById<View>(R.id.btnCashContinue)
 
         etCashRefId.setText("")
         etCashRefId.hint = "Enter Payment Reference ID"
+        etCashRefId.requestFocus()
+
+        dialog.setOnShowListener {
+            etCashRefId.post {
+                etCashRefId.requestFocus()
+                val imm = getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                imm.showSoftInput(etCashRefId, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+            }
+        }
 
         btnCashContinue.setOnClickListener {
             if (!validateMobileNumberForWhatsApp()) return@setOnClickListener
