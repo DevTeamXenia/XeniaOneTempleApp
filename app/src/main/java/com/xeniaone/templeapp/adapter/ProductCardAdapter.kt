@@ -132,7 +132,7 @@ class ProductCardAdapter(
                 Log.w("ProductCardAdapter", "Stock limit reached for ${item.name}: stock=$stockLimit")
                 Toast.makeText(
                     binding.root.context,
-                    "Maximum available stock is $stockLimit",
+                    "Maximum available qty is $maxLimit",
                     Toast.LENGTH_SHORT
                 ).show()
             } else if (maxLimit != null && maxLimit > 0 && item.quantity >= maxLimit) {
@@ -351,20 +351,14 @@ class ProductCardAdapter(
                 val stockLimit = item.stock?.toInt() ?: 0
                 Log.d("ProductCardAdapter", "Keypad Dialog Set for ${item.name}: enteredQty=$newQty, maxLimit=$maxLimit, stockLimit=$stockLimit")
 
-                val effectiveLimit = when {
-                    stockLimit > 0 && maxLimit != null && maxLimit > 0 -> minOf(stockLimit, maxLimit)
-                    stockLimit > 0 -> stockLimit
-                    maxLimit != null && maxLimit > 0 -> maxLimit
-                    else -> Int.MAX_VALUE
-                }
+                val effectiveLimit = if (maxLimit != null && maxLimit > 0) maxLimit else Int.MAX_VALUE
 
                 val finalQty = if (newQty > effectiveLimit) {
-                    val msg = if (stockLimit > 0 && (maxLimit == null || stockLimit <= maxLimit)) {
-                        "Maximum available stock is $stockLimit"
-                    } else {
-                        "Maximum allowed quantity per order is $effectiveLimit"
-                    }
-                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        context,
+                        "Maximum allowed quantity per order is $effectiveLimit",
+                        Toast.LENGTH_SHORT
+                    ).show()
                     effectiveLimit
                 } else {
                     newQty
