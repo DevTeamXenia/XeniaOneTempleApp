@@ -12,15 +12,20 @@
         android:layout_height="match_parent"
         android:background="@color/billing_screen_bg">
 
-    <androidx.core.widget.NestedScrollView
-        android:id="@+id/scrollViewContent"
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:id="@+id/swipeRefreshLayout"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:fillViewport="true"
         app:layout_constraintBottom_toTopOf="@id/bottomBar"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
+
+        <androidx.core.widget.NestedScrollView
+            android:id="@+id/scrollViewContent"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:fillViewport="true">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -66,7 +71,7 @@
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/tilDevoteeMobile"
-                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                    style="@style/BoldTextInputLayoutHint"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:hint="@string/mobile_number_hint"
@@ -75,18 +80,20 @@
                     app:boxCornerRadiusTopEnd="8dp"
                     app:boxCornerRadiusTopStart="8dp"
                     app:boxStrokeColor="@color/temple_gold_primary"
+                    app:hintTextAppearance="@style/BoldHintTextAppearance"
                     app:hintTextColor="@color/temple_gold_primary">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etDevoteeMobile"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:fontFamily="sans-serif"
+                        android:fontFamily="sans-serif-black"
                         android:includeFontPadding="true"
                         android:inputType="phone"
                         android:maxLength="10"
                         android:maxLines="1"
-                        android:textColor="@color/text_dark"
+                        android:textColor="@color/black"
+                        android:textStyle="bold"
                         android:textSize="@dimen/text_size_small" />
                 </com.google.android.material.textfield.TextInputLayout>
 
@@ -273,6 +280,7 @@
 
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
     <!-- Bottom bar -->
     <LinearLayout

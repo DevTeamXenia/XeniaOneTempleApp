@@ -156,7 +156,7 @@
     <dimen name="bottom_bar_min_clearance">2dp</dimen>
 
     <dimen name="bottom_images_height">26dp</dimen>
-    <dimen name="bottom_images_margin_top">4dp</dimen>
+    <dimen name="bottom_images_margin_top">14dp</dimen>
     <dimen name="bottom_images_gap">4dp</dimen>
     <dimen name="bottom_logo_strip_padding_vertical">6dp</dimen>
 

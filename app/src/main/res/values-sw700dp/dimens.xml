@@ -164,7 +164,7 @@
     <dimen name="bottom_bar_min_clearance">56dp</dimen>
 
     <dimen name="bottom_images_height">65dp</dimen>
-    <dimen name="bottom_images_margin_top">10dp</dimen>
+    <dimen name="bottom_images_margin_top">19dp</dimen>
     <dimen name="bottom_images_gap">8dp</dimen>
     <dimen name="bottom_logo_strip_padding_vertical">14dp</dimen>
     <dimen name="receipt_success_icon_size">80dp</dimen>

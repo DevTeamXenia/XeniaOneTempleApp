@@ -59,6 +59,7 @@
     <string name="devotee_name_hint">Devotee Name </string>
     <string name="mobile_number_hint">Mobile Number </string>
     <string name="bank_logo_description">South Indian Bank Logo</string>
+    <string name="copyright_text">Copyright © 2026 <b>Xenia Technologies</b>.\nAll rights reserved.</string>
 
     <!-- Razorpay API Key -->
     <!-- Razorpay API Key uat -->

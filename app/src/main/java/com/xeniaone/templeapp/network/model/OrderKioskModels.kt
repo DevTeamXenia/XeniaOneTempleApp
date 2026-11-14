@@ -24,6 +24,12 @@ data class OrderKioskRequest(
     @SerializedName("OrderMobileNumber")
     val OrderMobileNumber: String = "",
 
+    @SerializedName("PaymentRefNo")
+    val paymentRefNo: String = "",
+
+    @SerializedName("AdminPassword")
+    val adminPassword: String = "",
+
     @SerializedName("tableId")
     val tableId: Int = 0,
 

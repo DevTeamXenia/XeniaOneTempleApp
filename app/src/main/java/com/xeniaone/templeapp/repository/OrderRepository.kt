@@ -36,6 +36,11 @@ interface OrderRepository {
         razorpayOrderId: String
     ): Result<SibCheckPaymentResponse>
 
+    suspend fun checkRazorpayQrPaymentStatus(
+        orderId: Int,
+        easeOrderId: String?
+    ): Result<SibCheckPaymentResponse>
+
     suspend fun getOrderDetails(
         orderId: Long
     ): Result<com.xeniaone.templeapp.network.model.OrderDetailsResponse>

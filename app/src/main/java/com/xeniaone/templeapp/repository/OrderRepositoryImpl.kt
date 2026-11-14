@@ -136,6 +136,23 @@ class OrderRepositoryImpl(
         }
     }
 
+    override suspend fun checkRazorpayQrPaymentStatus(
+        orderId: Int,
+        easeOrderId: String?
+    ): Result<SibCheckPaymentResponse> = withContext(ioDispatcher) {
+        try {
+            val response = orderApiService.checkRazorpayPaymentStatus(orderId, easeOrderId!!)
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                val errorBody = response.errorBody()?.string()
+                Result.failure(Exception("HTTP ${response.code()}: $errorBody"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     override suspend fun getOrderDetails(
         orderId: Long
     ): Result<com.xeniaone.templeapp.network.model.OrderDetailsResponse> = withContext(ioDispatcher) {

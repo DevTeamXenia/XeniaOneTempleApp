@@ -7,7 +7,17 @@
         <item name="android:statusBarColor">@color/temple_gold_primary</item>
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:navigationBarColor">@color/billing_screen_bg</item>
+        <item name="colorOnSurface">#8A8A8A</item>
     </style>
 
     <style name="Theme.XeniaOneTempleApp" parent="Base.Theme.XeniaOneTempleApp" />
+
+    <style name="BoldTextInputLayoutHint" parent="Widget.MaterialComponents.TextInputLayout.FilledBox">
+        <item name="hintTextAppearance">@style/BoldHintTextAppearance</item>
+    </style>
+
+    <style name="BoldHintTextAppearance" parent="TextAppearance.MaterialComponents.Body1">
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/temple_gold_primary</item>
+    </style>
 </resources>

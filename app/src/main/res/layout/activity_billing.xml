@@ -12,461 +12,461 @@
         android:layout_height="match_parent"
         android:background="@color/billing_screen_bg">
 
-    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-        android:id="@+id/swipeRefreshLayout"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        app:layout_constraintBottom_toTopOf="@id/bottomBar"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
+        <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+            android:id="@+id/swipeRefreshLayout"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            app:layout_constraintBottom_toTopOf="@id/bottomBar"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
 
-        <androidx.core.widget.NestedScrollView
-            android:id="@+id/scrollViewContent"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:fillViewport="true">
-
-            <LinearLayout
+            <androidx.core.widget.NestedScrollView
+                android:id="@+id/scrollViewContent"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical">
+                android:layout_height="match_parent"
+                android:fillViewport="true">
 
-            <FrameLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content">
-
-                <ImageView
-                    android:id="@+id/ivTempleBanner"
-                    android:layout_width="match_parent"
-                    android:layout_height="@dimen/banner_height"
-                    android:contentDescription="@string/cd_temple_banner"
-                    android:scaleType="centerCrop"
-                    android:src="@drawable/temple_banner" />
-
-                <ImageButton
-                    android:id="@+id/btnBackToLanguage"
-                    android:layout_width="@dimen/back_button_size"
-                    android:layout_height="@dimen/back_button_size"
-                    android:layout_gravity="top|start"
-                    android:layout_margin="@dimen/back_button_margin"
-                    android:visibility="gone"
-                    android:background="@drawable/bg_pill_operator"
-                    android:contentDescription="@string/cd_back_to_language"
-                    android:padding="8dp"
-                    android:scaleType="fitCenter"
-                    android:src="@drawable/ic_arrow_back"
-                    app:tint="@color/white" />
-
-            </FrameLayout>
-
-            <!-- Cart Table (Moved to TOP for Pine Labs layout) -->
-            <LinearLayout
-                android:id="@+id/tableCard"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginHorizontal="@dimen/screen_margin_horizontal"
-                android:layout_marginTop="22dp"
-                android:layout_marginBottom="10dp"
-                android:background="@drawable/bg_table_container"
-                android:orientation="vertical"
-                android:visibility="gone">
-
-                <!-- Header: minHeight (not fixed) + auto-size text so Malayalam column
-                     titles shrink to fit instead of clipping; column widths stay aligned
-                     with the row layout -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:background="@drawable/bg_table_header"
-                    android:gravity="center_vertical"
-                    android:minHeight="@dimen/table_header_height"
-                    android:orientation="horizontal"
-                    android:paddingHorizontal="@dimen/table_cell_padding"
-                    android:paddingVertical="4dp">
+                    android:orientation="vertical">
 
-                    <TextView
-                        android:layout_width="@dimen/col_no_width"
+                    <FrameLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content">
+
+                        <ImageView
+                            android:id="@+id/ivTempleBanner"
+                            android:layout_width="match_parent"
+                            android:layout_height="@dimen/banner_height"
+                            android:contentDescription="@string/cd_temple_banner"
+                            android:scaleType="centerCrop"
+                            android:src="@drawable/temple_banner" />
+
+                        <ImageButton
+                            android:id="@+id/btnBackToLanguage"
+                            android:layout_width="@dimen/back_button_size"
+                            android:layout_height="@dimen/back_button_size"
+                            android:layout_gravity="top|start"
+                            android:layout_margin="@dimen/back_button_margin"
+                            android:visibility="gone"
+                            android:background="@drawable/bg_pill_operator"
+                            android:contentDescription="@string/cd_back_to_language"
+                            android:padding="8dp"
+                            android:scaleType="fitCenter"
+                            android:src="@drawable/ic_arrow_back"
+                            app:tint="@color/white" />
+
+                    </FrameLayout>
+
+                    <!-- Cart Table (Moved to TOP for Pine Labs layout) -->
+                    <LinearLayout
+                        android:id="@+id/tableCard"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:layout_marginHorizontal="@dimen/screen_margin_horizontal"
+                        android:layout_marginTop="22dp"
+                        android:layout_marginBottom="10dp"
+                        android:background="@drawable/bg_table_container"
+                        android:orientation="vertical"
+                        android:visibility="gone">
+
+                        <!-- Header: minHeight (not fixed) + auto-size text so Malayalam column
+                             titles shrink to fit instead of clipping; column widths stay aligned
+                             with the row layout -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:background="@drawable/bg_table_header"
+                            android:gravity="center_vertical"
+                            android:minHeight="@dimen/table_header_height"
+                            android:orientation="horizontal"
+                            android:paddingHorizontal="@dimen/table_cell_padding"
+                            android:paddingVertical="4dp">
+
+                            <TextView
+                                android:layout_width="@dimen/col_no_width"
+                                android:layout_height="wrap_content"
+                                android:fontFamily="sans-serif-medium"
+                                android:gravity="center"
+                                android:maxLines="1"
+                                android:text="@string/col_no"
+                                android:textColor="@color/table_header_text"
+                                android:textSize="@dimen/table_header_text_size"
+                                android:textStyle="bold"
+                                app:autoSizeMaxTextSize="@dimen/table_header_text_size"
+                                app:autoSizeMinTextSize="8sp"
+                                app:autoSizeStepGranularity="0.5sp"
+                                app:autoSizeTextType="uniform" />
+
+                            <TextView
+                                android:id="@+id/tvColItemName"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="4dp"
+                                android:layout_weight="1"
+                                android:ellipsize="end"
+                                android:fontFamily="sans-serif-medium"
+                                android:includeFontPadding="true"
+                                android:maxLines="1"
+                                android:text="@string/col_item_name"
+                                android:textColor="@color/table_header_text"
+                                android:textSize="@dimen/table_header_text_size"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tvColQty"
+                                android:layout_width="@dimen/col_qty_width"
+                                android:layout_height="wrap_content"
+                                android:fontFamily="sans-serif-medium"
+                                android:gravity="center"
+                                android:maxLines="1"
+                                android:text="@string/col_qty"
+                                android:textColor="@color/table_header_text"
+                                android:textSize="@dimen/table_header_text_size"
+                                android:textStyle="bold"
+                                app:autoSizeMaxTextSize="@dimen/table_header_text_size"
+                                app:autoSizeMinTextSize="8sp"
+                                app:autoSizeStepGranularity="0.5sp"
+                                app:autoSizeTextType="uniform" />
+
+                            <TextView
+                                android:id="@+id/tvColAmount"
+                                android:layout_width="@dimen/col_amount_width"
+                                android:layout_height="wrap_content"
+                                android:fontFamily="sans-serif-medium"
+                                android:gravity="end"
+                                android:maxLines="1"
+                                android:text="@string/col_amount"
+                                android:textColor="@color/table_header_text"
+                                android:textSize="@dimen/table_header_text_size"
+                                android:textStyle="bold"
+                                app:autoSizeMaxTextSize="@dimen/table_header_text_size"
+                                app:autoSizeMinTextSize="8sp"
+                                app:autoSizeStepGranularity="0.5sp"
+                                app:autoSizeTextType="uniform" />
+
+                            <TextView
+                                android:id="@+id/tvColTotal"
+                                android:layout_width="@dimen/col_total_width"
+                                android:layout_height="wrap_content"
+                                android:fontFamily="sans-serif-medium"
+                                android:gravity="end"
+                                android:maxLines="1"
+                                android:text="@string/col_total"
+                                android:textColor="@color/table_header_text"
+                                android:textSize="@dimen/table_header_text_size"
+                                android:textStyle="bold"
+                                app:autoSizeMaxTextSize="@dimen/table_header_text_size"
+                                app:autoSizeMinTextSize="8sp"
+                                app:autoSizeStepGranularity="0.5sp"
+                                app:autoSizeTextType="uniform" />
+
+                            <View
+                                android:layout_width="@dimen/col_action_width"
+                                android:layout_height="1dp" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:id="@+id/llOrderItemsContainer"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical" />
+
+                        <TextView
+                            android:id="@+id/tvEmptyBillState"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center"
+                            android:includeFontPadding="true"
+                            android:lineSpacingExtra="2dp"
+                            android:minHeight="@dimen/empty_state_height"
+                            android:paddingHorizontal="12dp"
+                            android:text="@string/empty_bill_state"
+                            android:textColor="@color/text_subtle"
+                            android:textSize="@dimen/text_size_small"
+                            android:visibility="visible" />
+
+                    </LinearLayout>
+
+                    <!-- Optional Devotee Mobile Number & Manual Print Button -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginHorizontal="@dimen/screen_margin_horizontal"
+                        android:layout_marginTop="20dp"
+                        android:layout_marginBottom="12dp"
+                        android:gravity="center_vertical"
+                        app:boxStrokeWidth="2.5dp"
+                        app:boxStrokeWidthFocused="3.5dp"
+                        android:orientation="horizontal">
+
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:id="@+id/tilDevoteeMobile"
+                            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:hint="@string/mobile_number_hint"
+                            app:boxCornerRadiusBottomEnd="8dp"
+                            app:boxCornerRadiusBottomStart="8dp"
+                            app:boxCornerRadiusTopEnd="8dp"
+                            app:boxCornerRadiusTopStart="8dp"
+                            app:boxStrokeColor="@color/temple_gold_primary"
+                            app:boxStrokeWidth="2.5dp"
+                            app:boxStrokeWidthFocused="3.5dp"
+                            app:hintTextColor="@color/temple_gold_primary">
+
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/etDevoteeMobile"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:fontFamily="sans-serif-black"
+                                android:includeFontPadding="true"
+                                android:inputType="phone"
+                                android:maxLength="10"
+                                android:maxLines="1"
+                                app:boxStrokeWidth="2.5dp"
+                                app:boxStrokeWidthFocused="3.5dp"
+                                android:textColor="@color/black"
+                                android:textSize="16sp"
+                                android:textStyle="bold" />
+                        </com.google.android.material.textfield.TextInputLayout>
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnManualPrint"
+                            android:layout_width="55dp"
+                            android:layout_height="55dp"
+                            android:layout_marginStart="8dp"
+                            android:backgroundTint="@color/pay_button_orange"
+                            android:contentDescription="@string/cd_generate_print"
+                            android:fontFamily="sans-serif-bold"
+                            android:paddingHorizontal="14dp"
+                            android:text="@string/btn_print"
+                            android:textColor="@color/white"
+                            android:textSize="8sp"
+                            android:visibility="visible"
+                            app:cornerRadius="10dp"
+                            app:iconGravity="textStart"
+                            app:iconPadding="6dp"
+                            app:iconSize="28dp"
+                            app:iconTint="@color/white" />
+
+                    </LinearLayout>
+
+                    <!-- Malayalam: wrap_content + line spacing so tall glyphs are never clipped -->
+                    <TextView
+                        android:id="@+id/tvSelectYourItem"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/section_spacing"
+                        android:layout_marginBottom="8dp"
                         android:fontFamily="sans-serif-medium"
                         android:gravity="center"
-                        android:maxLines="1"
-                        android:text="@string/col_no"
-                        android:textColor="@color/table_header_text"
-                        android:textSize="@dimen/table_header_text_size"
-                        android:textStyle="bold"
-                        app:autoSizeMaxTextSize="@dimen/table_header_text_size"
-                        app:autoSizeMinTextSize="8sp"
-                        app:autoSizeStepGranularity="0.5sp"
-                        app:autoSizeTextType="uniform" />
-
-                    <TextView
-                        android:id="@+id/tvColItemName"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="4dp"
-                        android:layout_weight="1"
-                        android:ellipsize="end"
-                        android:fontFamily="sans-serif-medium"
                         android:includeFontPadding="true"
-                        android:maxLines="1"
-                        android:text="@string/col_item_name"
-                        android:textColor="@color/table_header_text"
-                        android:textSize="@dimen/table_header_text_size"
-                        android:textStyle="bold" />
+                        android:lineSpacingExtra="2dp"
+                        android:paddingHorizontal="12dp"
+                        android:text="@string/select_your_item"
+                        android:textColor="@color/text_dark"
+                        android:textSize="@dimen/text_size_heading"
+                        android:textStyle="bold"
+                        android:visibility="gone" />
 
-                    <TextView
-                        android:id="@+id/tvColQty"
-                        android:layout_width="@dimen/col_qty_width"
-                        android:layout_height="wrap_content"
-                        android:fontFamily="sans-serif-medium"
+                    <LinearLayout
+                        android:id="@+id/layoutLoadingProducts"
+                        android:layout_width="match_parent"
+                        android:layout_height="@dimen/loading_height"
                         android:gravity="center"
-                        android:maxLines="1"
-                        android:text="@string/col_qty"
-                        android:textColor="@color/table_header_text"
-                        android:textSize="@dimen/table_header_text_size"
-                        android:textStyle="bold"
-                        app:autoSizeMaxTextSize="@dimen/table_header_text_size"
-                        app:autoSizeMinTextSize="8sp"
-                        app:autoSizeStepGranularity="0.5sp"
-                        app:autoSizeTextType="uniform" />
+                        android:orientation="vertical"
+                        android:visibility="visible">
 
-                    <TextView
-                        android:id="@+id/tvColAmount"
-                        android:layout_width="@dimen/col_amount_width"
+                        <ProgressBar
+                            android:layout_width="@dimen/progress_size"
+                            android:layout_height="@dimen/progress_size"
+                            android:indeterminateTint="@color/temple_gold_primary" />
+
+                        <TextView
+                            android:id="@+id/tvLoadingProductsHint"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:fontFamily="sans-serif-medium"
+                            android:includeFontPadding="true"
+                            android:text="@string/loading_products"
+                            android:textColor="@color/text_muted"
+                            android:textSize="@dimen/text_size_medium" />
+                    </LinearLayout>
+
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/rvProducts"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:fontFamily="sans-serif-medium"
-                        android:gravity="end"
-                        android:maxLines="1"
-                        android:text="@string/col_amount"
-                        android:textColor="@color/table_header_text"
-                        android:textSize="@dimen/table_header_text_size"
-                        android:textStyle="bold"
-                        app:autoSizeMaxTextSize="@dimen/table_header_text_size"
-                        app:autoSizeMinTextSize="8sp"
-                        app:autoSizeStepGranularity="0.5sp"
-                        app:autoSizeTextType="uniform" />
+                        android:clipToPadding="false"
+                        android:nestedScrollingEnabled="false"
+                        android:paddingHorizontal="@dimen/card_margin"
+                        android:visibility="gone"
+                        tools:listitem="@layout/item_product_card" />
 
-                    <TextView
-                        android:id="@+id/tvColTotal"
-                        android:layout_width="@dimen/col_total_width"
-                        android:layout_height="wrap_content"
-                        android:fontFamily="sans-serif-medium"
-                        android:gravity="end"
-                        android:maxLines="1"
-                        android:text="@string/col_total"
-                        android:textColor="@color/table_header_text"
-                        android:textSize="@dimen/table_header_text_size"
-                        android:textStyle="bold"
-                        app:autoSizeMaxTextSize="@dimen/table_header_text_size"
-                        app:autoSizeMinTextSize="8sp"
-                        app:autoSizeStepGranularity="0.5sp"
-                        app:autoSizeTextType="uniform" />
-
-                    <View
-                        android:layout_width="@dimen/col_action_width"
-                        android:layout_height="1dp" />
                 </LinearLayout>
+            </androidx.core.widget.NestedScrollView>
+        </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
-                <LinearLayout
-                    android:id="@+id/llOrderItemsContainer"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical" />
+        <!-- Bottom bar: width 0dp (constraint-based) instead of match_parent -->
+        <LinearLayout
+            android:id="@+id/bottomBar"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:background="@color/bottom_bar_bg"
+            android:elevation="@dimen/card_elevation"
+            android:orientation="vertical"
+            android:paddingHorizontal="@dimen/screen_margin_horizontal"
+            android:paddingTop="@dimen/bottom_bar_padding_top"
+            android:paddingBottom="@dimen/bottom_bar_padding_bottom"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent">
 
-                <TextView
-                    android:id="@+id/tvEmptyBillState"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:includeFontPadding="true"
-                    android:lineSpacingExtra="2dp"
-                    android:minHeight="@dimen/empty_state_height"
-                    android:paddingHorizontal="12dp"
-                    android:text="@string/empty_bill_state"
-                    android:textColor="@color/text_subtle"
-                    android:textSize="@dimen/text_size_small"
-                    android:visibility="visible" />
-
-            </LinearLayout>
-
-            <!-- Optional Devotee Mobile Number & Manual Print Button -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginHorizontal="@dimen/screen_margin_horizontal"
-                android:layout_marginTop="20dp"
-                android:layout_marginBottom="12dp"
                 android:gravity="center_vertical"
-                app:boxStrokeWidth="2.5dp"
-                app:boxStrokeWidthFocused="3.5dp"
                 android:orientation="horizontal">
 
-                <com.google.android.material.textfield.TextInputLayout
-                    android:id="@+id/tilDevoteeMobile"
-                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                <TextView
+                    android:id="@+id/tvTotalAmountLabel"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:hint="@string/mobile_number_hint"
-                    app:boxCornerRadiusBottomEnd="8dp"
-                    app:boxCornerRadiusBottomStart="8dp"
-                    app:boxCornerRadiusTopEnd="8dp"
-                    app:boxCornerRadiusTopStart="8dp"
-                    app:boxStrokeColor="@color/temple_gold_primary"
-                    app:boxStrokeWidth="2.5dp"
-                    app:boxStrokeWidthFocused="3.5dp"
-                    app:hintTextColor="@color/temple_gold_primary">
+                    android:fontFamily="sans-serif-medium"
+                    android:includeFontPadding="true"
+                    android:text="@string/total_amount_label"
+                    android:textColor="@color/text_dark"
+                    android:textSize="@dimen/text_size_small"
+                    android:textStyle="bold" />
 
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etDevoteeMobile"
+                <!-- Pine Labs Detected Badge (kept from original layout) -->
+                <LinearLayout
+                    android:id="@+id/layoutPineLabsStatus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_pinelabs_badge"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="3dp"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/tvPineLabsBadge"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="sans-serif-medium"
+                        android:includeFontPadding="true"
+                        android:text="@string/pine_labs_ready"
+                        android:textColor="#2E7D32"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="5dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <FrameLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="10dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_total_box"
+                    android:minHeight="@dimen/button_height">
+
+                    <TextView
+                        android:id="@+id/tvTotalAmountValue"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:layout_gravity="center"
                         android:fontFamily="sans-serif-black"
-                        android:includeFontPadding="true"
-                        android:inputType="phone"
-                        android:maxLength="10"
+                        android:gravity="center"
                         android:maxLines="1"
-                        app:boxStrokeWidth="2.5dp"
-                        app:boxStrokeWidthFocused="3.5dp"
-                        android:textColor="@color/black"
-                        android:textSize="16sp"
+                        android:text="₹0.00"
+                        android:textColor="@color/text_dark"
+                        android:textSize="@dimen/text_size_large"
                         android:textStyle="bold" />
-                </com.google.android.material.textfield.TextInputLayout>
+                </FrameLayout>
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnManualPrint"
-                    android:layout_width="55dp"
-                    android:layout_height="55dp"
-                    android:layout_marginStart="8dp"
-                    android:backgroundTint="@color/pay_button_orange"
-                    android:contentDescription="@string/cd_generate_print"
-                    android:fontFamily="sans-serif-bold"
-                    android:paddingHorizontal="14dp"
-                    android:text="@string/btn_print"
-                    android:textColor="@color/white"
-                    android:textSize="8sp"
-                    android:visibility="gone"
-                    app:cornerRadius="10dp"
-                    app:iconGravity="textStart"
-                    app:iconPadding="6dp"
-                    app:iconSize="28dp"
-                    app:iconTint="@color/white" />
-
-            </LinearLayout>
-
-            <!-- Malayalam: wrap_content + line spacing so tall glyphs are never clipped -->
-            <TextView
-                android:id="@+id/tvSelectYourItem"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/section_spacing"
-                android:layout_marginBottom="8dp"
-                android:fontFamily="sans-serif-medium"
-                android:gravity="center"
-                android:includeFontPadding="true"
-                android:lineSpacingExtra="2dp"
-                android:paddingHorizontal="12dp"
-                android:text="@string/select_your_item"
-                android:textColor="@color/text_dark"
-                android:textSize="@dimen/text_size_heading"
-                android:textStyle="bold"
-                android:visibility="gone" />
-
-            <LinearLayout
-                android:id="@+id/layoutLoadingProducts"
-                android:layout_width="match_parent"
-                android:layout_height="@dimen/loading_height"
-                android:gravity="center"
-                android:orientation="vertical"
-                android:visibility="visible">
-
-                <ProgressBar
-                    android:layout_width="@dimen/progress_size"
-                    android:layout_height="@dimen/progress_size"
-                    android:indeterminateTint="@color/temple_gold_primary" />
-
-                <TextView
-                    android:id="@+id/tvLoadingProductsHint"
+                <!-- Pay button: minWidth/minHeight + auto-size so the Malayalam label fits -->
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btnPay"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_pay_button"
+                    android:elevation="2dp"
                     android:fontFamily="sans-serif-medium"
                     android:includeFontPadding="true"
-                    android:text="@string/loading_products"
-                    android:textColor="@color/text_muted"
-                    android:textSize="@dimen/text_size_medium" />
-            </LinearLayout>
-
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/rvProducts"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:clipToPadding="false"
-                android:nestedScrollingEnabled="false"
-                android:paddingHorizontal="@dimen/card_margin"
-                android:visibility="gone"
-                tools:listitem="@layout/item_product_card" />
-
-        </LinearLayout>
-    </androidx.core.widget.NestedScrollView>
-    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
-
-    <!-- Bottom bar: width 0dp (constraint-based) instead of match_parent -->
-    <LinearLayout
-        android:id="@+id/bottomBar"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:background="@color/bottom_bar_bg"
-        android:elevation="@dimen/card_elevation"
-        android:orientation="vertical"
-        android:paddingHorizontal="@dimen/screen_margin_horizontal"
-        android:paddingTop="@dimen/bottom_bar_padding_top"
-        android:paddingBottom="@dimen/bottom_bar_padding_bottom"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <TextView
-                android:id="@+id/tvTotalAmountLabel"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:fontFamily="sans-serif-medium"
-                android:includeFontPadding="true"
-                android:text="@string/total_amount_label"
-                android:textColor="@color/text_dark"
-                android:textSize="@dimen/text_size_small"
-                android:textStyle="bold" />
-
-            <!-- Pine Labs Detected Badge (kept from original layout) -->
-            <LinearLayout
-                android:id="@+id/layoutPineLabsStatus"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:background="@drawable/bg_pinelabs_badge"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingHorizontal="8dp"
-                android:paddingVertical="3dp"
-                android:visibility="gone">
-
-                <TextView
-                    android:id="@+id/tvPineLabsBadge"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:fontFamily="sans-serif-medium"
-                    android:includeFontPadding="true"
-                    android:text="@string/pine_labs_ready"
-                    android:textColor="#2E7D32"
-                    android:textSize="10sp"
-                    android:textStyle="bold" />
-            </LinearLayout>
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="5dp"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <FrameLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginEnd="10dp"
-                android:layout_weight="1"
-                android:background="@drawable/bg_total_box"
-                android:minHeight="@dimen/button_height">
-
-                <TextView
-                    android:id="@+id/tvTotalAmountValue"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="center"
-                    android:fontFamily="sans-serif-black"
-                    android:gravity="center"
+                    android:letterSpacing="0.05"
                     android:maxLines="1"
-                    android:text="₹0.00"
-                    android:textColor="@color/text_dark"
-                    android:textSize="@dimen/text_size_large"
-                    android:textStyle="bold" />
-            </FrameLayout>
+                    android:minWidth="@dimen/pay_button_width"
+                    android:minHeight="@dimen/button_height"
+                    android:paddingHorizontal="12dp"
+                    android:stateListAnimator="@null"
+                    android:text="@string/pay"
+                    android:textColor="@color/white"
+                    android:textSize="@dimen/button_text_size"
+                    android:textStyle="bold"
+                    app:autoSizeMaxTextSize="@dimen/button_text_size"
+                    app:autoSizeMinTextSize="10sp"
+                    app:autoSizeStepGranularity="0.5sp"
+                    app:autoSizeTextType="uniform" />
+            </LinearLayout>
 
-            <!-- Pay button: minWidth/minHeight + auto-size so the Malayalam label fits -->
-            <androidx.appcompat.widget.AppCompatButton
-                android:id="@+id/btnPay"
-                android:layout_width="wrap_content"
+            <!-- 3 images in one row, equal width -->
+            <LinearLayout
+                android:id="@+id/llBottomImages"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@drawable/bg_pay_button"
-                android:elevation="2dp"
-                android:fontFamily="sans-serif-medium"
-                android:includeFontPadding="true"
-                android:letterSpacing="0.05"
-                android:maxLines="1"
-                android:minWidth="@dimen/pay_button_width"
-                android:minHeight="@dimen/button_height"
-                android:paddingHorizontal="12dp"
-                android:stateListAnimator="@null"
-                android:text="@string/pay"
-                android:textColor="@color/white"
-                android:textSize="@dimen/button_text_size"
-                android:textStyle="bold"
-                app:autoSizeMaxTextSize="@dimen/button_text_size"
-                app:autoSizeMinTextSize="10sp"
-                app:autoSizeStepGranularity="0.5sp"
-                app:autoSizeTextType="uniform" />
+                android:layout_marginTop="@dimen/bottom_images_margin_top"
+                android:baselineAligned="false"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:weightSum="3">
+
+                <ImageView
+                    android:id="@+id/ivBottom1"
+                    android:layout_width="0dp"
+                    android:layout_height="@dimen/bottom_images_height"
+                    android:layout_marginEnd="@dimen/bottom_images_gap"
+                    android:layout_weight="1"
+                    android:contentDescription="@string/cd_logo_xenia"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/img" />
+
+                <ImageView
+                    android:id="@+id/ivBottom2"
+                    android:layout_width="0dp"
+                    android:layout_height="@dimen/bottom_images_height"
+                    android:layout_marginHorizontal="@dimen/bottom_images_gap"
+                    android:layout_weight="1"
+                    android:contentDescription="@string/cd_logo_sib"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/ic_sib" />
+
+                <ImageView
+                    android:id="@+id/ivBottom3"
+                    android:layout_width="0dp"
+                    android:layout_height="@dimen/bottom_images_height"
+                    android:layout_marginStart="@dimen/bottom_images_gap"
+                    android:layout_weight="1"
+                    android:contentDescription="@string/cd_logo_travancore"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/ic_travancore" />
+            </LinearLayout>
+
         </LinearLayout>
-
-        <!-- 3 images in one row, equal width -->
-        <LinearLayout
-            android:id="@+id/llBottomImages"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/bottom_images_margin_top"
-            android:baselineAligned="false"
-            android:gravity="center"
-            android:orientation="horizontal"
-            android:weightSum="3">
-
-            <ImageView
-                android:id="@+id/ivBottom1"
-                android:layout_width="0dp"
-                android:layout_height="@dimen/bottom_images_height"
-                android:layout_marginEnd="@dimen/bottom_images_gap"
-                android:layout_weight="1"
-                android:contentDescription="@string/cd_logo_xenia"
-                android:scaleType="fitCenter"
-                android:src="@drawable/img" />
-
-            <ImageView
-                android:id="@+id/ivBottom2"
-                android:layout_width="0dp"
-                android:layout_height="@dimen/bottom_images_height"
-                android:layout_marginHorizontal="@dimen/bottom_images_gap"
-                android:layout_weight="1"
-                android:contentDescription="@string/cd_logo_sib"
-                android:scaleType="fitCenter"
-                android:src="@drawable/ic_sib" />
-
-            <ImageView
-                android:id="@+id/ivBottom3"
-                android:layout_width="0dp"
-                android:layout_height="@dimen/bottom_images_height"
-                android:layout_marginStart="@dimen/bottom_images_gap"
-                android:layout_weight="1"
-                android:contentDescription="@string/cd_logo_travancore"
-                android:scaleType="fitCenter"
-                android:src="@drawable/ic_travancore" />
-        </LinearLayout>
-
-    </LinearLayout>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

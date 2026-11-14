@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_gravity="center"
+    android:background="@drawable/bg_modern_dialog"
+    android:elevation="12dp"
+    android:orientation="vertical"
+    android:paddingHorizontal="28dp"
+    android:paddingTop="26dp"
+    android:paddingBottom="28dp">
+
+    <!-- Title & Header -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <ImageView
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:contentDescription="UPI QR"
+            android:src="@drawable/ic_qr_code"
+            app:tint="@color/temple_gold_primary" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:layout_weight="1"
+            android:fontFamily="sans-serif-bold"
+            android:text="Razorpay UPI QR Payment"
+            android:textColor="@color/text_dark"
+            android:textSize="20sp" />
+    </LinearLayout>
+
+    <!-- Amount Summary Card -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="18dp"
+        android:layout_marginBottom="18dp"
+        android:background="@drawable/bg_total_box"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:paddingVertical="14dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="sans-serif-medium"
+            android:text="Total Amount to Pay"
+            android:textColor="@color/text_muted"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/tvQrTotalAmount"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:fontFamily="sans-serif-black"
+            android:text="₹0.00"
+            android:textColor="@color/pay_button_orange"
+            android:textSize="30sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- QR Code Card Container (Increased size) -->
+    <FrameLayout
+        android:layout_width="320dp"
+        android:layout_height="400dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginBottom="16dp"
+        android:background="@drawable/bg_language_card_selected"
+        android:padding="10dp">
+
+        <ImageView
+            android:id="@+id/ivRazorpayQrCode"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:contentDescription="Razorpay Payment QR Code"
+            android:scaleType="fitCenter" />
+
+        <ProgressBar
+            android:id="@+id/pbQrLoading"
+            style="?android:attr/progressBarStyle"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:layout_gravity="center"
+            android:visibility="visible" />
+    </FrameLayout>
+
+    <!-- Expiry Timer Badge -->
+    <TextView
+        android:id="@+id/tvQrTimer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginBottom="12dp"
+        android:background="@drawable/bg_badge_gold"
+        android:fontFamily="sans-serif-bold"
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="7dp"
+        android:text="QR expires in 05:00"
+        android:textColor="@color/white"
+        android:textSize="14sp" />
+
+    <!-- Scan Instruction Text -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:fontFamily="sans-serif-medium"
+        android:text="Scan using GPay, PhonePe, Paytm or any UPI App"
+        android:textColor="@color/text_muted"
+        android:textSize="14sp" />
+
+    <!-- Dynamic Polling Status -->
+    <TextView
+        android:id="@+id/tvQrStatus"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="20dp"
+        android:gravity="center"
+        android:fontFamily="sans-serif-medium"
+        android:text="⏳ Waiting for payment confirmation..."
+        android:textColor="@color/temple_gold_primary"
+        android:textSize="13sp" />
+
+    <!-- Cancel Payment Button -->
+    <androidx.appcompat.widget.AppCompatButton
+        android:id="@+id/btnCancelQrPayment"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:background="@drawable/bg_cancel_payment_button"
+        android:fontFamily="sans-serif-bold"
+        android:text="Cancel Payment"
+        android:textColor="@color/black"
+        android:textSize="15sp" />
+
+</LinearLayout>
