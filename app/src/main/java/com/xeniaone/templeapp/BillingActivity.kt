@@ -442,11 +442,9 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
         if (activeItems.isEmpty()) {
             binding.tableCard.visibility = View.GONE
             binding.tvEmptyBillState.visibility = View.VISIBLE
-            binding.tvDeliveryCounterNotice?.visibility = View.VISIBLE
         } else {
             binding.tableCard.visibility = View.VISIBLE
             binding.tvEmptyBillState.visibility = View.GONE
-            binding.tvDeliveryCounterNotice?.visibility = View.GONE
             val inflater = LayoutInflater.from(this)
 
             activeItems.forEachIndexed { index, item ->
@@ -939,13 +937,13 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
                 val easeOrderIdFromSummary = summaryResponse.easeOrderId ?: ""
                 val qrUrlFromSummary = summaryResponse.data ?: ""
 
-                // Step 3: Call Process API with settled=false
+                // Step 3: Call Process API with settled=false (and isWhatsApp=false before payment success)
                 val processResult = orderRepository.processOrder(
                     orderId = initialOrderId,
                     companyId = companyId,
                     customerId = 0,
                     settled = false,
-                    isWhatsApp = isWhatsAppEnabled()
+                    isWhatsApp = false
                 )
 
                 CommonMethod.dismissLoader()

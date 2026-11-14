@@ -249,5 +249,17 @@
             app:strokeWidth="1dp" />
 
     </LinearLayout>
+    <TextView
+        android:id="@+id/tv_copyright"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="@dimen/receipt_spacing_small"
+        android:gravity="center"
+        android:text="@string/copyright_text"
+        android:textColor="#555555"
+        android:textSize="@dimen/receipt_meta_text_size"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

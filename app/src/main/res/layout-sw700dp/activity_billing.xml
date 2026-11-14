@@ -424,7 +424,7 @@
                 android:layout_weight="1"
                 android:gravity="center"
                 android:layout_marginTop="25dp"
-                android:text="Copyright © 2026 Xenia Technologies.\nAll rights reserved."
+                android:text="@string/copyright_text"
                 android:textColor="@color/temple_gold_primary"
                 android:textSize="@dimen/text_size_small" />
 
