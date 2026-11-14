@@ -90,12 +90,16 @@ class PaymentActivity : AppCompatActivity() {
         binding.pbPrinter.visibility = View.GONE
         if (printResponse != null && printResponse.isSuccess) {
             PineLabsManager.resetRetryState()
+            isPrintFailed = false
+            BillingActivity.isPendingPrintAvailable = false
             binding.tvPrinterStatus.text = "✅ Receipt printed on Pine Labs POS!"
             Log.i(TAG, "✅ [PineLabs Print] Receipt printed successfully on terminal!")
             startAutoReturnTimer()
         } else {
-            val msg = printResponse?.response?.responseMsg ?: "Printer busy or finished"
-            Log.w(TAG, "⚠️ [PineLabs Print] Print failed or returned warning: $msg (Code: ${printResponse?.response?.responseCode})")
+            val rawCode = printResponse?.response?.responseCode ?: -1
+            val rawMsg = printResponse?.response?.responseMsg.orEmpty()
+            val msg = PineLabsManager.getPrinterErrorMessage(rawCode, rawMsg)
+            Log.w(TAG, "⚠️ [PineLabs Print] Print failed or returned warning: $msg (Code: $rawCode)")
 
             if (PineLabsManager.shouldRetry(printResponse)) {
                 binding.tvPrinterStatus.text = "Retrying print (${PineLabsManager.currentRetryCount}/${PineLabsManager.MAX_PINE_LABS_RETRIES})..."
@@ -113,18 +117,24 @@ class PaymentActivity : AppCompatActivity() {
                             binding.pbPrinter.visibility = View.VISIBLE
                             launchPineLabsPrint(retryIntent)
                         } else {
-                            binding.tvPrinterStatus.text = "Print status: $msg"
+                            isPrintFailed = true
+                            BillingActivity.isPendingPrintAvailable = true
+                            binding.tvPrinterStatus.text = msg
                             startAutoReturnTimer()
                         }
                     } catch (e: Exception) {
                         isPrintingInProgress = false
+                        isPrintFailed = true
+                        BillingActivity.isPendingPrintAvailable = true
                         Log.e(TAG, "❌ [PineLabs Print Retry Error] ${e.message}", e)
                         binding.tvPrinterStatus.text = "Print error: ${e.message}"
                         startAutoReturnTimer()
                     }
                 }, 15000L)
             } else {
-                binding.tvPrinterStatus.text = "Print status: $msg"
+                isPrintFailed = true
+                BillingActivity.isPendingPrintAvailable = true
+                binding.tvPrinterStatus.text = msg
                 startAutoReturnTimer()
             }
         }
@@ -140,6 +150,7 @@ class PaymentActivity : AppCompatActivity() {
     private var isNyxBound = false
     private var serviceConnection: ServiceConnection? = null
     private var isPrintingInProgress = false
+    private var isPrintFailed = false
 
     // Kiosk Auto-return Timer
     private var autoReturnTimer: CountDownTimer? = null
@@ -200,8 +211,8 @@ class PaymentActivity : AppCompatActivity() {
         val itemsJson = intent.getStringExtra(EXTRA_RECEIPT_ITEMS_JSON)
         receiptItems = parseReceiptItems(itemsJson)
 
-        // Generate formatted date matching proposal design: "04 - Sep - 2024  07: 50 AM"
-        formattedDate = SimpleDateFormat("dd - MMM - yyyy  hh: mm a", Locale.ENGLISH).format(Date())
+        // Generate formatted date & time: e.g. "04-Sep-2024  07:50 AM"
+        formattedDate = SimpleDateFormat("dd-MMM-yyyy  hh:mm a", Locale.ENGLISH).format(Date())
 
         fetchOrderDetailsAndInitializePrint()
     }
@@ -345,6 +356,9 @@ class PaymentActivity : AppCompatActivity() {
         autoReturnTimer?.cancel()
         val intent = Intent(applicationContext, BillingActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            if (isPrintFailed) {
+                putExtra(BillingActivity.EXTRA_PRINT_PENDING, true)
+            }
         }
         startActivity(intent)
         finish()
@@ -695,7 +709,10 @@ class PaymentActivity : AppCompatActivity() {
         }
 
         // Draws wrapped text starting at current y; leaves y on the last line's baseline
-        fun drawWrapped(text: String, x: Float, maxWidth: Float, lineHeight: Float) {
+        fun drawWrapped(text: String, x: Float, maxWidth: Float, lineHeight: Float, align: Paint.Align? = null) {
+            if (align != null) {
+                paint.textAlign = align
+            }
             val lines = wrapLines(text, maxWidth)
             lines.forEachIndexed { index, line ->
                 if (index > 0) y += lineHeight
@@ -706,20 +723,20 @@ class PaymentActivity : AppCompatActivity() {
         // ---------------- Temple Header ----------------
         paint.textAlign = Paint.Align.CENTER
         paint.textSize = 34f
-        drawWrapped("Sabarimala Sri Dharmasastha Temple", width / 2f, maxTextWidth, 40f)
+        drawWrapped("Sabarimala Sri Dharmasastha Temple", width / 2f, maxTextWidth, 40f, Paint.Align.CENTER)
 
-        y += 36f
-        paint.textSize = 24f
-        paint.color = Color.BLACK
-        drawWrapped("Swamy Ayyappan Rd, Sannidhanam, Sabarimala, Kerala 689662", width / 2f, maxTextWidth, 30f)
-
-        y += 32f
-        drawWrapped("Phone: (703) 690-9355; website: www.sabarimala.com", width / 2f, maxTextWidth, 30f)
+//        y += 36f
+//        paint.textSize = 24f
+//        paint.color = Color.BLACK
+//        drawWrapped("Swamy Ayyappan Rd, Sannidhanam, Sabarimala, Kerala 689662", width / 2f, maxTextWidth, 30f)
+//
+//        y += 32f
+//        drawWrapped("Phone: (703) 690-9355; website: www.sabarimala.com", width / 2f, maxTextWidth, 30f)
 
         y += 58f
         paint.textSize = 32f
         paint.color = Color.BLACK
-        canvas.drawText("Prasadam Receipt", width / 2f, y, paint)
+        canvas.drawText("Prebooking Prasadam Receipt", width / 2f, y, paint)
 
         // ---------------- Metadata (left aligned) ----------------
         y += 52f
@@ -737,7 +754,7 @@ class PaymentActivity : AppCompatActivity() {
         // Devotee name and mobile: printed only when they are not empty
         if (orderCustomerName.isNotBlank()) {
             y += 38f
-            drawWrapped("Name       :   ${orderCustomerName.trim()}", margin, maxTextWidth, 34f)
+            drawWrapped("Name       :   ${orderCustomerName.trim()}", margin, maxTextWidth, 34f, Paint.Align.LEFT)
         }
         if (orderMobileNumber.isNotBlank()) {
             y += 38f
@@ -760,7 +777,7 @@ class PaymentActivity : AppCompatActivity() {
         canvas.drawText("Qty", colQtyCenter, y, paint)
 
         paint.textAlign = Paint.Align.RIGHT
-        canvas.drawText("Amount", colAmountRight, y, paint)
+        canvas.drawText("Price", colAmountRight, y, paint)
         canvas.drawText("Total", colTotalRight, y, paint)
 
         y += 16f
@@ -816,15 +833,27 @@ class PaymentActivity : AppCompatActivity() {
             canvas.drawText(" User: ${currentUserName.trim()}", right, y, paint)
         }
 
-        // ---------------- Footer ----------------
-        y += 62f
-        paint.color = Color.BLACK
-        paint.textAlign = Paint.Align.CENTER
-        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-        paint.textSize = 28f
-        drawWrapped("Thank you for Your Generosity", width / 2f, maxTextWidth, 34f)
+//        // ---------------- Footer ----------------
+//        y += 62f
+//        paint.color = Color.BLACK
+//        paint.textAlign = Paint.Align.CENTER
+//        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+//        paint.textSize = 28f
+//        drawWrapped("Thank you for Your Generosity", width / 2f, maxTextWidth, 34f)
 
         // ---------------- Footer Message & Company Brand (below QR) ----------------
+
+        // ---------------- Centered QR Code ----------------
+        val qrSize = 280
+        val qrData = if (encryptedOrderId.isNotBlank()) encryptedOrderId else if (orderId > 0) orderId.toString() else "27533365"
+        val qrBitmap = QrCodeGenerator.generate(qrData, qrSize)
+        y += 30f
+        val qrLeft = (width - qrSize) / 2f
+        canvas.drawBitmap(qrBitmap, qrLeft, y, null)
+        qrBitmap.recycle()
+        y += qrSize + 40f                      // bottom padding so the cutter doesn't clip the QR
+
+
         val footerMsg = authManager.footerMessage
         val compBrand = authManager.companyBrand
 
@@ -838,7 +867,7 @@ class PaymentActivity : AppCompatActivity() {
                     paint.typeface = Typeface.DEFAULT
                     paint.textSize = 22f
                     paint.color = Color.DKGRAY
-                    drawWrapped(trimmed, width / 2f, maxTextWidth, 28f)
+                    drawWrapped(trimmed, width / 2f, maxTextWidth, 28f, Paint.Align.CENTER)
                 }
             }
         }
@@ -847,15 +876,6 @@ class PaymentActivity : AppCompatActivity() {
             drawMultiLine(footerMsg)
         }
 
-        // ---------------- Centered QR Code ----------------
-        val qrSize = 280
-        val qrData = if (encryptedOrderId.isNotBlank()) encryptedOrderId else if (orderId > 0) orderId.toString() else "27533365"
-        val qrBitmap = QrCodeGenerator.generate(qrData, qrSize)
-        y += 30f
-        val qrLeft = (width - qrSize) / 2f
-        canvas.drawBitmap(qrBitmap, qrLeft, y, null)
-        qrBitmap.recycle()
-        y += qrSize + 40f                      // bottom padding so the cutter doesn't clip the QR
 
 
 

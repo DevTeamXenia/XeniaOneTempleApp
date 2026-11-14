@@ -166,7 +166,10 @@ data class OrderKioskSummaryResponse(
     val data: String?,
 
     @SerializedName("Message")
-    val message: String?
+    val message: String?,
+
+    @SerializedName("AdminPassword")
+    val adminPassword: String? = null
 )
 
 data class OrderDetailsResponse(

@@ -337,7 +337,7 @@ class ProductCardAdapter(
             }
 
             val dialog = MaterialAlertDialogBuilder(context)
-                .setTitle("Quantity for ${item.name}")
+                .setTitle("Quantity for ${item.name} (Max: ${item.maxQtyPerOrder})")
                 .setView(scrollView)
                 .create()
 

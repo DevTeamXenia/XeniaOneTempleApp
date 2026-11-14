@@ -237,7 +237,7 @@ object PineLabsManager {
         }
 
         // 1. Temple Header
-        addCenter("Sabarimala Sri Dharmasastha Temple")
+        addCenter("Sabarimala SriDharmasastha Temple")
         addDivider('=')
         addCenter("Prebooking Prasadam Receipt")
         addDivider('=')
@@ -522,6 +522,18 @@ object PineLabsManager {
             applicationId = applicationId,
             userId = userId
         )
+    }
+
+    fun getPrinterErrorMessage(code: Int, fallbackMsg: String = ""): String {
+        return when (code) {
+            PineLabsConstants.PRINTER_RES_OUT_OF_PAPER -> "Out of Thermal Paper. Please load paper roll into terminal."
+            PineLabsConstants.PRINTER_RES_LOW_PAPER -> "Printer Low on Paper."
+            PineLabsConstants.PRINTER_RES_PAPER_JAM -> "Paper Jam detected in printer."
+            PineLabsConstants.PRINTER_RES_HARDWARE_ERROR -> "POS Printer Hardware Error."
+            PineLabsConstants.PRINTER_RES_OVERHEAT -> "Printer Overheated. Please wait."
+            PineLabsConstants.PRINTER_RES_BUSY -> "Printer Busy. Retrying..."
+            else -> if (fallbackMsg.isNotBlank()) fallbackMsg else "Printer Error (Code: $code)"
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────

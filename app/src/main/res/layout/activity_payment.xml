@@ -48,9 +48,17 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/receipt_spacing_small"
             android:gravity="center"
-            android:text="Thank you for Your Generosity"
+            android:text="Please check your WhatsApp for receipt "
             android:textColor="#555555"
             android:textSize="@dimen/receipt_meta_text_size" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/receipt_spacing_small"
+            android:gravity="center"
+            android:text="സ്വാമിയേ ശരണമയ്യപ്പാ"
+            android:textColor="#555555"
+            android:textSize="15sp" />
 
         <!-- Amount -->
         <TextView

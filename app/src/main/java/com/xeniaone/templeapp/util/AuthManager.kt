@@ -26,7 +26,12 @@ class AuthManager(context: Context) {
         private const val KEY_PINELABS_USER_ID = "pinelabs_user_id"
         private const val KEY_FOOTER_MESSAGE = "footer_message"
         private const val KEY_COMPANY_BRAND = "company_brand"
+        private const val KEY_ADMIN_PASSWORD = "admin_password"
     }
+
+    var adminPassword: String
+        get() = prefs.getString(KEY_ADMIN_PASSWORD, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_ADMIN_PASSWORD, value).apply()
 
     var footerMessage: String
         get() = prefs.getString(KEY_FOOTER_MESSAGE, "") ?: ""

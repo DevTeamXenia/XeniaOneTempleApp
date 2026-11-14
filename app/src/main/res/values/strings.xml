@@ -17,7 +17,7 @@
     <string name="login_success">Logged in successfully</string>
     
     <!-- Billing Screen -->
-    <string name="select_your_item">Select Your Item</string>
+    <string name="select_your_item"> Prasadam prebooking - (Select Your Item)</string>
     <string name="item_appam">Appam</string>
     <string name="item_aravana">Aravana</string>
     <string name="item_combo">Aravana Appam Combo</string>

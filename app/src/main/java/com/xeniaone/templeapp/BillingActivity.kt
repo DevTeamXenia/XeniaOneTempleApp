@@ -75,8 +75,10 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
     companion object {
         const val EXTRA_OPERATOR_NAME = "extra_operator_name"
         const val EXTRA_LANGUAGE_CODE = "extra_language_code"
+        const val EXTRA_PRINT_PENDING = "extra_print_pending"
         private const val TAG = "BillingActivity"
         var lastOrderIntent: Intent? = null
+        var isPendingPrintAvailable: Boolean = false
     }
 
     private lateinit var binding: ActivityBillingBinding
@@ -146,6 +148,9 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
         orderRepository = app.container.orderRepository
         val authRepo = app.container.authRepository
 
+        // Suppress system default keyboard for devotee mobile input (custom keypad used)
+        binding.etDevoteeMobile.showSoftInputOnFocus = false
+
         currentLanguage = intent.getStringExtra(EXTRA_LANGUAGE_CODE) ?: authManager.selectedLanguage
 
         // Detect Pine Labs hardware / MasterApp availability while loading
@@ -173,14 +178,22 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
             proceedToPayment()
         }
 
-        // Manual print button listener (reprint last order only if pending)
-        binding.btnManualPrint?.visibility = View.GONE
+        // Manual print button listener (reprint last order if pending or print failed)
+        val hasPendingPrintExtra = intent.getBooleanExtra(EXTRA_PRINT_PENDING, false)
+        if ((hasPendingPrintExtra || isPendingPrintAvailable) && lastOrderIntent != null) {
+            isPrintPending = true
+            binding.btnManualPrint?.visibility = View.VISIBLE
+        } else {
+            binding.btnManualPrint?.visibility = View.GONE
+        }
+
         binding.btnManualPrint?.setOnClickListener {
             val lastIntent = lastOrderIntent
-            if (lastIntent != null && isPrintPending) {
-                startActivity(lastIntent)
+            if (lastIntent != null && (isPrintPending || isPendingPrintAvailable)) {
                 isPrintPending = false
+                isPendingPrintAvailable = false
                 binding.btnManualPrint?.visibility = View.GONE
+                startActivity(lastIntent)
             } else {
                 Toast.makeText(this, "No pending print required", Toast.LENGTH_SHORT).show()
                 binding.btnManualPrint?.visibility = View.GONE
@@ -218,6 +231,15 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
         setupNavigationDrawer()
         updateDevoteeMobileHint()
         binding.etDevoteeMobile.setTypeface(null, android.graphics.Typeface.BOLD)
+        binding.etDevoteeMobile.showSoftInputOnFocus = false
+        binding.etDevoteeMobile.setOnClickListener {
+            showMobileKeypadDialog()
+        }
+        binding.etDevoteeMobile.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) {
+                showMobileKeypadDialog()
+            }
+        }
 
         if (authManager.employeeImage.isNotBlank()) {
             loadEmployeeBannerImage(authManager.employeeImage)
@@ -292,7 +314,7 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
 
     private fun updateDevoteeMobileHint() {
         val hintText = if (isWhatsAppEnabled()) {
-            "Enter Your Mobile number to receive receipt in WhatsApp"
+            "Enter Your Mobile Number To Receive Receipt In WhatsApp"
         } else {
             "Enter Mobile Number"
         }
@@ -420,9 +442,11 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
         if (activeItems.isEmpty()) {
             binding.tableCard.visibility = View.GONE
             binding.tvEmptyBillState.visibility = View.VISIBLE
+            binding.tvDeliveryCounterNotice?.visibility = View.VISIBLE
         } else {
             binding.tableCard.visibility = View.VISIBLE
             binding.tvEmptyBillState.visibility = View.GONE
+            binding.tvDeliveryCounterNotice?.visibility = View.GONE
             val inflater = LayoutInflater.from(this)
 
             activeItems.forEachIndexed { index, item ->
@@ -692,30 +716,15 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
 
             Toast.makeText(this, "✅ Payment Approved! (Auth: $approvalCode)", Toast.LENGTH_SHORT).show()
 
-            // Navigate to Receipt and Thermal Print screen
-            val intent = Intent(this@BillingActivity, PaymentActivity::class.java).apply {
-                putExtra(PaymentActivity.EXTRA_ORDER_ID, pendingOrderId)
-                putExtra(PaymentActivity.EXTRA_PSP_REF_NO, pspRef)
-                putExtra(PaymentActivity.EXTRA_TOTAL_AMOUNT, pendingTotal)
-                putExtra(PaymentActivity.EXTRA_RECEIPT_ITEMS_JSON, pendingReceiptItemsJson)
-                putExtra(PaymentActivity.EXTRA_LANGUAGE_CODE, currentLanguage)
-                putExtra(PaymentActivity.EXTRA_PAYMENT_MODE, pendingPaymentMode)
-                putExtra(PaymentActivity.EXTRA_CARD_NUMBER, cardNumber)
-                putExtra(PaymentActivity.EXTRA_APPROVAL_CODE, approvalCode)
-                putExtra(PaymentActivity.EXTRA_INVOICE_NUMBER, invoiceNo)
-                putExtra(PaymentActivity.EXTRA_RRN, rrn)
-                putExtra(PaymentActivity.EXTRA_CARD_TYPE, cardType)
-            }
-            lastOrderIntent = intent
-            if (isPrintEnabled()) {
-                startActivity(intent)
-            } else {
-                Toast.makeText(this, "Payment approved successfully (Print Disabled)", Toast.LENGTH_LONG).show()
-                allItems.forEach { it.quantity = 0 }
-                binding.etDevoteeMobile.text?.clear()
-                productAdapter.notifyDataSetChanged()
-                updateUi()
-            }
+            // Execute Process API (api/Order/kiosk/placeOrder/{orderId}/Proccess) and navigate to print screen
+            processAndNavigatePineLabsOrder(
+                pspRef = pspRef,
+                approvalCode = approvalCode,
+                cardNumber = cardNumber,
+                cardType = cardType,
+                invoiceNo = invoiceNo,
+                rrn = rrn
+            )
         } else if (response != null && response.isUpiPending) {
             Toast.makeText(this, "UPI Transaction initiated on terminal. Complete on device.", Toast.LENGTH_LONG).show()
         } else {
@@ -748,6 +757,74 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
         }
 
         dialog.show()
+    }
+
+    /**
+     * Executes Process API (api/Order/kiosk/placeOrder/{orderId}/Proccess) with settled=true
+     * upon Pine Labs payment approval, then clears cart and launches thermal print screen.
+     */
+    private fun processAndNavigatePineLabsOrder(
+        pspRef: String,
+        approvalCode: String,
+        cardNumber: String,
+        cardType: String,
+        invoiceNo: Long,
+        rrn: String
+    ) {
+        CommonMethod.showLoader(this, "Processing Pine Labs Order...")
+        lifecycleScope.launch {
+            try {
+                val companyId = if (authManager.companyId > 0) authManager.companyId else 40
+                val orderIdInt = pendingOrderId.toInt()
+
+                Log.d(TAG, "⚙️ Calling Process API for Pine Labs OrderId=$orderIdInt, CompanyId=$companyId")
+
+                val processResult = orderRepository.processOrder(
+                    orderId = orderIdInt,
+                    companyId = companyId,
+                    customerId = 0,
+                    settled = true,
+                    isWhatsApp = isWhatsAppEnabled()
+                )
+
+                CommonMethod.dismissLoader()
+                val processResponse = processResult.getOrNull()
+                Log.d(TAG, "⚙️ Pine Labs Process API Response: Status=${processResponse?.status}, OrderId=${processResponse?.orderId}, Message=${processResponse?.message}")
+
+                val finalOrderId = processResponse?.orderId?.toLong() ?: pendingOrderId
+
+                val intent = Intent(this@BillingActivity, PaymentActivity::class.java).apply {
+                    putExtra(PaymentActivity.EXTRA_ORDER_ID, finalOrderId)
+                    putExtra(PaymentActivity.EXTRA_PSP_REF_NO, pspRef)
+                    putExtra(PaymentActivity.EXTRA_TOTAL_AMOUNT, pendingTotal)
+                    putExtra(PaymentActivity.EXTRA_RECEIPT_ITEMS_JSON, pendingReceiptItemsJson)
+                    putExtra(PaymentActivity.EXTRA_LANGUAGE_CODE, currentLanguage)
+                    putExtra(PaymentActivity.EXTRA_PAYMENT_MODE, pendingPaymentMode)
+                    putExtra(PaymentActivity.EXTRA_CARD_NUMBER, cardNumber)
+                    putExtra(PaymentActivity.EXTRA_APPROVAL_CODE, approvalCode)
+                    putExtra(PaymentActivity.EXTRA_INVOICE_NUMBER, invoiceNo)
+                    putExtra(PaymentActivity.EXTRA_RRN, rrn)
+                    putExtra(PaymentActivity.EXTRA_CARD_TYPE, cardType)
+                }
+                lastOrderIntent = intent
+
+                // Clear cart & devotee inputs upon payment completion
+                allItems.forEach { it.quantity = 0 }
+                binding.etDevoteeMobile.text?.clear()
+                productAdapter.notifyDataSetChanged()
+                updateUi()
+
+                if (isPrintEnabled()) {
+                    startActivity(intent)
+                } else {
+                    Toast.makeText(this@BillingActivity, "Payment approved successfully (Print Disabled)", Toast.LENGTH_LONG).show()
+                }
+            } catch (e: Exception) {
+                CommonMethod.dismissLoader()
+                Log.e(TAG, "Error processing Pine Labs order: ${e.message}", e)
+                Toast.makeText(this@BillingActivity, "Pine Labs process error: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     private fun proceedWithRazorpayPayment(activeItems: List<PrasadamItem>, total: Double) {
@@ -1040,7 +1117,7 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
         // Coroutine polling every 3 seconds for status API - INSTANT SUCCESS SETTLEMENT
         qrPollingJob = lifecycleScope.launch {
             while (!isQrPaymentHandled && isActive) {
-                delay(3000L)
+                delay(1000L)
                 if (isQrPaymentHandled || !isActive) break
 
                 try {
@@ -1310,9 +1387,9 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
                 return@setOnClickListener
             }
 
-            // Validate Admin Password against saved password
-            val savedPwd = authManager.savedPassword
-            if (savedPwd.isNotBlank() && adminPassword != savedPwd) {
+            // Validate Admin Password against API adminPassword directly (no fallback)
+            val expectedAdminPwd = authManager.adminPassword
+            if (expectedAdminPwd.isNotBlank() && adminPassword != expectedAdminPwd) {
                 Toast.makeText(this, "Incorrect Admin Password", Toast.LENGTH_SHORT).show()
                 etAdminPassword?.error = "Incorrect Password"
                 return@setOnClickListener
@@ -1369,7 +1446,7 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
                     adminPassword = adminPassword,
                     tableId = 0,
                     dinningId = 0,
-                    paymentProviderId = 1,
+                    paymentProviderId = 0,
                     couponCode = "",
                     isWalletAmount = false,
                     isWalletLoyality = false,
@@ -1388,10 +1465,23 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
                 val orderResponse = orderResult.getOrNull()
 
                 if (orderResponse != null && orderResponse.status.equals("Success", ignoreCase = true)) {
-                    val orderId = orderResponse.orderId ?: System.currentTimeMillis()
+                    val initialOrderId = orderResponse.orderId ?: (System.currentTimeMillis() % 100000000).toInt()
                     val pspRef = customRefId.takeIf { !it.isNullOrBlank() }
                         ?: orderResponse.easeOrderId
                         ?: "CASH-${System.currentTimeMillis()}"
+
+                    // Step 2: Execute Process API for Cash Order (settled=true)
+                    Log.d(TAG, "⚙️ Calling Process API for Cash OrderId=$initialOrderId")
+                    val processResult = orderRepository.processOrder(
+                        orderId = initialOrderId,
+                        companyId = companyId,
+                        customerId = 0,
+                        settled = true,
+                        isWhatsApp = isWhatsAppEnabled()
+                    )
+                    val processResponse = processResult.getOrNull()
+                    val finalOrderId = processResponse?.orderId ?: initialOrderId
+                    Log.d(TAG, "⚙️ Cash Process API Response: Status=${processResponse?.status}, OrderId=$finalOrderId")
 
                     val receiptItems = activeItems.mapIndexed { index, item ->
                         com.xeniaone.templeapp.model.ReceiptItem(
@@ -1407,12 +1497,12 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
                     val intent = Intent(this@BillingActivity, PaymentActivity::class.java).apply {
                         putExtra(PaymentActivity.EXTRA_CUSTOMER_NAME, "")
                         putExtra(PaymentActivity.EXTRA_CUSTOMER_MOBILE, devoteeMobile)
-                        putExtra(PaymentActivity.EXTRA_ORDER_ID, orderId.toLong())
+                        putExtra(PaymentActivity.EXTRA_ORDER_ID, finalOrderId.toLong())
                         putExtra(PaymentActivity.EXTRA_PSP_REF_NO, pspRef)
                         putExtra(PaymentActivity.EXTRA_TOTAL_AMOUNT, total)
                         putExtra(PaymentActivity.EXTRA_RECEIPT_ITEMS_JSON, receiptItemsJson)
                         putExtra(PaymentActivity.EXTRA_LANGUAGE_CODE, currentLanguage)
-                        putExtra(PaymentActivity.EXTRA_PAYMENT_MODE, "Cash on Delivery")
+                        putExtra(PaymentActivity.EXTRA_PAYMENT_MODE, "Cash Payment")
                     }
                     lastOrderIntent = intent
                     if (isPrintEnabled()) {
@@ -1629,6 +1719,202 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
             binding.tilDevoteeMobile.error = null
         }
         return true
+    }
+
+    private fun showMobileKeypadDialog() {
+        var currentInput = binding.etDevoteeMobile.text?.toString()?.trim() ?: ""
+        var isFreshInput = currentInput.isBlank()
+
+        val res = resources
+        val keyHeightPx = res.getDimensionPixelSize(R.dimen.keypad_key_height)
+        val keyTextPx = res.getDimension(R.dimen.keypad_key_text_size)
+        val keyMarginPx = res.getDimensionPixelSize(R.dimen.keypad_key_margin)
+        val displayTextPx = res.getDimension(R.dimen.keypad_display_text_size)
+        val displayPadPx = res.getDimensionPixelSize(R.dimen.keypad_display_padding)
+        val displayMarginBottomPx = res.getDimensionPixelSize(R.dimen.keypad_display_margin_bottom)
+        val rowMarginBottomPx = res.getDimensionPixelSize(R.dimen.keypad_row_margin_bottom)
+        val actionHeightPx = res.getDimensionPixelSize(R.dimen.keypad_action_height)
+        val actionTextPx = res.getDimension(R.dimen.keypad_action_text_size)
+        val actionMarginTopPx = res.getDimensionPixelSize(R.dimen.keypad_action_margin_top)
+        val actionGapPx = res.getDimensionPixelSize(R.dimen.keypad_action_button_gap)
+        val rootPadPx = res.getDimensionPixelSize(R.dimen.keypad_root_padding)
+
+        val rootLayout = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            gravity = android.view.Gravity.CENTER_HORIZONTAL
+            setPadding(rootPadPx, rootPadPx, rootPadPx, rootPadPx)
+        }
+
+        val tvDisplay = TextView(this).apply {
+            setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, displayTextPx)
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            gravity = android.view.Gravity.CENTER
+            setTextColor(getColor(R.color.text_dark))
+            text = if (currentInput.isEmpty()) "" else currentInput
+            setBackgroundResource(R.drawable.bg_total_box)
+            setPadding(displayPadPx, displayPadPx, displayPadPx, displayPadPx)
+            layoutParams = android.widget.LinearLayout.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                bottomMargin = displayMarginBottomPx
+            }
+        }
+        rootLayout.addView(tvDisplay)
+
+        fun updateDisplay() {
+            tvDisplay.text = if (currentInput.isEmpty()) "" else currentInput
+        }
+
+        val rows = listOf(
+            listOf("1", "2", "3"),
+            listOf("4", "5", "6"),
+            listOf("7", "8", "9"),
+            listOf("C", "0", "⌫")
+        )
+
+        rows.forEach { rowKeys ->
+            val rowLayout = android.widget.LinearLayout(this).apply {
+                orientation = android.widget.LinearLayout.HORIZONTAL
+                isBaselineAligned = false
+                weightSum = 3f
+                layoutParams = android.widget.LinearLayout.LayoutParams(
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    bottomMargin = rowMarginBottomPx
+                }
+            }
+
+            rowKeys.forEach { key ->
+                val btn = androidx.appcompat.widget.AppCompatButton(this).apply {
+                    text = key
+                    setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, keyTextPx)
+                    typeface = android.graphics.Typeface.DEFAULT_BOLD
+                    stateListAnimator = null
+                    when (key) {
+                        "C" -> {
+                            setTextColor(getColor(R.color.delete_red))
+                            setBackgroundResource(R.drawable.bg_keypad_key_clear)
+                        }
+                        "⌫" -> {
+                            setTextColor(getColor(R.color.pay_button_orange))
+                            setBackgroundResource(R.drawable.bg_keypad_action)
+                        }
+                        else -> {
+                            setTextColor(getColor(R.color.text_dark))
+                            setBackgroundResource(R.drawable.bg_keypad_button)
+                        }
+                    }
+                    layoutParams = android.widget.LinearLayout.LayoutParams(
+                        0,
+                        keyHeightPx,
+                        1f
+                    ).apply {
+                        setMargins(keyMarginPx, keyMarginPx, keyMarginPx, keyMarginPx)
+                    }
+
+                    setOnClickListener {
+                        when (key) {
+                            "C" -> {
+                                currentInput = ""
+                                isFreshInput = false
+                                updateDisplay()
+                            }
+                            "⌫" -> {
+                                if (currentInput.isNotEmpty()) {
+                                    currentInput = currentInput.dropLast(1)
+                                    isFreshInput = false
+                                    updateDisplay()
+                                }
+                            }
+                            else -> {
+                                if (currentInput.length < 10) {
+                                    if (isFreshInput) {
+                                        currentInput = key
+                                        isFreshInput = false
+                                    } else {
+                                        currentInput += key
+                                    }
+                                    updateDisplay()
+                                }
+                            }
+                        }
+                    }
+                }
+                rowLayout.addView(btn)
+            }
+            rootLayout.addView(rowLayout)
+        }
+
+        val actionRow = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.HORIZONTAL
+            weightSum = 2f
+            layoutParams = android.widget.LinearLayout.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = actionMarginTopPx
+            }
+        }
+
+        val btnCancel = androidx.appcompat.widget.AppCompatButton(this).apply {
+            text = "Cancel"
+            setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, actionTextPx)
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            stateListAnimator = null
+            setTextColor(getColor(R.color.text_muted))
+            setBackgroundResource(R.drawable.bg_payment_card_selector)
+            layoutParams = android.widget.LinearLayout.LayoutParams(
+                0,
+                actionHeightPx,
+                1f
+            ).apply {
+                setMargins(0, 0, actionGapPx, 0)
+            }
+        }
+
+        val btnOk = androidx.appcompat.widget.AppCompatButton(this).apply {
+            text = "OK"
+            setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, actionTextPx)
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            stateListAnimator = null
+            setTextColor(getColor(R.color.white))
+            setBackgroundResource(R.drawable.bg_pay_button)
+            layoutParams = android.widget.LinearLayout.LayoutParams(
+                0,
+                actionHeightPx,
+                1f
+            ).apply {
+                setMargins(actionGapPx, 0, 0, 0)
+            }
+        }
+
+        actionRow.addView(btnCancel)
+        actionRow.addView(btnOk)
+        rootLayout.addView(actionRow)
+
+        val scrollView = android.widget.ScrollView(this).apply {
+            isFillViewport = true
+            addView(rootLayout)
+        }
+
+        val dialog = com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            .setTitle("")
+            .setView(scrollView)
+            .create()
+
+        btnCancel.setOnClickListener {
+            dialog.dismiss()
+        }
+
+        btnOk.setOnClickListener {
+            binding.etDevoteeMobile.setText(currentInput)
+            binding.tilDevoteeMobile.error = null
+            dialog.dismiss()
+        }
+
+        dialog.show()
     }
 
     private var drawerAutoCloseTimer: CountDownTimer? = null

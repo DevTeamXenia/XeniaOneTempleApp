@@ -151,6 +151,20 @@
                 android:visibility="gone"
                 tools:listitem="@layout/item_product_card" />
 
+            <TextView
+                android:id="@+id/tvDeliveryCounterNotice"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="16dp"
+                android:fontFamily="sans-serif-medium"
+                android:gravity="center"
+                android:paddingHorizontal="16dp"
+                android:text="Delivery at South Indian Bank prasadam counter at Malikappuram (Sannidhanam)"
+                android:textColor="@color/temple_gold_primary"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+
             <!-- Normal Flow: Cart Table at Bottom for Kiosk devices -->
             <LinearLayout
                 android:id="@+id/tableCard"
@@ -402,15 +416,17 @@
             android:orientation="horizontal"
             android:weightSum="3">
 
-            <ImageView
-                android:id="@+id/ivBottom1"
+            <TextView
+                android:id="@+id/tvBottom1"
                 android:layout_width="0dp"
                 android:layout_height="@dimen/bottom_images_height"
                 android:layout_marginEnd="@dimen/bottom_images_gap"
                 android:layout_weight="1"
-                android:contentDescription="@string/cd_logo_xenia"
-                android:scaleType="fitCenter"
-                android:src="@drawable/img" />
+                android:gravity="center"
+                android:layout_marginTop="25dp"
+                android:text="Copyright © 2026 Xenia Technologies.\nAll rights reserved."
+                android:textColor="@color/temple_gold_primary"
+                android:textSize="@dimen/text_size_small" />
 
             <ImageView
                 android:id="@+id/ivBottom2"

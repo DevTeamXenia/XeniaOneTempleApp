@@ -151,6 +151,20 @@
                 android:visibility="gone"
                 tools:listitem="@layout/item_product_card" />
 
+            <TextView
+                android:id="@+id/tvDeliveryCounterNotice"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="16dp"
+                android:fontFamily="sans-serif-medium"
+                android:gravity="center"
+                android:paddingHorizontal="16dp"
+                android:text="Delivery at South Indian Bank prasadam counter at Malikappuram (Sannidhanam)"
+                android:textColor="@color/temple_gold_primary"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
             <!-- Normal Flow: Cart Table at Bottom for Kiosk devices -->
             <LinearLayout
                 android:id="@+id/tableCard"
