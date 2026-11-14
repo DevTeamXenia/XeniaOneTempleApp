@@ -237,13 +237,18 @@ object PineLabsManager {
         }
 
         // 1. Temple Header
-        addCenter("Sabarimala SriDharmasastha Temple")
+        addCenter("Sabarimala Sree Dharmasastha Temple")
         addDivider('=')
         addCenter("Prebooking Prasadam Receipt")
         addDivider('=')
 
         // 2. Metadata
-        val displayOrderId = if (orderNo.isNotBlank()) orderNo else if (orderId > 0.toString()) orderId.toString() else ""
+        val displayOrderId = when {
+            orderNo.isNotBlank() -> orderNo.trim()
+            orderId > 0L.toString() -> orderId.toString()
+            else -> ""
+        }.takeLast(2)
+
         addRow("Receipt No:", displayOrderId)
         addRow("Date:", dateFormatted)
         if (paymentModeTitle.isNotBlank()) addRow("Payment Mode:", paymentModeTitle)

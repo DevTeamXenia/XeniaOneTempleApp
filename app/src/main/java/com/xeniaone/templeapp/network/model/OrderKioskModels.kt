@@ -186,6 +186,8 @@ data class OrderDetailsData(
 
     @SerializedName("OrderNo")
     val orderNo: String?,
+    @SerializedName("PaymentRef")
+    val PaymentRef: String?,
 
     @SerializedName("InvoiceNo")
     val invoiceNo: String?,

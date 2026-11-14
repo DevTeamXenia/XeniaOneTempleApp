@@ -235,7 +235,10 @@ class PaymentActivity : AppCompatActivity() {
                     if (!orderData.orderNo.isNullOrBlank()) {
                         orderNo = orderData.orderNo
                     }
-                    Log.d(TAG, "Fetched order details: orderNo=$orderNo, encryptedOrderId=$encryptedOrderId")
+                    if (!orderData.PaymentRef.isNullOrBlank()) {
+                        pspRefNo = orderData.PaymentRef
+                    }
+                    Log.d(TAG, "Fetched order details: orderNo=$orderNo, encryptedOrderId=$encryptedOrderId, paymentRef=${orderData.PaymentRef}")
                 } else {
                     Log.w(TAG, "getOrderDetails failed or returned null: ${result.exceptionOrNull()?.message}")
                 }
@@ -723,7 +726,7 @@ class PaymentActivity : AppCompatActivity() {
         // ---------------- Temple Header ----------------
         paint.textAlign = Paint.Align.CENTER
         paint.textSize = 34f
-        drawWrapped("Sabarimala Sri Dharmasastha Temple", width / 2f, maxTextWidth, 40f, Paint.Align.CENTER)
+        drawWrapped("Sabarimala Sree Dharmasastha Temple", width / 2f, maxTextWidth, 40f, Paint.Align.CENTER)
 
 //        y += 36f
 //        paint.textSize = 24f
@@ -743,7 +746,11 @@ class PaymentActivity : AppCompatActivity() {
         paint.textSize = 27f
         paint.color = Color.BLACK
         paint.textAlign = Paint.Align.LEFT
-        val displayOrderId = if (orderNo.isNotBlank()) orderNo else if (orderId > 0L) orderId.toString() else "27533365"
+        val displayOrderId = when {
+            orderNo.isNotBlank() -> orderNo.trim()
+            orderId > 0L -> orderId.toString()
+            else -> "27533365"
+        }.takeLast(2)
         val displayPspRef = if (pspRefNo.isNotBlank()) pspRefNo else "5647784112"
         val displayTotal = if (totalAmount > 0.0) totalAmount else receiptItems.sumOf { it.total }
 
