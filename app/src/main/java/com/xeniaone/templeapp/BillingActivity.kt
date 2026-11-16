@@ -60,6 +60,7 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
 
 class BillingActivity : AppCompatActivity(), PaymentResultListener {
 
@@ -587,7 +588,9 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
                 val branchId = if (authManager.defaultBranch > 0) authManager.defaultBranch else 85
                 val userId = if (authManager.userId > 0) authManager.userId else 23
 
-                val nowIso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).format(Date())
+                val nowIso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).apply {
+                    timeZone = TimeZone.getTimeZone("Asia/Kolkata")
+                }.format(Date())
 
                 val currentOrderChannel = if (PineLabsManager.isPineLabsAvailable(this@BillingActivity)) "PINELABS" else "KIOSK"
 
@@ -836,7 +839,13 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
 
                 Log.d("KIOSK_PAYMENT_DEBUG", "✅ Matched Name == 'RAZORAYQR', ProviderId: $targetProviderId (Object: $razorpayQrProvider)")
 
-                val nowIso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).format(Date())
+                val sdf = SimpleDateFormat(
+                    "yyyy-MM-dd'T'HH:mm:ss",
+                    Locale.US
+                )
+                sdf.timeZone = TimeZone.getTimeZone("Asia/Kolkata")
+
+                val nowIso = sdf.format(Date())
 
                 val devoteeMobile = binding.etDevoteeMobile.text?.toString()?.trim() ?: ""
                 val currentOrderChannel = if (PineLabsManager.isPineLabsAvailable(this@BillingActivity)) "PINELABS" else "KIOSK"
@@ -1321,7 +1330,9 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
 
                 val devoteeMobile = binding.etDevoteeMobile.text?.toString()?.trim() ?: ""
 
-                val nowIso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).format(Date())
+                val nowIso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).apply {
+                    timeZone = TimeZone.getTimeZone("Asia/Kolkata")
+                }.format(Date())
 
                 val orderChannel = if (PineLabsManager.isPineLabsAvailable(this@BillingActivity)) "PINELABS" else "KIOSK"
 

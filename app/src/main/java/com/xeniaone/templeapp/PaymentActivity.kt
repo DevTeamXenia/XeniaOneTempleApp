@@ -45,6 +45,7 @@ import net.posprinter.POSPrinter
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
 
 class PaymentActivity : AppCompatActivity() {
 
@@ -219,8 +220,10 @@ class PaymentActivity : AppCompatActivity() {
         val itemsJson = intent.getStringExtra(EXTRA_RECEIPT_ITEMS_JSON)
         receiptItems = parseReceiptItems(itemsJson)
 
-        // Generate formatted date & time: e.g. "04-Sep-2024  07:50 AM"
-        formattedDate = SimpleDateFormat("dd-MMM-yyyy  hh:mm a", Locale.ENGLISH).format(Date())
+        // Generate formatted date & time: e.g. "04-Sep-2024  07:50 AM" in IST
+        formattedDate = SimpleDateFormat("dd-MMM-yyyy  hh:mm a", Locale.ENGLISH).apply {
+            timeZone = TimeZone.getTimeZone("Asia/Kolkata")
+        }.format(Date())
 
         fetchOrderDetailsAndInitializePrint()
     }
