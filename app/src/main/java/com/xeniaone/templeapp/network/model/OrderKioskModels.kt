@@ -19,7 +19,7 @@ data class OrderKioskRequest(
     val remark: String = "Temple Kiosk Order",
 
     @SerializedName("OrderChanel")
-    val orderChanel: String = "KIOSK",
+    val orderChanel: String,
 
     @SerializedName("OrderMobileNumber")
     val OrderMobileNumber: String = "",

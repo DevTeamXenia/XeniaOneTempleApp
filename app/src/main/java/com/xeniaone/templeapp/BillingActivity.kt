@@ -58,6 +58,7 @@ import com.xeniaone.templeapp.pinelabs.PineLabsManager
 import com.xeniaone.templeapp.repository.OrderRepository
 import com.xeniaone.templeapp.repository.Resource
 import com.xeniaone.templeapp.util.AuthManager
+import com.xeniaone.templeapp.util.BillingDialogHelper
 import com.xeniaone.templeapp.util.CommonMethod
 import com.xeniaone.templeapp.util.LanguageStrings
 import com.xeniaone.templeapp.R
@@ -79,6 +80,7 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
         private const val TAG = "BillingActivity"
         var lastOrderIntent: Intent? = null
         var isPendingPrintAvailable: Boolean = false
+        var isLastOrderPrintedSuccessfully: Boolean = false
     }
 
     private lateinit var binding: ActivityBillingBinding
@@ -156,9 +158,11 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
         // Detect Pine Labs hardware / MasterApp availability while loading
         detectAndDisplayPineLabsDevice()
 
-        // Check if Kiosk Mode was enabled; if so, enforce lock task on startup/reboot
+        // Check if Kiosk Mode was enabled; if so, enforce lock task & home launcher alias
         val kioskPrefs = getSharedPreferences("kiosk_settings", MODE_PRIVATE)
-        if (kioskPrefs.getBoolean("pref_kiosk_mode_enabled", false) && !PineLabsManager.isPineLabsAvailable(this)) {
+        val isKioskOnStartup = kioskPrefs.getBoolean("pref_kiosk_mode_enabled", false)
+        updateHomeLauncherAliasState(isKioskOnStartup)
+        if (isKioskOnStartup && !PineLabsManager.isPineLabsAvailable(this)) {
             binding.root.postDelayed({
                 try {
                     startLockTask()
@@ -188,25 +192,14 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
             proceedToPayment()
         }
 
-        // Manual print button listener (reprint last order if pending or print failed)
-        val hasPendingPrintExtra = intent.getBooleanExtra(EXTRA_PRINT_PENDING, false)
-        if ((hasPendingPrintExtra || isPendingPrintAvailable) && lastOrderIntent != null) {
-            isPrintPending = true
-            binding.btnManualPrint?.visibility = View.VISIBLE
-        } else {
-            binding.btnManualPrint?.visibility = View.GONE
-        }
-
+        // Manual print button listener (always shown; reprints last completed order)
+        binding.btnManualPrint?.visibility = View.VISIBLE
         binding.btnManualPrint?.setOnClickListener {
             val lastIntent = lastOrderIntent
-            if (lastIntent != null && (isPrintPending || isPendingPrintAvailable)) {
-                isPrintPending = false
-                isPendingPrintAvailable = false
-                binding.btnManualPrint?.visibility = View.GONE
+            if (lastIntent != null) {
                 startActivity(lastIntent)
             } else {
-                Toast.makeText(this, "No pending print required", Toast.LENGTH_SHORT).show()
-                binding.btnManualPrint?.visibility = View.GONE
+                Toast.makeText(this, "No previous order to print", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -512,6 +505,7 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
         val isPineLabs = PineLabsManager.isPineLabsAvailable(this)
         if (isPineLabs) {
             binding.layoutPineLabsStatus.visibility = View.VISIBLE
+            binding.btnManualPrint?.visibility = View.VISIBLE
             binding.tvPineLabsBadge.text = "⚡ Pine Labs POS Ready"
             Log.i(TAG, "Pine Labs POS detected: ${PineLabsManager.getDeviceStatusDescription(this)}")
         } else {
@@ -538,94 +532,37 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
         }
     }
 
-    /**
-     * Shows a modern themed payment selection dialog matching the app's gold/cream theme.
-     */
     private fun showPaymentOptionDialog(activeItems: List<PrasadamItem>, total: Double) {
-        val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_pinelabs_payment_mode, null)
-        val dialog = AlertDialog.Builder(this)
-            .setView(dialogView)
-            .setCancelable(true)
-            .create()
-
-        // Transparent background so the rounded card corners and soft elevation display cleanly
-        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-
-        val tvDialogTotalAmount = dialogView.findViewById<TextView>(R.id.tvDialogTotalAmount)
-        val btnCloseDialog = dialogView.findViewById<View>(R.id.btnCloseDialog)
-        val btnOptionCard = dialogView.findViewById<View>(R.id.btnOptionCard)
-        val btnOptionUpi = dialogView.findViewById<View>(R.id.btnOptionUpi)
-        val btnOptionCash = dialogView.findViewById<View>(R.id.btnOptionCash)
-        val btnOptionSibQr = dialogView.findViewById<View>(R.id.btnOptionSibQr)
-
-        val isPineLabs = PineLabsManager.isPineLabsAvailable(this)
-        if (isPineLabs) {
-            btnOptionSibQr.visibility = View.GONE
-        }
-
-        tvDialogTotalAmount.text = "₹%.2f".format(Locale.US, total)
-
-        btnCloseDialog.setOnClickListener {
-            dialog.dismiss()
-        }
-
-        btnOptionCard.setOnClickListener {
-            dialog.dismiss()
-            initiatePineLabsPayment(
-                activeItems = activeItems,
-                total = total,
-                txnType = PineLabsConstants.TXN_TYPE_SALE,
-                modeName = "Pine Labs Card"
-            )
-        }
-
-        btnOptionUpi.setOnClickListener {
-            dialog.dismiss()
-            initiatePineLabsPayment(
-                activeItems = activeItems,
-                total = total,
-                txnType = PineLabsConstants.TXN_TYPE_UPI_SALE,
-                modeName = "Pine Labs UPI"
-            )
-        }
-
-        btnOptionCash.setOnClickListener {
-            dialog.dismiss()
-            showCashReferenceDialog(activeItems, total)
-        }
-
-        btnOptionSibQr.setOnClickListener {
-            dialog.dismiss()
-            proceedWithRazorpayPayment(activeItems, total)
-        }
-
-        dialog.show()
+        BillingDialogHelper.showPaymentOptionDialog(
+            activity = this,
+            total = total,
+            onCardClick = {
+                initiatePineLabsPayment(
+                    activeItems = activeItems,
+                    total = total,
+                    txnType = PineLabsConstants.TXN_TYPE_SALE,
+                    modeName = "Pine Labs Card"
+                )
+            },
+            onUpiClick = {
+                initiatePineLabsPayment(
+                    activeItems = activeItems,
+                    total = total,
+                    txnType = PineLabsConstants.TXN_TYPE_UPI_SALE,
+                    modeName = "Pine Labs UPI"
+                )
+            },
+            onCashClick = {
+                showCashReferenceDialog(activeItems, total)
+            },
+            onSibQrClick = {
+                proceedWithRazorpayPayment(activeItems, total)
+            }
+        )
     }
 
-    /**
-     * Shows modern Pine Labs device information dialog when clicking the status badge.
-     */
     private fun showPineLabsTerminalInfoDialog() {
-        val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_pinelabs_terminal_info, null)
-        val dialog = AlertDialog.Builder(this)
-            .setView(dialogView)
-            .setCancelable(true)
-            .create()
-
-        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-
-        val tvInfoDeviceModel = dialogView.findViewById<TextView>(R.id.tvInfoDeviceModel)
-        val tvInfoAppId = dialogView.findViewById<TextView>(R.id.tvInfoAppId)
-        val btnClose = dialogView.findViewById<View>(R.id.btnCloseInfoDialog)
-        val btnDismiss = dialogView.findViewById<View>(R.id.btnDismissInfo)
-
-        tvInfoDeviceModel.text = "Model: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}"
-        tvInfoAppId.text = authManager.pineLabsApplicationId.take(14) + "..."
-
-        btnClose.setOnClickListener { dialog.dismiss() }
-        btnDismiss.setOnClickListener { dialog.dismiss() }
-
-        dialog.show()
+        BillingDialogHelper.showPineLabsTerminalInfoDialog(this, authManager)
     }
 
     /**
@@ -672,13 +609,15 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
                     timeZone = TimeZone.getTimeZone("UTC")
                 }.format(Date())
 
+                val currentOrderChannel = if (PineLabsManager.isPineLabsAvailable(this@BillingActivity)) "PINELABS" else "KIOSK"
+
                 val orderRequest = OrderKioskRequest(
                     addressId = 0,
                     deliveryTypeId = 0,
                     deliverySlotId = 0,
                     expectedDeliveryDate = nowIso,
                     remark = "$modeName Transaction",
-                    orderChanel = "KIOSK",
+                    orderChanel = currentOrderChannel,
                     tableId = 0,
                     dinningId = 0,
                     paymentProviderId = 11,
@@ -832,6 +771,7 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
                     putExtra(PaymentActivity.EXTRA_CARD_TYPE, cardType)
                 }
                 lastOrderIntent = intent
+                isLastOrderPrintedSuccessfully = false
 
                 // Clear cart & devotee inputs upon payment completion
                 allItems.forEach { it.quantity = 0 }
@@ -921,6 +861,7 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
                 }.format(Date())
 
                 val devoteeMobile = binding.etDevoteeMobile.text?.toString()?.trim() ?: ""
+                val currentOrderChannel = if (PineLabsManager.isPineLabsAvailable(this@BillingActivity)) "PINELABS" else "KIOSK"
 
                 val orderRequest = OrderKioskRequest(
                     addressId = 0,
@@ -930,7 +871,7 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
                     OrderCustomerName = "",
                     expectedDeliveryDate = nowIso,
                     remark = "Razorpay QR Order",
-                    orderChanel = "KIOSK",
+                    orderChanel = currentOrderChannel,
                     tableId = 0,
                     dinningId = 7,
                     paymentProviderId = targetProviderId,
@@ -1352,6 +1293,7 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
             putExtra(PaymentActivity.EXTRA_PAYMENT_MODE, "Razorpay")
         }
         lastOrderIntent = intent
+        isLastOrderPrintedSuccessfully = false
 
         // Clear cart & devotee inputs FIRST
         allItems.forEach { it.quantity = 0 }
@@ -1369,72 +1311,10 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
 
 
     private fun showCashReferenceDialog(activeItems: List<PrasadamItem>, total: Double) {
-        val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_cash_reference, null)
-        val dialog = AlertDialog.Builder(this)
-            .setView(dialogView)
-            .setCancelable(true)
-            .create()
-
-        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-        dialog.setCanceledOnTouchOutside(false)
-        dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
-
-        val etCashRefId = dialogView.findViewById<EditText>(R.id.etCashRefId)
-        val etAdminPassword = dialogView.findViewById<EditText>(R.id.etAdminPassword)
-        val btnCashContinue = dialogView.findViewById<View>(R.id.btnCashContinue)
-
-        etCashRefId.setText("")
-        etCashRefId.hint = "Enter Payment Reference ID"
-        etAdminPassword?.setText("")
-        etAdminPassword?.hint = "Enter Admin Password"
-        etCashRefId.requestFocus()
-
-        dialog.setOnShowListener {
-            etCashRefId.post {
-                etCashRefId.requestFocus()
-                val imm =
-                    getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
-                imm.showSoftInput(
-                    etCashRefId,
-                    android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT
-                )
-            }
-        }
-
-        btnCashContinue.setOnClickListener {
-            if (!validateMobileNumberForWhatsApp()) return@setOnClickListener
-
-            val refId = etCashRefId.text?.toString()?.trim().orEmpty()
-            val adminPassword = etAdminPassword?.text?.toString()?.trim().orEmpty()
-
-            if (refId.isEmpty()) {
-                etCashRefId.error = "Please enter Payment Reference ID"
-                Toast.makeText(this, "Please enter Payment Reference ID", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-
-            if (adminPassword.isEmpty()) {
-                etAdminPassword?.error = "Please enter Admin Password"
-                Toast.makeText(this, "Please enter Admin Password", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-
-            val expectedAdminPwd = authManager.adminPassword?.trim().orEmpty()
-
-
-            if (expectedAdminPwd.isBlank() || adminPassword != expectedAdminPwd) {
-                etAdminPassword?.error = "Incorrect Password"
-                etAdminPassword?.text?.clear()
-                Toast.makeText(this, "Incorrect Admin Password", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener   // dialog അടയ്ക്കരുത്, redirect ചെയ്യരുത്
-            }
-
-
-            dialog.dismiss()
+        if (!validateMobileNumberForWhatsApp()) return
+        BillingDialogHelper.showCashReferenceDialog(this, authManager) { refId, adminPassword ->
             proceedWithCashPayment(activeItems, total, refId, adminPassword)
         }
-
-        dialog.show()
     }
 
 
@@ -1541,6 +1421,7 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
                         putExtra(PaymentActivity.EXTRA_PAYMENT_MODE, "Cash Payment")
                     }
                     lastOrderIntent = intent
+                    isLastOrderPrintedSuccessfully = false
                     if (isPrintEnabled()) {
                         isPrintPending = false
                         binding.btnManualPrint?.visibility = View.GONE
@@ -1598,11 +1479,16 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
         val menuTerminalInfo = findViewById<View>(R.id.menuTerminalInfo)
         val menuLogout = findViewById<View>(R.id.menuLogout)
 
-        drawerLayout.setDrawerLockMode(androidx.drawerlayout.widget.DrawerLayout.LOCK_MODE_LOCKED_CLOSED)
+        val isPineLabs = PineLabsManager.isPineLabsAvailable(this)
+        if (isPineLabs) {
+            drawerLayout.setDrawerLockMode(androidx.drawerlayout.widget.DrawerLayout.LOCK_MODE_UNLOCKED)
+        } else {
+            drawerLayout.setDrawerLockMode(androidx.drawerlayout.widget.DrawerLayout.LOCK_MODE_LOCKED_CLOSED)
+        }
 
         drawerLayout.addDrawerListener(object : androidx.drawerlayout.widget.DrawerLayout.DrawerListener {
             override fun onDrawerSlide(drawerView: View, slideOffset: Float) {
-                if (!isDrawerAuthenticated && slideOffset > 0.01f) {
+                if (!PineLabsManager.isPineLabsAvailable(this@BillingActivity) && !isDrawerAuthenticated && slideOffset > 0.01f) {
                     drawerLayout.closeDrawer(androidx.core.view.GravityCompat.START, false)
                 }
             }
@@ -1616,7 +1502,9 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
                 isDrawerAuthenticated = false
                 isPromptShowing = false
                 lastPromptDismissTime = System.currentTimeMillis()
-                drawerLayout.setDrawerLockMode(androidx.drawerlayout.widget.DrawerLayout.LOCK_MODE_LOCKED_CLOSED)
+                if (!PineLabsManager.isPineLabsAvailable(this@BillingActivity)) {
+                    drawerLayout.setDrawerLockMode(androidx.drawerlayout.widget.DrawerLayout.LOCK_MODE_LOCKED_CLOSED)
+                }
                 drawerAutoCloseTimer?.cancel()
             }
 
@@ -1660,7 +1548,9 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
 
         switchKioskMode?.setOnCheckedChangeListener { _, isChecked ->
             kioskPrefs.edit().putBoolean("pref_kiosk_mode_enabled", isChecked).apply()
+            updateHomeLauncherAliasState(isChecked)
             if (isChecked) {
+                checkAndRequestOverlayPermission()
                 if (!PineLabsManager.isPineLabsAvailable(this)) {
                     try {
                         startLockTask() // Screen pinning / Lock Kiosk
@@ -1734,6 +1624,40 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
             } else {
                 isPrintOn = isChecked
                 prefs.edit().putBoolean("pref_print_enabled", isPrintOn).apply()
+            }
+        }
+    }
+
+    private fun updateHomeLauncherAliasState(isEnabled: Boolean) {
+        try {
+            val componentName = android.content.ComponentName(this, "$packageName.HomeLauncherAlias")
+            val state = if (isEnabled) {
+                android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+            } else {
+                android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+            }
+            packageManager.setComponentEnabledSetting(
+                componentName,
+                state,
+                android.content.pm.PackageManager.DONT_KILL_APP
+            )
+            Log.d(TAG, "HomeLauncherAlias state updated to: isEnabled=$isEnabled")
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to update HomeLauncherAlias state: ${e.message}")
+        }
+    }
+
+    private fun checkAndRequestOverlayPermission() {
+        if (!android.provider.Settings.canDrawOverlays(this)) {
+            try {
+                val intent = Intent(
+                    android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    android.net.Uri.parse("package:$packageName")
+                )
+                startActivity(intent)
+                Toast.makeText(this, "Please allow 'Display over other apps' for Kiosk auto-start", Toast.LENGTH_LONG).show()
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to request overlay permission: ${e.message}")
             }
         }
     }
@@ -2080,6 +2004,10 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
                 val dx = ev.x - swipeStartX
                 val dy = Math.abs(ev.y - swipeStartY)
                 if (swipeStartX < edgeThresholdPx && dx > 30f && dy < 100f) {
+                    if (PineLabsManager.isPineLabsAvailable(this)) {
+                        return super.dispatchTouchEvent(ev)
+                    }
+
                     val drawerLayout = findViewById<androidx.drawerlayout.widget.DrawerLayout>(R.id.drawerLayout)
                     val isOpened = drawerLayout?.isDrawerOpen(androidx.core.view.GravityCompat.START) == true
                     if (!isOpened && !isDrawerAuthenticated && !isPromptShowing && (now - lastPromptDismissTime > 1500L)) {

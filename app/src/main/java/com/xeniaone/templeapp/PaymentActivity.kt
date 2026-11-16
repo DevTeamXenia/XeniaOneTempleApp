@@ -92,6 +92,7 @@ class PaymentActivity : AppCompatActivity() {
             PineLabsManager.resetRetryState()
             isPrintFailed = false
             BillingActivity.isPendingPrintAvailable = false
+            BillingActivity.isLastOrderPrintedSuccessfully = true
             binding.tvPrinterStatus.text = "✅ Receipt printed on Pine Labs POS!"
             Log.i(TAG, "✅ [PineLabs Print] Receipt printed successfully on terminal!")
             startAutoReturnTimer()
@@ -141,7 +142,14 @@ class PaymentActivity : AppCompatActivity() {
     }
 
     private fun launchPineLabsPrint(intent: Intent) {
-        pineLabsPrintLauncher.launch(intent)
+        try {
+            pineLabsPrintLauncher.launch(intent)
+        } catch (e: Exception) {
+            isPrintingInProgress = false
+            binding.pbPrinter.visibility = View.GONE
+            binding.tvPrinterStatus.text = "Print error: ${e.message}"
+            Log.e(TAG, "❌ [PineLabs Print Launch Error] ${e.message}", e)
+        }
     }
 
     // Printer Connection state (Kiosk USB & POS)
@@ -289,9 +297,20 @@ class PaymentActivity : AppCompatActivity() {
         )
     }
 
+    private fun formatReceiptNo(orderNo: String, orderId: Long): String {
+        val raw = if (orderNo.isNotBlank()) orderNo.trim() else if (orderId > 0L) orderId.toString() else "27533365"
+        if (raw.contains("N", ignoreCase = true)) {
+            val afterN = raw.substringAfterLast("N").substringAfterLast("n").trim()
+            if (afterN.isNotBlank()) {
+                return afterN
+            }
+        }
+        return raw.replace(Regex("^(NO\\.|NO|N-|N|#|ORD-)", RegexOption.IGNORE_CASE), "").trim()
+    }
+
     @SuppressLint("SetTextI18n")
     private fun setupUI() {
-        val displayOrderId = if (orderNo.isNotBlank()) orderNo else if (orderId > 0L) orderId.toString() else "27533365"
+        val displayOrderId = formatReceiptNo(orderNo, orderId)
         val displayPspRef = if (pspRefNo.isNotBlank()) pspRefNo else "5647784112"
         val displayTotal = if (totalAmount > 0.0) totalAmount else receiptItems.sumOf { it.total }
 
@@ -516,7 +535,7 @@ class PaymentActivity : AppCompatActivity() {
             val app = application as TempleApp
             val authManager = app.container.authManager
 
-            val displayOrderId = if (orderNo.isNotBlank()) orderNo else if (orderId > 0L) orderId.toString() else ""
+            val displayOrderId = formatReceiptNo(orderNo, orderId)
             val displayPaymentMode = if (paymentMode.isNotBlank()) paymentMode else "Pine Labs POS"
             val displayRef = if (rrn.isNotBlank()) rrn else if (approvalCode.isNotBlank()) approvalCode else pspRefNo
             val displayTotal = if (totalAmount > 0.0) totalAmount else receiptItems.sumOf { it.total }
@@ -598,6 +617,8 @@ class PaymentActivity : AppCompatActivity() {
             withContext(Dispatchers.Main) {
                 binding.pbPrinter.visibility = View.GONE
                 binding.tvPrinterStatus.text = "✅ Receipt printed successfully!"
+                BillingActivity.isPendingPrintAvailable = false
+                BillingActivity.isLastOrderPrintedSuccessfully = true
             }
             true
         } catch (e: Exception) {
@@ -632,6 +653,8 @@ class PaymentActivity : AppCompatActivity() {
             withContext(Dispatchers.Main) {
                 binding.pbPrinter.visibility = View.GONE
                 binding.tvPrinterStatus.text = "✅ Receipt printed successfully!"
+                BillingActivity.isPendingPrintAvailable = false
+                BillingActivity.isLastOrderPrintedSuccessfully = true
             }
             true
         } catch (e: RemoteException) {
@@ -746,11 +769,7 @@ class PaymentActivity : AppCompatActivity() {
         paint.textSize = 27f
         paint.color = Color.BLACK
         paint.textAlign = Paint.Align.LEFT
-        val displayOrderId = when {
-            orderNo.isNotBlank() -> orderNo.trim()
-            orderId > 0L -> orderId.toString()
-            else -> "27533365"
-        }.takeLast(2)
+        val displayOrderId = formatReceiptNo(orderNo, orderId)
         val displayPspRef = if (pspRefNo.isNotBlank()) pspRefNo else "5647784112"
         val displayTotal = if (totalAmount > 0.0) totalAmount else receiptItems.sumOf { it.total }
 

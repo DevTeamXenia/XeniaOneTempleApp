@@ -243,11 +243,17 @@ object PineLabsManager {
         addDivider('=')
 
         // 2. Metadata
-        val displayOrderId = when {
+        val rawId = when {
             orderNo.isNotBlank() -> orderNo.trim()
-            orderId > 0L.toString() -> orderId.toString()
+            orderId.isNotBlank() && orderId != "0" -> orderId.trim()
             else -> ""
-        }.takeLast(2)
+        }
+        val displayOrderId = if (rawId.contains("N", ignoreCase = true)) {
+            val afterN = rawId.substringAfterLast("N").substringAfterLast("n").trim()
+            if (afterN.isNotBlank()) afterN else rawId.replace(Regex("^(NO\\.|NO|N-|N|#|ORD-)", RegexOption.IGNORE_CASE), "").trim()
+        } else {
+            rawId.replace(Regex("^(NO\\.|NO|N-|N|#|ORD-)", RegexOption.IGNORE_CASE), "").trim()
+        }
 
         addRow("Receipt No:", displayOrderId)
         addRow("Date:", dateFormatted)

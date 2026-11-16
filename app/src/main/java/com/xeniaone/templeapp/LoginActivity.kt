@@ -47,6 +47,9 @@ class LoginActivity : AppCompatActivity() {
         val app = application as TempleApp
         authManager = app.container.authManager
 
+        // Check overlay permission for background boot start / kiosk auto-start
+        checkAndRequestOverlayPermission()
+
         // If already logged in, navigate directly to Billing screen as requested
         if (authManager.isLoggedIn) {
             startActivity(Intent(this, BillingActivity::class.java))
@@ -134,6 +137,21 @@ class LoginActivity : AppCompatActivity() {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    private fun checkAndRequestOverlayPermission() {
+        if (!android.provider.Settings.canDrawOverlays(this)) {
+            try {
+                val intent = Intent(
+                    android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    android.net.Uri.parse("package:$packageName")
+                )
+                startActivity(intent)
+                Toast.makeText(this, "Please allow 'Display over other apps' for Kiosk auto-start", Toast.LENGTH_LONG).show()
+            } catch (e: Exception) {
+                // Ignore
             }
         }
     }
