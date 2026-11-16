@@ -4,6 +4,7 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-feature android:name="android.hardware.usb.host" android:required="false" />
 
     <!-- Queries for Pine Labs Plutus Smart MasterApp App-to-App IPC on Android 11+ -->
@@ -64,6 +65,18 @@
         <meta-data
             android:name="com.razorpay.ApiKey"
             android:value="@string/razorpay_api_key" />
+
+        <!-- Boot Receiver for Auto-starting Kiosk Mode on Device Reboot -->
+        <receiver
+            android:name=".BootReceiver"
+            android:enabled="true"
+            android:exported="true"
+            android:directBootAware="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
 
     </application>
 

@@ -151,7 +151,7 @@
             android:textSize="16sp" />
     </LinearLayout>
 
-    <!-- Menu Item: Lock Counter -->
+    <!-- Menu Item: KIOSK Mode with Switch -->
     <LinearLayout
         android:id="@+id/menuLockCounter"
         android:layout_width="match_parent"
@@ -172,13 +172,20 @@
             app:tint="@color/temple_gold_primary" />
 
         <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="16dp"
+            android:layout_weight="1"
             android:fontFamily="sans-serif-medium"
-            android:text="Lock Counter"
+            android:text="KIOSK Mode"
             android:textColor="@color/text_dark"
             android:textSize="16sp" />
+
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/switchKioskMode"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:checked="false" />
     </LinearLayout>
 
     <!-- Menu Item 2: Logout -->

@@ -156,6 +156,16 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
         // Detect Pine Labs hardware / MasterApp availability while loading
         detectAndDisplayPineLabsDevice()
 
+        // Check if Kiosk Mode was enabled; if so, enforce lock task on startup/reboot
+        val kioskPrefs = getSharedPreferences("kiosk_settings", MODE_PRIVATE)
+        if (kioskPrefs.getBoolean("pref_kiosk_mode_enabled", false) && !PineLabsManager.isPineLabsAvailable(this)) {
+            binding.root.postDelayed({
+                try {
+                    startLockTask()
+                } catch (_: Exception) {}
+            }, 800L)
+        }
+
         // Back button to logout or exit to login
         binding.btnBackToLanguage.setOnClickListener {
             androidx.appcompat.app.AlertDialog.Builder(this)
@@ -442,9 +452,11 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
         if (activeItems.isEmpty()) {
             binding.tableCard.visibility = View.GONE
             binding.tvEmptyBillState.visibility = View.VISIBLE
+            binding.tvDeliveryCounterNotice?.visibility = View.VISIBLE
         } else {
             binding.tableCard.visibility = View.VISIBLE
             binding.tvEmptyBillState.visibility = View.GONE
+            binding.tvDeliveryCounterNotice?.visibility = View.GONE
             val inflater = LayoutInflater.from(this)
 
             activeItems.forEachIndexed { index, item ->
@@ -479,6 +491,21 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
         super.onResume()
         detectAndDisplayPineLabsDevice()
         updateDevoteeMobileHint()
+
+        // Re-enforce Kiosk Mode (Screen Pinning) if enabled and unpinned by "No thanks"
+        val kioskPrefs = getSharedPreferences("kiosk_settings", MODE_PRIVATE)
+        val isKioskModeOn = kioskPrefs.getBoolean("pref_kiosk_mode_enabled", false)
+        if (isKioskModeOn && !PineLabsManager.isPineLabsAvailable(this)) {
+            try {
+                val am = getSystemService(android.content.Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+                val isPinned = am.lockTaskModeState != android.app.ActivityManager.LOCK_TASK_MODE_NONE
+                if (!isPinned) {
+                    startLockTask()
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Re-enforce lock task failed: ${e.message}")
+            }
+        }
     }
 
     private fun detectAndDisplayPineLabsDevice() {
@@ -1365,33 +1392,43 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
         dialog.setOnShowListener {
             etCashRefId.post {
                 etCashRefId.requestFocus()
-                val imm = getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
-                imm.showSoftInput(etCashRefId, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+                val imm =
+                    getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                imm.showSoftInput(
+                    etCashRefId,
+                    android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT
+                )
             }
         }
 
         btnCashContinue.setOnClickListener {
             if (!validateMobileNumberForWhatsApp()) return@setOnClickListener
-            val refId = etCashRefId.text?.toString()?.trim() ?: ""
-            val adminPassword = etAdminPassword?.text?.toString()?.trim() ?: ""
+
+            val refId = etCashRefId.text?.toString()?.trim().orEmpty()
+            val adminPassword = etAdminPassword?.text?.toString()?.trim().orEmpty()
 
             if (refId.isEmpty()) {
+                etCashRefId.error = "Please enter Payment Reference ID"
                 Toast.makeText(this, "Please enter Payment Reference ID", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
             if (adminPassword.isEmpty()) {
+                etAdminPassword?.error = "Please enter Admin Password"
                 Toast.makeText(this, "Please enter Admin Password", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
-            // Validate Admin Password against API adminPassword directly (no fallback)
-            val expectedAdminPwd = authManager.adminPassword
-            if (expectedAdminPwd.isNotBlank() && adminPassword != expectedAdminPwd) {
-                Toast.makeText(this, "Incorrect Admin Password", Toast.LENGTH_SHORT).show()
+            val expectedAdminPwd = authManager.adminPassword?.trim().orEmpty()
+
+
+            if (expectedAdminPwd.isBlank() || adminPassword != expectedAdminPwd) {
                 etAdminPassword?.error = "Incorrect Password"
-                return@setOnClickListener
+                etAdminPassword?.text?.clear()
+                Toast.makeText(this, "Incorrect Admin Password", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener   // dialog അടയ്ക്കരുത്, redirect ചെയ്യരുത്
             }
+
 
             dialog.dismiss()
             proceedWithCashPayment(activeItems, total, refId, adminPassword)
@@ -1399,6 +1436,7 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
 
         dialog.show()
     }
+
 
     private fun proceedWithCashPayment(activeItems: List<PrasadamItem>, total: Double, customRefId: String? = null, adminPassword: String = "") {
         val cartItems = activeItems.map { item ->
@@ -1615,19 +1653,37 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
         }
 
         val menuLockCounter = findViewById<View>(R.id.menuLockCounter)
-        menuLockCounter?.setOnClickListener {
-            drawerLayout.closeDrawer(androidx.core.view.GravityCompat.START)
-            if (!PineLabsManager.isPineLabsAvailable(this)) {
-                try {
-                    startLockTask() // PIN (Screen Pinning)
-                    Toast.makeText(this, "Counter locked & screen pinned", Toast.LENGTH_SHORT).show()
-                } catch (e: Exception) {
-                    Log.w(TAG, "Start lock task failed: ${e.message}")
-                    Toast.makeText(this, "Screen pinning not supported", Toast.LENGTH_SHORT).show()
+        val switchKioskMode = findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.switchKioskMode)
+        val kioskPrefs = getSharedPreferences("kiosk_settings", MODE_PRIVATE)
+        val isKioskModeOn = kioskPrefs.getBoolean("pref_kiosk_mode_enabled", false)
+        switchKioskMode?.isChecked = isKioskModeOn
+
+        switchKioskMode?.setOnCheckedChangeListener { _, isChecked ->
+            kioskPrefs.edit().putBoolean("pref_kiosk_mode_enabled", isChecked).apply()
+            if (isChecked) {
+                if (!PineLabsManager.isPineLabsAvailable(this)) {
+                    try {
+                        startLockTask() // Screen pinning / Lock Kiosk
+                        Toast.makeText(this, "KIOSK Mode Enabled (Locked)", Toast.LENGTH_SHORT).show()
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Start lock task failed: ${e.message}")
+                        Toast.makeText(this, "Screen pinning not supported", Toast.LENGTH_SHORT).show()
+                    }
+                } else {
+                    Toast.makeText(this, "KIOSK Mode is disabled on Pine Labs terminal", Toast.LENGTH_SHORT).show()
                 }
             } else {
-                Toast.makeText(this, "Kiosk locking is disabled on Pine Labs terminal", Toast.LENGTH_SHORT).show()
+                try {
+                    stopLockTask()
+                    Toast.makeText(this, "KIOSK Mode Disabled (Unlocked)", Toast.LENGTH_SHORT).show()
+                } catch (e: Exception) {
+                    Log.w(TAG, "Stop lock task failed: ${e.message}")
+                }
             }
+        }
+
+        menuLockCounter?.setOnClickListener {
+            switchKioskMode?.isChecked = !(switchKioskMode?.isChecked ?: false)
         }
 
         menuLogout.setOnClickListener {
@@ -1919,7 +1975,7 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
 
     private fun startDrawerAutoCloseTimer(drawerLayout: androidx.drawerlayout.widget.DrawerLayout) {
         drawerAutoCloseTimer?.cancel()
-        drawerAutoCloseTimer = object : CountDownTimer(10000L, 1000L) {
+        drawerAutoCloseTimer = object : CountDownTimer(20000L, 2000L) {
             override fun onTick(millisUntilFinished: Long) {}
 
             override fun onFinish() {
@@ -1991,7 +2047,7 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
         dialog.show()
 
         // 10-second countdown timer
-        drawerTimeoutTimer = object : CountDownTimer(10000L, 1000L) {
+        drawerTimeoutTimer = object : CountDownTimer(20000L, 2000L) {
             override fun onTick(millisUntilFinished: Long) {
                 val sec = millisUntilFinished / 1000
                 if (dialog.isShowing) {
