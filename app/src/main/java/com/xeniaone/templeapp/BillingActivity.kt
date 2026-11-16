@@ -1,5 +1,6 @@
 package com.xeniaone.templeapp
 
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
@@ -9,9 +10,7 @@ import android.view.MotionEvent
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
-import android.view.WindowManager
 import android.widget.ImageView
-import android.widget.EditText
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
@@ -29,8 +28,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.GridLayoutManager
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import com.google.gson.Gson
 import com.xeniaone.templeapp.adapter.ProductCardAdapter
 import com.xeniaone.templeapp.model.PrasadamItem
@@ -40,11 +37,6 @@ import com.xeniaone.templeapp.network.model.OrderKioskRequest
 import com.xeniaone.templeapp.network.model.SocketProduct
 import com.xeniaone.templeapp.network.socket.CatalogueSocketManager
 import com.xeniaone.templeapp.util.QrCodeGenerator
-import android.graphics.drawable.Drawable
-import com.bumptech.glide.load.DataSource
-import com.bumptech.glide.load.engine.GlideException
-import com.bumptech.glide.request.RequestListener
-import com.bumptech.glide.request.target.Target
 import android.graphics.BitmapFactory
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -61,7 +53,6 @@ import com.xeniaone.templeapp.util.AuthManager
 import com.xeniaone.templeapp.util.BillingDialogHelper
 import com.xeniaone.templeapp.util.CommonMethod
 import com.xeniaone.templeapp.util.LanguageStrings
-import com.xeniaone.templeapp.R
 import com.xeniaone.templeapp.databinding.ActivityBillingBinding
 import com.xeniaone.templeapp.databinding.ItemBillRowBinding
 import kotlinx.coroutines.delay
@@ -69,12 +60,10 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import java.util.TimeZone
 
 class BillingActivity : AppCompatActivity(), PaymentResultListener {
 
     companion object {
-        const val EXTRA_OPERATOR_NAME = "extra_operator_name"
         const val EXTRA_LANGUAGE_CODE = "extra_language_code"
         const val EXTRA_PRINT_PENDING = "extra_print_pending"
         private const val TAG = "BillingActivity"
@@ -170,9 +159,8 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
             }, 800L)
         }
 
-        // Back button to logout or exit to login
         binding.btnBackToLanguage.setOnClickListener {
-            androidx.appcompat.app.AlertDialog.Builder(this)
+            AlertDialog.Builder(this)
                 .setTitle("Exit to Login")
                 .setMessage("Do you want to log out of the Kiosk?")
                 .setPositiveButton("Logout") { _, _ ->
@@ -204,18 +192,18 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
         }
 
         // Swipe down for refresh listener
-        binding.swipeRefreshLayout?.setOnRefreshListener {
+        binding.swipeRefreshLayout.setOnRefreshListener {
             lifecycleScope.launch {
                 val companyId = if (authManager.companyId > 0) authManager.companyId else 11
                 val branchId = if (authManager.defaultBranch > 0) authManager.defaultBranch else 3
                 socketManager.connect(companyId, branchId)
                 delay(1000)
-                binding.swipeRefreshLayout?.isRefreshing = false
+                binding.swipeRefreshLayout.isRefreshing = false
                 Toast.makeText(this@BillingActivity, "Refreshed successfully", Toast.LENGTH_SHORT).show()
             }
         }
 
-        // Pine Labs status badge click listener (quick pay or device info)
+
         binding.layoutPineLabsStatus.setOnClickListener {
             val activeItems = allItems.filter { it.quantity > 0 }
             val total = activeItems.sumOf { it.totalAmount }
@@ -226,10 +214,7 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
             }
         }
 
-        // Apply localization header
         applyLanguageStrings()
-
-        // Setup RecyclerView for Dynamic Products
         setupProductRecyclerView()
         setupNavigationDrawer()
         updateDevoteeMobileHint()
@@ -343,7 +328,7 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
     }
 
     private fun setupProductRecyclerView() {
-        productAdapter = ProductCardAdapter(allItems) { item, newQty ->
+        productAdapter = ProductCardAdapter(allItems) { _, _ ->
             updateUi()
         }
         val smallestWidth = resources.configuration.smallestScreenWidthDp
@@ -436,6 +421,7 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
         binding.tvTotalAmountLabel.text = LanguageStrings.getTotalAmountLabel(currentLanguage)
     }
 
+    @SuppressLint("SetTextI18n")
     private fun updateUi() {
         // Populate Table Rows
         binding.llOrderItemsContainer.removeAllViews()
@@ -454,15 +440,11 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
 
             activeItems.forEachIndexed { index, item ->
                 val rowBinding = ItemBillRowBinding.inflate(inflater, binding.llOrderItemsContainer, false)
-
-                // Format row values: "01", "02", etc.
                 rowBinding.tvRowIndex.text = "%02d".format(index + 1)
                 rowBinding.tvRowItemName.text = item.name
                 rowBinding.tvRowQty.text = item.quantity.toString()
                 rowBinding.tvRowPrice.text = "%.2f".format(item.unitPrice)
                 rowBinding.tvRowTotal.text = item.formattedTotal
-
-                // Remove button resets quantity of this item to 0
                 rowBinding.btnRemoveRow.setOnClickListener {
                     item.quantity = 0
                     productAdapter.notifyDataSetChanged()
@@ -490,7 +472,7 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
         val isKioskModeOn = kioskPrefs.getBoolean("pref_kiosk_mode_enabled", false)
         if (isKioskModeOn && !PineLabsManager.isPineLabsAvailable(this)) {
             try {
-                val am = getSystemService(android.content.Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+                val am = getSystemService(ACTIVITY_SERVICE) as android.app.ActivityManager
                 val isPinned = am.lockTaskModeState != android.app.ActivityManager.LOCK_TASK_MODE_NONE
                 if (!isPinned) {
                     startLockTask()
@@ -605,9 +587,7 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
                 val branchId = if (authManager.defaultBranch > 0) authManager.defaultBranch else 85
                 val userId = if (authManager.userId > 0) authManager.userId else 23
 
-                val nowIso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
-                    timeZone = TimeZone.getTimeZone("UTC")
-                }.format(Date())
+                val nowIso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).format(Date())
 
                 val currentOrderChannel = if (PineLabsManager.isPineLabsAvailable(this@BillingActivity)) "PINELABS" else "KIOSK"
 
@@ -856,9 +836,7 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
 
                 Log.d("KIOSK_PAYMENT_DEBUG", "✅ Matched Name == 'RAZORAYQR', ProviderId: $targetProviderId (Object: $razorpayQrProvider)")
 
-                val nowIso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
-                    timeZone = TimeZone.getTimeZone("UTC")
-                }.format(Date())
+                val nowIso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).format(Date())
 
                 val devoteeMobile = binding.etDevoteeMobile.text?.toString()?.trim() ?: ""
                 val currentOrderChannel = if (PineLabsManager.isPineLabsAvailable(this@BillingActivity)) "PINELABS" else "KIOSK"
@@ -1343,9 +1321,7 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
 
                 val devoteeMobile = binding.etDevoteeMobile.text?.toString()?.trim() ?: ""
 
-                val nowIso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
-                    timeZone = TimeZone.getTimeZone("UTC")
-                }.format(Date())
+                val nowIso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).format(Date())
 
                 val orderChannel = if (PineLabsManager.isPineLabsAvailable(this@BillingActivity)) "PINELABS" else "KIOSK"
 
