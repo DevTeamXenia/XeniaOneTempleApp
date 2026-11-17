@@ -20,8 +20,8 @@ import kotlinx.coroutines.launch
 import kotlin.math.pow
 
 class CatalogueSocketManager(
-    private val hubUrl: String = "https://oneapi.xeniapos.com/catalogueHub"
-//          private val hubUrl: String = "https://catalogueapi.xeniacatalogue.info/catalogueHub"
+//    private val hubUrl: String = "https://oneapi.xeniapos.com/catalogueHub"
+    private val hubUrl: String = "https://dev.xeniacatalogue.info/catalogueHub"
 ) {
 
     companion object {

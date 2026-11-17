@@ -233,8 +233,7 @@ object BillingDialogHelper {
         total: Double,
         onCardClick: () -> Unit,
         onUpiClick: () -> Unit,
-        onCashClick: () -> Unit,
-        onSibQrClick: () -> Unit
+        onCashClick: () -> Unit
     ) {
         val dialogView = LayoutInflater.from(activity).inflate(R.layout.dialog_pinelabs_payment_mode, null)
         val dialog = AlertDialog.Builder(activity)
@@ -251,10 +250,7 @@ object BillingDialogHelper {
         val btnOptionCash = dialogView.findViewById<View>(R.id.btnOptionCash)
         val btnOptionSibQr = dialogView.findViewById<View>(R.id.btnOptionSibQr)
 
-        val isPineLabs = PineLabsManager.isPineLabsAvailable(activity)
-        if (isPineLabs) {
-            btnOptionSibQr.visibility = View.GONE
-        }
+        btnOptionSibQr?.visibility = View.GONE
 
         tvDialogTotalAmount.text = "₹%.2f".format(Locale.US, total)
 
@@ -273,11 +269,6 @@ object BillingDialogHelper {
         btnOptionCash.setOnClickListener {
             dialog.dismiss()
             onCashClick()
-        }
-
-        btnOptionSibQr.setOnClickListener {
-            dialog.dismiss()
-            onSibQrClick()
         }
 
         dialog.show()

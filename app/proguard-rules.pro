@@ -44,16 +44,6 @@
 -keep class com.microsoft.signalr.** { *; }
 
 # -----------------------------------------------------------------------------
-# Razorpay SDK
-# -----------------------------------------------------------------------------
--keep class com.razorpay.** { *; }
--dontwarn com.razorpay.**
--dontwarn com.google.android.apps.nbu.paisa.**
--dontwarn proguard.annotation.**
--keepattributes JavascriptInterface
--keepclassmembers class * { @android.webkit.JavascriptInterface <methods>; }
-
-# -----------------------------------------------------------------------------
 # Firebase & Crashlytics
 # -----------------------------------------------------------------------------
 -keep class com.google.firebase.** { *; }

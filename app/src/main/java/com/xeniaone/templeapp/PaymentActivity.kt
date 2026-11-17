@@ -249,7 +249,11 @@ class PaymentActivity : AppCompatActivity() {
                     if (!orderData.PaymentRef.isNullOrBlank()) {
                         pspRefNo = orderData.PaymentRef
                     }
-                    Log.d(TAG, "Fetched order details: orderNo=$orderNo, encryptedOrderId=$encryptedOrderId, paymentRef=${orderData.PaymentRef}")
+                    if (!orderData.orderDate.isNullOrBlank()) {
+                        formattedDate = convertUtcToLocalIst(orderData.orderDate)
+                        Log.d(TAG, "Fetched orderDate from server (converted to IST): $formattedDate")
+                    }
+                    Log.d(TAG, "Fetched order details: orderNo=$orderNo, encryptedOrderId=$encryptedOrderId, paymentRef=${orderData.PaymentRef}, orderDate=$formattedDate")
                 } else {
                     Log.w(TAG, "getOrderDetails failed or returned null: ${result.exceptionOrNull()?.message}")
                 }
@@ -259,6 +263,23 @@ class PaymentActivity : AppCompatActivity() {
             withContext(Dispatchers.Main) {
                 initializeUiAndPrinting()
             }
+        }
+    }
+
+    private fun convertUtcToLocalIst(utcDateStr: String): String {
+        return try {
+            val cleanDateStr = utcDateStr.substringBefore("Z").substringBefore("+")
+            val utcFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.ENGLISH).apply {
+                timeZone = TimeZone.getTimeZone("UTC")
+            }
+            val date = utcFormat.parse(cleanDateStr.substringBefore(".")) ?: Date()
+            val localFormat = SimpleDateFormat("dd-MMM-yyyy  hh:mm a", Locale.ENGLISH).apply {
+                timeZone = TimeZone.getTimeZone("Asia/Kolkata")
+            }
+            localFormat.format(date)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error parsing server orderDate '$utcDateStr': ${e.message}", e)
+            formattedDate
         }
     }
 
@@ -292,16 +313,11 @@ class PaymentActivity : AppCompatActivity() {
             }
         }
 
-        // Proposal default fallback items if none passed
-        val fallbackTotal = if (totalAmount > 0.0) totalAmount else 520.00
-        return listOf(
-            ReceiptItem(no = 1, name = "Appam", quantity = 3, rate = 40.00, total = 120.00),
-            ReceiptItem(no = 2, name = "Aravana", quantity = 5, rate = 80.00, total = 400.00)
-        )
+        return emptyList()
     }
 
     private fun formatReceiptNo(orderNo: String, orderId: Long): String {
-        val raw = if (orderNo.isNotBlank()) orderNo.trim() else if (orderId > 0L) orderId.toString() else "27533365"
+        val raw = if (orderNo.isNotBlank()) orderNo.trim() else if (orderId > 0L) orderId.toString() else ""
         if (raw.contains("N", ignoreCase = true)) {
             val afterN = raw.substringAfterLast("N").substringAfterLast("n").trim()
             if (afterN.isNotBlank()) {
@@ -314,7 +330,7 @@ class PaymentActivity : AppCompatActivity() {
     @SuppressLint("SetTextI18n")
     private fun setupUI() {
         val displayOrderId = formatReceiptNo(orderNo, orderId)
-        val displayPspRef = if (pspRefNo.isNotBlank()) pspRefNo else "5647784112"
+        val displayPspRef = pspRefNo
         val displayTotal = if (totalAmount > 0.0) totalAmount else receiptItems.sumOf { it.total }
 
         // Populate Receipt Metadata
@@ -773,7 +789,7 @@ class PaymentActivity : AppCompatActivity() {
         paint.color = Color.BLACK
         paint.textAlign = Paint.Align.LEFT
         val displayOrderId = formatReceiptNo(orderNo, orderId)
-        val displayPspRef = if (pspRefNo.isNotBlank()) pspRefNo else "5647784112"
+        val displayPspRef = pspRefNo
         val displayTotal = if (totalAmount > 0.0) totalAmount else receiptItems.sumOf { it.total }
 
         canvas.drawText("Receipt No :   $displayOrderId", margin, y, paint)

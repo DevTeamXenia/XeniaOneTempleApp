@@ -14,9 +14,7 @@ import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
-import com.razorpay.Checkout
-import com.razorpay.PaymentResultListener
-import org.json.JSONObject
+
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
@@ -62,7 +60,7 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
-class BillingActivity : AppCompatActivity(), PaymentResultListener {
+class BillingActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_LANGUAGE_CODE = "extra_language_code"
@@ -112,10 +110,7 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
         binding = ActivityBillingBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Preload Razorpay Checkout SDK
-        try {
-            Checkout.preload(applicationContext)
-        } catch (_: Exception) {}
+
         val base = resources.getDimensionPixelSize(R.dimen.bottom_bar_padding_bottom)
         val minClear = resources.getDimensionPixelSize(R.dimen.bottom_bar_min_clearance)
 
@@ -195,8 +190,8 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
         // Swipe down for refresh listener
         binding.swipeRefreshLayout.setOnRefreshListener {
             lifecycleScope.launch {
-                val companyId = if (authManager.companyId > 0) authManager.companyId else 11
-                val branchId = if (authManager.defaultBranch > 0) authManager.defaultBranch else 3
+                val companyId = authManager.companyId
+                val branchId = authManager.defaultBranch
                 socketManager.connect(companyId, branchId)
                 delay(1000)
                 binding.swipeRefreshLayout.isRefreshing = false
@@ -270,8 +265,8 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
             }
 
             // 2. Connect SignalR Socket using companyId & defaultBranch
-            val companyId = if (authManager.companyId > 0) authManager.companyId else 11
-            val branchId = if (authManager.defaultBranch > 0) authManager.defaultBranch else 3
+            val companyId = authManager.companyId
+            val branchId = authManager.defaultBranch
             Log.i(TAG, "Connecting SignalR Socket for companyId=$companyId, branchId=$branchId")
             socketManager.connect(companyId, branchId)
         }
@@ -537,9 +532,6 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
             },
             onCashClick = {
                 showCashReferenceDialog(activeItems, total)
-            },
-            onSibQrClick = {
-                proceedWithRazorpayPayment(activeItems, total)
             }
         )
     }
@@ -584,9 +576,19 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
 
         lifecycleScope.launch {
             try {
-                val companyId = if (authManager.companyId > 0) authManager.companyId else 40
-                val branchId = if (authManager.defaultBranch > 0) authManager.defaultBranch else 85
-                val userId = if (authManager.userId > 0) authManager.userId else 23
+                val companyId = authManager.companyId
+                val branchId = authManager.defaultBranch
+                val userId = authManager.userId
+
+                val providersResult = orderRepository.getPaymentProviders(companyId)
+                val providers = providersResult.getOrNull() ?: emptyList()
+                val matchedProvider = providers.firstOrNull { 
+                    it.name.equals(modeName, ignoreCase = true) || 
+                    it.name?.contains("PINELABS", ignoreCase = true) == true || 
+                    it.name?.contains("CARD", ignoreCase = true) == true || 
+                    it.name?.contains("UPI", ignoreCase = true) == true 
+                }
+                val paymentProviderId = matchedProvider?.providerId ?: 11
 
                 val nowIso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).apply {
                     timeZone = TimeZone.getTimeZone("Asia/Kolkata")
@@ -603,7 +605,7 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
                     orderChanel = currentOrderChannel,
                     tableId = 0,
                     dinningId = 0,
-                    paymentProviderId = 11,
+                    paymentProviderId = paymentProviderId,
                     couponCode = "",
                     isWalletAmount = false,
                     isWalletLoyality = false,
@@ -721,7 +723,7 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
         CommonMethod.showLoader(this, "Processing Pine Labs Order...")
         lifecycleScope.launch {
             try {
-                val companyId = if (authManager.companyId > 0) authManager.companyId else 40
+                val companyId = authManager.companyId
                 val orderIdInt = pendingOrderId.toInt()
 
                 Log.d(TAG, "⚙️ Calling Process API for Pine Labs OrderId=$orderIdInt, CompanyId=$companyId")
@@ -779,33 +781,9 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
         proceedWithRazorpayQrPayment(activeItems, total)
     }
 
-    private fun startRazorpayPayment(orderId: Int, razorpayOrderId: String, totalAmount: Double, customerName: String, customerMobile: String) {
-        try {
-            val checkout = Checkout()
-            val rzpKey = getString(R.string.razorpay_api_key)
-            if (rzpKey.isNotBlank()) {
-                checkout.setKeyID(rzpKey)
-            }
 
-            val options = JSONObject().apply {
-                put("name", "Travancore Devaswom Board")
-                put("description", "Prasadam Order #$orderId")
-                put("currency", "INR")
-                put("amount", (totalAmount * 100).toLong())
-                put("order_id", razorpayOrderId)
-                put("prefill", JSONObject().apply {
-                    put("name", customerName)
-                    put("contact", customerMobile)
-                })
-            }
-            checkout.open(this, options)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error opening Razorpay checkout SDK: ${e.message}", e)
-            Toast.makeText(this, "Error opening Razorpay gateway: ${e.message}", Toast.LENGTH_LONG).show()
-        }
-    }
 
-    private fun proceedWithRazorpayQrPayment(activeItems: List<PrasadamItem>, total: Double, initialProviderId: Int = 12) {
+    private fun proceedWithRazorpayQrPayment(activeItems: List<PrasadamItem>, total: Double) {
         val cartItems = activeItems.map { item ->
             OrderCartItem(
                 productId = item.id.toIntOrNull() ?: 9543,
@@ -824,9 +802,9 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
 
         lifecycleScope.launch {
             try {
-                val companyId = if (authManager.companyId > 0) authManager.companyId else 40
-                val branchId = if (authManager.defaultBranch > 0) authManager.defaultBranch else 85
-                val userId = if (authManager.userId > 0) authManager.userId else 23
+                val companyId = authManager.companyId
+                val branchId = authManager.defaultBranch
+                val userId = authManager.userId
 
                 // Step 1: Fetch Payment Providers: GET /api/PaymentProvider/company/{companyId}
                 val providersResult = orderRepository.getPaymentProviders(companyId)
@@ -835,7 +813,14 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
 
                 // Check for ProviderId where Name == "RAZORAYQR"
                 val razorpayQrProvider = providers.firstOrNull { it.name.equals("RAZORAYQR", ignoreCase = true) }
-                val targetProviderId = razorpayQrProvider?.providerId ?: initialProviderId
+                if (razorpayQrProvider == null) {
+                    CommonMethod.dismissLoader()
+                    val msg = if (providers.isEmpty()) "No payment providers found for Company ID: $companyId" else "RAZORAYQR payment provider is not configured"
+                    Log.w(TAG, "⚠️ $msg")
+                    showModernMessageDialog("Payment Error", msg)
+                    return@launch
+                }
+                val targetProviderId = razorpayQrProvider.providerId
 
                 Log.d("KIOSK_PAYMENT_DEBUG", "✅ Matched Name == 'RAZORAYQR', ProviderId: $targetProviderId (Object: $razorpayQrProvider)")
 
@@ -892,42 +877,26 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
                 val easeOrderIdFromSummary = summaryResponse.easeOrderId ?: ""
                 val qrUrlFromSummary = summaryResponse.data ?: ""
 
-                // Step 3: Call Process API with settled=false (and isWhatsApp=false before payment success)
-                val processResult = orderRepository.processOrder(
-                    orderId = initialOrderId,
-                    companyId = companyId,
-                    customerId = 0,
-                    settled = false,
-                    isWhatsApp = false
-                )
-
                 CommonMethod.dismissLoader()
-                val processResponse = processResult.getOrNull()
-                Log.d("KIOSK_PAYMENT_DEBUG", "⚙️ Process API Response: Status=${processResponse?.status}, OrderId=${processResponse?.orderId}, EaseOrderId=${processResponse?.easeOrderId}, Data=${processResponse?.data}, Message=${processResponse?.message}")
 
-                if (processResponse != null && (processResponse.status.equals("Success", ignoreCase = true) || processResponse.status.equals("CREATED", ignoreCase = true))) {
-                    val orderId = processResponse.orderId ?: initialOrderId
-                    val easeOrderId = if (!processResponse.easeOrderId.isNullOrBlank()) processResponse.easeOrderId else easeOrderIdFromSummary
-                    val qrUrl = qrUrlFromSummary
-
-                    pendingOrderId = orderId.toLong()
-                    pendingRazorpayOrderId = easeOrderId
+                if (initialOrderId > 0) {
+                    pendingOrderId = initialOrderId.toLong()
+                    pendingRazorpayOrderId = easeOrderIdFromSummary
                     pendingTotal = total
                     pendingCustomerName = ""
                     pendingCustomerMobile = devoteeMobile
 
-                    Log.d("KIOSK_PAYMENT_DEBUG", "🚀 Opening QR Dialog: OrderId=$orderId, EaseOrderId=$easeOrderId, QR URL=$qrUrl")
+                    Log.d("KIOSK_PAYMENT_DEBUG", "🚀 Opening QR Dialog: OrderId=$initialOrderId, EaseOrderId=$easeOrderIdFromSummary, QR URL=$qrUrlFromSummary")
 
                     // Step 4: Show QR Dialog and start 3-second status polling
                     showRazorpayQrDialog(
-                        orderId = orderId,
-                        easeOrderId = easeOrderId,
-                        qrUrl = qrUrl,
+                        orderId = initialOrderId,
+                        easeOrderId = easeOrderIdFromSummary,
+                        qrUrl = qrUrlFromSummary,
                         totalAmount = total
                     )
                 } else {
-                    val err = processResponse?.message ?: processResult.exceptionOrNull()?.message ?: "Order processing failed"
-                    showModernMessageDialog("Order Failed", err)
+                    showModernMessageDialog("Order Failed", "Invalid Order ID received from summary")
                 }
             } catch (e: Exception) {
                 CommonMethod.dismissLoader()
@@ -1126,7 +1095,7 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
         CommonMethod.showLoader(this, "Settling Payment...")
         lifecycleScope.launch {
             try {
-                val companyId = if (authManager.companyId > 0) authManager.companyId else 40
+                val companyId = authManager.companyId
                 val settleResult = orderRepository.processOrder(
                     orderId = orderId,
                     companyId = companyId,
@@ -1161,15 +1130,7 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
         qrDialog = null
     }
 
-    override fun onPaymentSuccess(razorpayPaymentID: String?) {
-        Log.i(TAG, "✅ Razorpay payment success callback: paymentId=$razorpayPaymentID")
-        settleAndNavigateRazorpayQrOrder(pendingOrderId.toInt(), pendingRazorpayOrderId)
-    }
 
-    override fun onPaymentError(errorCode: Int, response: String?) {
-        Log.e(TAG, "❌ Razorpay payment error callback: code=$errorCode, response=$response")
-        showRazorpayPendingDialog()
-    }
 
     private fun showRazorpayPendingDialog() {
         if (isFinishing || isDestroyed) return
@@ -1194,12 +1155,11 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
         btnContinue?.setOnClickListener {
             dialog.dismiss()
             if (pendingOrderId > 0L && pendingRazorpayOrderId.isNotBlank()) {
-                startRazorpayPayment(
+                showRazorpayQrDialog(
                     orderId = pendingOrderId.toInt(),
-                    razorpayOrderId = pendingRazorpayOrderId,
-                    totalAmount = pendingTotal,
-                    customerName = pendingCustomerName,
-                    customerMobile = pendingCustomerMobile
+                    easeOrderId = pendingRazorpayOrderId,
+                    qrUrl = "",
+                    totalAmount = pendingTotal
                 )
             } else {
                 Toast.makeText(this, "No active order to continue", Toast.LENGTH_SHORT).show()
@@ -1225,12 +1185,11 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
         CommonMethod.showLoader(this, "Cancelling Order...")
         lifecycleScope.launch {
             try {
-                val companyId = if (authManager.companyId > 0) authManager.companyId else 40
+                val companyId = authManager.companyId
                 val result = orderRepository.cancelOrder(pendingOrderId.toInt(), companyId, settled = false)
                 CommonMethod.dismissLoader()
                 val response = result.getOrNull()
 
-                // Always clear cart & devotee inputs on cancel
                 allItems.forEach { it.quantity = 0 }
                 binding.etDevoteeMobile.text?.clear()
                 productAdapter.notifyDataSetChanged()
@@ -1308,7 +1267,7 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
     private fun proceedWithCashPayment(activeItems: List<PrasadamItem>, total: Double, customRefId: String? = null, adminPassword: String = "") {
         val cartItems = activeItems.map { item ->
             OrderCartItem(
-                productId = item.id.toIntOrNull() ?: 9543,
+                productId = item.id.toIntOrNull() ?: 0,
                 variantId = 0,
                 quantity = item.quantity,
                 rate = item.unitPrice
@@ -1324,9 +1283,9 @@ class BillingActivity : AppCompatActivity(), PaymentResultListener {
 
         lifecycleScope.launch {
             try {
-                val companyId = if (authManager.companyId > 0) authManager.companyId else 40
-                val branchId = if (authManager.defaultBranch > 0) authManager.defaultBranch else 85
-                val userId = if (authManager.userId > 0) authManager.userId else 23
+                val companyId = authManager.companyId
+                val branchId = authManager.defaultBranch
+                val userId = authManager.userId
 
                 val devoteeMobile = binding.etDevoteeMobile.text?.toString()?.trim() ?: ""
 

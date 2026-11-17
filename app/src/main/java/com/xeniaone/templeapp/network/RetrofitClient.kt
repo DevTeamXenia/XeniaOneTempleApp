@@ -7,7 +7,11 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
 object RetrofitClient {
-    private const val BASE_URL = "https://oneapi.xeniapos.com/"
+  private const val BASE_URL = "https://dev.xeniacatalogue.info/"
+
+//private const val BASE_URL = "https://oneapi.xeniapos.com/"
+
+
 
     fun createAuthApiService(): AuthApiService {
         val loggingInterceptor = HttpLoggingInterceptor().apply {

@@ -8,7 +8,10 @@ import android.os.Build
 import android.util.Log
 import com.google.gson.Gson
 import com.xeniaone.templeapp.model.ReceiptItem
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
 import kotlin.math.roundToLong
 
 /**
@@ -178,6 +181,28 @@ object PineLabsManager {
     // PRINT INTEGRATION (PrintData - MethodId 1002)
     // ─────────────────────────────────────────────────────────────────────────
 
+    fun formatServerDate(dateStr: String): String {
+        if (dateStr.isBlank()) return dateStr
+        return try {
+            if (dateStr.contains("T") || (dateStr.contains("-") && dateStr.length > 10)) {
+                val cleanDateStr = dateStr.substringBefore("Z").substringBefore("+")
+                val utcFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.ENGLISH).apply {
+                    timeZone = TimeZone.getTimeZone("UTC")
+                }
+                val date = utcFormat.parse(cleanDateStr.substringBefore(".")) ?: Date()
+                val localFormat = SimpleDateFormat("dd-MMM-yyyy  hh:mm a", Locale.ENGLISH).apply {
+                    timeZone = TimeZone.getTimeZone("Asia/Kolkata")
+                }
+                localFormat.format(date)
+            } else {
+                dateStr
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error formatting server date '$dateStr': ${e.message}", e)
+            dateStr
+        }
+    }
+
     /**
      * Builds structured print items for Temple Prasadam receipt.
      * Uses space-padding for column alignment as Pine Labs print API
@@ -243,10 +268,10 @@ object PineLabsManager {
         addDivider('=')
 
         // 2. Metadata
-        val rawId = when {
-            orderNo.isNotBlank() -> orderNo.trim()
-            orderId.isNotBlank() && orderId != "0" -> orderId.trim()
-            else -> ""
+        val rawId = if (orderNo.isNotBlank()) {
+            orderNo.trim()
+        } else {
+            ""
         }
         val displayOrderId = if (rawId.contains("N", ignoreCase = true)) {
             val afterN = rawId.substringAfterLast("N").substringAfterLast("n").trim()
@@ -256,7 +281,7 @@ object PineLabsManager {
         }
 
         addRow("Receipt No:", displayOrderId)
-        addRow("Date:", dateFormatted)
+        addRow("Date:", formatServerDate(dateFormatted))
         if (paymentModeTitle.isNotBlank()) addRow("Payment Mode:", paymentModeTitle)
         if (customerName.isNotBlank()) addRow("Name:", customerName.trim())
         if (mobileNumber.isNotBlank()) addRow("Mobile:", mobileNumber.trim())

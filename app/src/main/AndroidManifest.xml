@@ -50,22 +50,11 @@
             android:screenOrientation="portrait"
             android:windowSoftInputMode="stateAlwaysHidden|adjustResize" />
 
-        <!-- Screen 2: Payment QR Code -->
-        <activity
-            android:name=".PaymentQrActivity"
-            android:exported="true"
-            android:screenOrientation="portrait" />
-
         <!-- Screen 3: Payment Receipt & Thermal Printing -->
         <activity
             android:name=".PaymentActivity"
             android:exported="true"
             android:screenOrientation="portrait" />
-
-        <!-- Razorpay SDK API Key metadata -->
-        <meta-data
-            android:name="com.razorpay.ApiKey"
-            android:value="@string/razorpay_api_key" />
 
         <!-- Dynamic Home Launcher Alias for Kiosk Mode Autostart on Reboot -->
         <activity-alias
