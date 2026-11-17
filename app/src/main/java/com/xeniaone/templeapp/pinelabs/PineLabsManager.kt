@@ -513,7 +513,7 @@ object PineLabsManager {
         private set
     var currentRetryCount: Int = 0
         private set
-    const val MAX_PINE_LABS_RETRIES = 2
+    const val MAX_PINE_LABS_RETRIES = 3
 
     fun cachePrintSession(refNo: String, items: List<PineLabsPrintItem>) {
         lastCachedPrintRefNo = refNo

@@ -552,7 +552,7 @@ class BillingActivity : AppCompatActivity() {
         if (!validateMobileNumberForWhatsApp()) return
         val cartItems = activeItems.map { item ->
             OrderCartItem(
-                productId = item.id.toIntOrNull() ?: 9543,
+                productId = item.id.toIntOrNull() ?: 0,
                 variantId = 0,
                 quantity = item.quantity,
                 rate = item.unitPrice
@@ -588,7 +588,7 @@ class BillingActivity : AppCompatActivity() {
                     it.name?.contains("CARD", ignoreCase = true) == true || 
                     it.name?.contains("UPI", ignoreCase = true) == true 
                 }
-                val paymentProviderId = matchedProvider?.providerId ?: 11
+                val paymentProviderId = matchedProvider?.providerId ?: 0
 
                 val nowIso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).apply {
                     timeZone = TimeZone.getTimeZone("Asia/Kolkata")
@@ -786,7 +786,7 @@ class BillingActivity : AppCompatActivity() {
     private fun proceedWithRazorpayQrPayment(activeItems: List<PrasadamItem>, total: Double) {
         val cartItems = activeItems.map { item ->
             OrderCartItem(
-                productId = item.id.toIntOrNull() ?: 9543,
+                productId = item.id.toIntOrNull() ?: 0,
                 variantId = 0,
                 quantity = item.quantity,
                 rate = item.unitPrice
@@ -1038,12 +1038,13 @@ class BillingActivity : AppCompatActivity() {
 
         // Coroutine polling every 3 seconds for status API - INSTANT SUCCESS SETTLEMENT
         qrPollingJob = lifecycleScope.launch {
-            while (!isQrPaymentHandled && isActive) {
-                delay(1000L)
-                if (isQrPaymentHandled || !isActive) break
+            var failedRetryCount = 0
+            var pollingSeconds = 0
+            var currentStatusText = ""
 
+            while (!isQrPaymentHandled && isActive) {
                 try {
-                    Log.d(TAG, "🔍 Polling Razorpay QR status: orderId=$orderId, easeOrderId=$easeOrderId")
+                    Log.d(TAG, "🔍 Polling Razorpay QR status ($pollingSeconds sec): orderId=$orderId, easeOrderId=$easeOrderId")
                     val result = orderRepository.checkRazorpayQrPaymentStatus(orderId, easeOrderId)
                     val response = result.getOrNull()
                     val statusItem = response?.data?.firstOrNull()
@@ -1058,6 +1059,7 @@ class BillingActivity : AppCompatActivity() {
                             isQrPaymentHandled = true
                             withContext(Dispatchers.Main) {
                                 tvQrStatus.text = "✅ Payment Captured Successfully!"
+                                tvQrStatus.setTextColor(Color.parseColor("#2E7D32"))
                                 stopQrPollingAndDismiss()
                                 // Instantly settle and navigate with zero delay
                                 settleAndNavigateRazorpayQrOrder(orderId, easeOrderId)
@@ -1065,7 +1067,14 @@ class BillingActivity : AppCompatActivity() {
                         }
                         break
                     } else if (paymentStatus == "FAILED" || paymentStatus == "EXPIRED" || paymentStatus == "CANCELLED" || paymentStatus == "F") {
-                        Log.e(TAG, "❌ Razorpay QR Payment Failed: $paymentStatus, $message")
+                        if (failedRetryCount < 3) {
+                            failedRetryCount++
+                            Log.w(TAG, "⚠️ Razorpay QR Status reported '$paymentStatus'. Retrying check ($failedRetryCount/3)...")
+                            delay(2000L)
+                            pollingSeconds += 2
+                            continue
+                        }
+                        Log.e(TAG, "❌ Razorpay QR Payment Failed after 3 retries: $paymentStatus, $message")
                         if (!isQrPaymentHandled) {
                             isQrPaymentHandled = true
                             withContext(Dispatchers.Main) {
@@ -1076,8 +1085,16 @@ class BillingActivity : AppCompatActivity() {
                         }
                         break
                     } else {
+                        failedRetryCount = 0
                         withContext(Dispatchers.Main) {
-                            tvQrStatus.text = "⏳ Waiting for payment confirmation..."
+                            val isFirstState = (pollingSeconds / 10) % 2 == 0
+                            val newText = if (isFirstState) "⏳ Waiting for payment confirmation..." else "PLEASE WAIT..."
+                            val newColor = if (isFirstState) Color.parseColor("#FF0000") else Color.RED
+                            if (currentStatusText != newText) {
+                                currentStatusText = newText
+                                tvQrStatus.text = newText
+                                tvQrStatus.setTextColor(newColor)
+                            }
                         }
                     }
                 } catch (e: CancellationException) {
@@ -1085,10 +1102,18 @@ class BillingActivity : AppCompatActivity() {
                 } catch (e: Exception) {
                     Log.w(TAG, "Network error during QR status poll (retrying next tick): ${e.message}")
                 }
+
+                delay(3000L)
+                pollingSeconds += 3
             }
         }
 
         qrDialog?.show()
+        qrDialog?.window?.let { win ->
+            val displayMetrics = resources.displayMetrics
+            val dialogWidth = (displayMetrics.widthPixels * 0.98).toInt()
+            win.setLayout(dialogWidth, android.view.ViewGroup.LayoutParams.WRAP_CONTENT)
+        }
     }
 
     private fun settleAndNavigateRazorpayQrOrder(orderId: Int, rzpOrderId: String) {
