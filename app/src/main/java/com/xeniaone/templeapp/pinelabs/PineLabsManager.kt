@@ -268,16 +268,36 @@ object PineLabsManager {
         addDivider('=')
 
         // 2. Metadata
-        val rawId = if (orderNo.isNotBlank()) {
-            orderNo.trim()
-        } else {
-            ""
+        val rawId = when {
+            orderId.isNotBlank() -> orderId.trim()
+            else -> ""
         }
+        Log.d(TAG, "Input orderNo='$orderNo', orderId='$orderId' -> rawId='$rawId'")
+
         val displayOrderId = if (rawId.contains("N", ignoreCase = true)) {
-            val afterN = rawId.substringAfterLast("N").substringAfterLast("n").trim()
-            if (afterN.isNotBlank()) afterN else rawId.replace(Regex("^(NO\\.|NO|N-|N|#|ORD-)", RegexOption.IGNORE_CASE), "").trim()
+            Log.d(TAG, "rawId contains 'N' -> extracting part after last N")
+
+            val afterLastN = rawId.substringAfterLast("N")
+            val afterN = afterLastN.substringAfterLast("n").trim()
+            Log.d(TAG, "substringAfterLast(\"N\")='$afterLastN', after last 'n'='$afterN'")
+
+            if (afterN.isNotBlank()) {
+                Log.d(TAG, "Using afterN='$afterN'")
+                afterN
+            } else {
+                val stripped = rawId.replace(Regex("^(NO\\.|NO|N-|N|#|ORD-)", RegexOption.IGNORE_CASE), "").trim()
+                Log.w(TAG, "afterN blank, fallback to prefix-stripped value='$stripped'")
+                stripped
+            }
         } else {
-            rawId.replace(Regex("^(NO\\.|NO|N-|N|#|ORD-)", RegexOption.IGNORE_CASE), "").trim()
+            val stripped = rawId.replace(Regex("^(NO\\.|NO|N-|N|#|ORD-)", RegexOption.IGNORE_CASE), "").trim()
+            Log.d(TAG, "rawId has no 'N' -> prefix-stripped value='$stripped'")
+            stripped
+        }
+
+        Log.i(TAG, "Final displayOrderId='$displayOrderId' (orderNo='$orderNo')")
+        if (displayOrderId.isBlank()) {
+            Log.e(TAG, "displayOrderId is EMPTY for orderNo='$orderNo'")
         }
 
         addRow("Receipt No:", displayOrderId)
