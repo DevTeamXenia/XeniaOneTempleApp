@@ -316,8 +316,8 @@ class PaymentActivity : AppCompatActivity() {
         return emptyList()
     }
 
-    private fun formatReceiptNo(orderNo: String, orderId: Long): String {
-        val raw = if (orderNo.isNotBlank()) orderNo.trim() else if (orderId > 0L) orderId.toString() else ""
+    private fun formatReceiptNo(orderNo: String): String {
+        val raw = if (orderNo.isNotBlank()) orderNo.trim() else ""
         if (raw.contains("N", ignoreCase = true)) {
             val afterN = raw.substringAfterLast("N").substringAfterLast("n").trim()
             if (afterN.isNotBlank()) {
@@ -329,7 +329,7 @@ class PaymentActivity : AppCompatActivity() {
 
     @SuppressLint("SetTextI18n")
     private fun setupUI() {
-        val displayOrderId = formatReceiptNo(orderNo, orderId)
+        val displayOrderId = formatReceiptNo(orderNo)
         val displayPspRef = pspRefNo
         val displayTotal = if (totalAmount > 0.0) totalAmount else receiptItems.sumOf { it.total }
 
@@ -362,10 +362,10 @@ class PaymentActivity : AppCompatActivity() {
             binding.llReceiptItems.addView(rowBinding.root)
         }
 
-        // Centered QR Code at footer
-        val qrData = "upi://pay?pa=sabarimala@sib&pn=SabarimalaTemple&tr=$displayOrderId&am=$displayTotal&cu=INR"
-        val qrBitmap = QrCodeGenerator.generate(qrData, 240)
-        binding.ivReceiptQr.setImageBitmap(qrBitmap)
+//        // Centered QR Code at footer
+//        val qrData = "upi://pay?pa=sabarimala@sib&pn=SabarimalaTemple&tr=$displayOrderId&am=$displayTotal&cu=INR"
+//        val qrBitmap = QrCodeGenerator.generate(qrData, 240)
+//        binding.ivReceiptQr.setImageBitmap(qrBitmap)
     }
 
     private fun setupListeners() {
@@ -554,7 +554,7 @@ class PaymentActivity : AppCompatActivity() {
             val app = application as TempleApp
             val authManager = app.container.authManager
 
-            val displayOrderId = formatReceiptNo(orderNo, orderId)
+            val displayOrderId = formatReceiptNo(orderNo)
             val displayPaymentMode = if (paymentMode.isNotBlank()) paymentMode else "Pine Labs POS"
             val displayRef = if (rrn.isNotBlank()) rrn else if (approvalCode.isNotBlank()) approvalCode else pspRefNo
             val displayTotal = if (totalAmount > 0.0) totalAmount else receiptItems.sumOf { it.total }
@@ -571,6 +571,7 @@ class PaymentActivity : AppCompatActivity() {
             val currentUserName = authManager.employeeName.ifBlank { authManager.savedUsername }
             val printItems = PineLabsManager.buildTempleReceiptPrintItems(
                 orderId = displayOrderId,
+                orderNo = orderNo,
                 dateFormatted = formattedDate,
                 paymentRef = displayRef,
                 paymentModeTitle = displayPaymentMode,
@@ -788,7 +789,7 @@ class PaymentActivity : AppCompatActivity() {
         paint.textSize = 27f
         paint.color = Color.BLACK
         paint.textAlign = Paint.Align.LEFT
-        val displayOrderId = formatReceiptNo(orderNo, orderId)
+        val displayOrderId = formatReceiptNo(orderNo)
         val displayPspRef = pspRefNo
         val displayTotal = if (totalAmount > 0.0) totalAmount else receiptItems.sumOf { it.total }
 

@@ -269,7 +269,7 @@ object PineLabsManager {
 
         // 2. Metadata
         val rawId = when {
-            orderId.isNotBlank() -> orderId.trim()
+            orderNo.isNotBlank() -> orderNo.trim()
             else -> ""
         }
         Log.d(TAG, "Input orderNo='$orderNo', orderId='$orderId' -> rawId='$rawId'")

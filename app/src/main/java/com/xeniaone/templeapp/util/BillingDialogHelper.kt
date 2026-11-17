@@ -277,7 +277,7 @@ object BillingDialogHelper {
     fun showCashReferenceDialog(
         activity: Activity,
         authManager: AuthManager,
-        onContinue: (String, String) -> Unit
+        onContinue: (refId: String, adminPassword: String, onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit
     ) {
         val dialogView = LayoutInflater.from(activity).inflate(R.layout.dialog_cash_reference, null)
         val dialog = AlertDialog.Builder(activity)
@@ -322,6 +322,8 @@ object BillingDialogHelper {
             if (adminPassword.isEmpty()) {
                 Log.w(TAG, "⚠️ Cash Dialog Error: Admin Password is empty")
                 android.widget.Toast.makeText(activity, "Please enter Admin Password", android.widget.Toast.LENGTH_SHORT).show()
+                etAdminPassword?.error = "Password Required"
+                etAdminPassword?.requestFocus()
                 return@setOnClickListener
             }
 
@@ -330,12 +332,21 @@ object BillingDialogHelper {
                 Log.w(TAG, "❌ Cash Dialog Error: Incorrect Admin Password entered")
                 android.widget.Toast.makeText(activity, "Incorrect Admin Password", android.widget.Toast.LENGTH_SHORT).show()
                 etAdminPassword?.error = "Incorrect Password"
+                etAdminPassword?.requestFocus()
                 return@setOnClickListener
             }
 
             Log.i(TAG, "✅ Cash Dialog Validated Successfully for refId='$refId'")
-            dialog.dismiss()
-            onContinue(refId, adminPassword)
+            onContinue(
+                refId,
+                adminPassword,
+                { dialog.dismiss() },
+                { errorMsg ->
+                    android.widget.Toast.makeText(activity, errorMsg, android.widget.Toast.LENGTH_SHORT).show()
+                    etAdminPassword?.error = errorMsg
+                    etAdminPassword?.requestFocus()
+                }
+            )
         }
 
         dialog.show()

@@ -42,11 +42,12 @@ interface OrderApiService {
         @Query("settled") settled: Boolean,
         @Query("iswhatsapp") isWhatsApp: Boolean
     ): Response<OrderKioskSummaryResponse>
-
-    @GET("api/Order/status/checkPayment/{orderId}")
+//
+//    @GET("api/Order/status/checkPayment/{orderId}")
+   @GET("/api/Order/razorpay/qr/checkPayment/{orderId}")
     suspend fun checkRazorpayPaymentStatus(
         @Path("orderId") orderId: Int,
-        @Query("razropayOrderId") razorpayOrderId: String
+        @Query("qrId") razorpayOrderId: String
     ): Response<SibCheckPaymentResponse>
 
 

@@ -580,15 +580,7 @@ class BillingActivity : AppCompatActivity() {
                 val branchId = authManager.defaultBranch
                 val userId = authManager.userId
 
-                val providersResult = orderRepository.getPaymentProviders(companyId)
-                val providers = providersResult.getOrNull() ?: emptyList()
-                val matchedProvider = providers.firstOrNull { 
-                    it.name.equals(modeName, ignoreCase = true) || 
-                    it.name?.contains("PINELABS", ignoreCase = true) == true || 
-                    it.name?.contains("CARD", ignoreCase = true) == true || 
-                    it.name?.contains("UPI", ignoreCase = true) == true 
-                }
-                val paymentProviderId = matchedProvider?.providerId ?: 0
+                val paymentProviderId = 15
 
                 val nowIso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).apply {
                     timeZone = TimeZone.getTimeZone("Asia/Kolkata")
@@ -1048,12 +1040,21 @@ class BillingActivity : AppCompatActivity() {
                     val result = orderRepository.checkRazorpayQrPaymentStatus(orderId, easeOrderId)
                     val response = result.getOrNull()
                     val statusItem = response?.data?.firstOrNull()
-                    val paymentStatus = statusItem?.status?.uppercase(Locale.US) ?: ""
+                    val paymentStatus = statusItem?.status?.uppercase(Locale.US) ?: response?.rootOrderStatus?.uppercase(Locale.US) ?: ""
+                    val providerStatus = statusItem?.providerStatus?.uppercase(Locale.US) ?: response?.rootProviderStatus?.uppercase(Locale.US) ?: ""
+                    val isFinal = statusItem?.isFinal == true || response?.rootIsFinal == true
                     val message = statusItem?.message ?: ""
 
-                    Log.d(TAG, "📊 Razorpay QR Status Response: '$paymentStatus', Message: '$message'")
+                    Log.d(TAG, "📊 Razorpay QR Status: '$paymentStatus', ProviderStatus: '$providerStatus', IsFinal: $isFinal, Message: '$message'")
 
-                    if (paymentStatus == "CAPTURED" || paymentStatus == "PAID" || paymentStatus == "SUCCESS" || paymentStatus == "COMPLETED" || paymentStatus == "S") {
+                    val isSuccess = paymentStatus == "CAPTURED" || paymentStatus == "PAID" || paymentStatus == "SUCCESS" || paymentStatus == "COMPLETED" || paymentStatus == "S" ||
+                                    providerStatus == "CAPTURED" || providerStatus == "PAID" || providerStatus == "SUCCESS" || providerStatus == "COMPLETED" || providerStatus == "S" ||
+                                    isFinal
+
+                    val isFailed = paymentStatus == "FAILED" || paymentStatus == "EXPIRED" || paymentStatus == "CANCELLED" || paymentStatus == "F" ||
+                                   providerStatus == "FAILED" || providerStatus == "EXPIRED" || providerStatus == "CANCELLED" || providerStatus == "F"
+
+                    if (isSuccess) {
                         Log.i(TAG, "✅ Razorpay QR Payment Captured Successfully!")
                         if (!isQrPaymentHandled) {
                             isQrPaymentHandled = true
@@ -1066,15 +1067,15 @@ class BillingActivity : AppCompatActivity() {
                             }
                         }
                         break
-                    } else if (paymentStatus == "FAILED" || paymentStatus == "EXPIRED" || paymentStatus == "CANCELLED" || paymentStatus == "F") {
+                    } else if (isFailed) {
                         if (failedRetryCount < 3) {
                             failedRetryCount++
-                            Log.w(TAG, "⚠️ Razorpay QR Status reported '$paymentStatus'. Retrying check ($failedRetryCount/3)...")
+                            Log.w(TAG, "⚠️ Razorpay QR Status reported failed/expired. Retrying check ($failedRetryCount/3)...")
                             delay(2000L)
                             pollingSeconds += 2
                             continue
                         }
-                        Log.e(TAG, "❌ Razorpay QR Payment Failed after 3 retries: $paymentStatus, $message")
+                        Log.e(TAG, "❌ Razorpay QR Payment Failed after 3 retries: status=$paymentStatus, providerStatus=$providerStatus, msg=$message")
                         if (!isQrPaymentHandled) {
                             isQrPaymentHandled = true
                             withContext(Dispatchers.Main) {
@@ -1283,13 +1284,20 @@ class BillingActivity : AppCompatActivity() {
 
     private fun showCashReferenceDialog(activeItems: List<PrasadamItem>, total: Double) {
         if (!validateMobileNumberForWhatsApp()) return
-        BillingDialogHelper.showCashReferenceDialog(this, authManager) { refId, adminPassword ->
-            proceedWithCashPayment(activeItems, total, refId, adminPassword)
+        BillingDialogHelper.showCashReferenceDialog(this, authManager) { refId, adminPassword, onSuccess, onError ->
+            proceedWithCashPayment(activeItems, total, refId, adminPassword, onSuccess, onError)
         }
     }
 
 
-    private fun proceedWithCashPayment(activeItems: List<PrasadamItem>, total: Double, customRefId: String? = null, adminPassword: String = "") {
+    private fun proceedWithCashPayment(
+        activeItems: List<PrasadamItem>, 
+        total: Double, 
+        customRefId: String? = null, 
+        adminPassword: String = "",
+        onSuccess: () -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
         val cartItems = activeItems.map { item ->
             OrderCartItem(
                 productId = item.id.toIntOrNull() ?: 0,
@@ -1352,6 +1360,7 @@ class BillingActivity : AppCompatActivity() {
                 val orderResponse = orderResult.getOrNull()
 
                 if (orderResponse != null && orderResponse.status.equals("Success", ignoreCase = true)) {
+                    onSuccess() // Dismisses cash dialog ONLY when order creation succeeds!
                     val initialOrderId = orderResponse.orderId ?: (System.currentTimeMillis() % 100000000).toInt()
                     val pspRef = customRefId.takeIf { !it.isNullOrBlank() }
                         ?: orderResponse.easeOrderId
@@ -1413,12 +1422,13 @@ class BillingActivity : AppCompatActivity() {
                         orderResult.exceptionOrNull()?.message ?: "Cash order creation failed"
                     }
                     Log.e(TAG, "Cash order creation error: $errorMsg")
-                    showModernMessageDialog("Order Failed", errorMsg)
-                    Toast.makeText(this@BillingActivity, errorMsg, Toast.LENGTH_LONG).show()
+                    onError(errorMsg)
                 }
             } catch (e: Exception) {
                 CommonMethod.dismissLoader()
-                Toast.makeText(this@BillingActivity, "Cash payment error: ${e.message}", Toast.LENGTH_SHORT).show()
+                val err = e.message ?: "Cash payment error"
+                Log.e(TAG, "Error in proceedWithCashPayment: $err", e)
+                onError(err)
             }
         }
     }
