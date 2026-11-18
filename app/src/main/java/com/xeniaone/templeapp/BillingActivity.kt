@@ -210,6 +210,12 @@ class BillingActivity : AppCompatActivity() {
             }
         }
 
+        binding.tvBottom1?.setOnClickListener {
+            if (!PineLabsManager.isPineLabsAvailable(this)) {
+                showKioskReprintAuthDialog()
+            }
+        }
+
         applyLanguageStrings()
         setupProductRecyclerView()
         setupNavigationDrawer()
@@ -2011,5 +2017,54 @@ class BillingActivity : AppCompatActivity() {
         drawerTimeoutTimer?.cancel()
         drawerAutoCloseTimer?.cancel()
         CommonMethod.dismissLoader()
+    }
+
+    private fun showKioskReprintAuthDialog() {
+        if (isFinishing || isDestroyed) return
+        val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_nav_auth, null)
+        val dialog = AlertDialog.Builder(this)
+            .setView(dialogView)
+            .setCancelable(true)
+            .create()
+
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+
+        val tvNavAuthMessage = dialogView.findViewById<TextView>(R.id.tvNavAuthMessage)
+        val etNavPassword = dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.etNavPassword)
+        val btnNavAuthVerify = dialogView.findViewById<View>(R.id.btnNavAuthVerify)
+        val btnNavAuthCancel = dialogView.findViewById<View>(R.id.btnNavAuthCancel)
+        val btnNavAuthReprint = dialogView.findViewById<View>(R.id.btnNavAuthReprint)
+
+        tvNavAuthMessage?.text = "Enter operator password to reprint last bill."
+        btnNavAuthVerify?.visibility = View.GONE
+        btnNavAuthReprint?.visibility = View.VISIBLE
+
+        btnNavAuthReprint?.setOnClickListener {
+            val password = etNavPassword?.text?.toString()?.trim().orEmpty()
+            val loginPassword = authManager.savedPassword
+            val isValid = loginPassword.isNotBlank() && password == loginPassword
+
+            if (isValid) {
+                dialog.dismiss()
+                val lastIntent = lastOrderIntent
+                if (lastIntent != null) {
+                    val reprintIntent = Intent(lastIntent).apply {
+                        putExtra(PaymentActivity.EXTRA_IS_DUPLICATE_PRINT, true)
+                    }
+                    startActivity(reprintIntent)
+                    Toast.makeText(this, "Reprinting last order as Duplicate", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(this, "No previous order to print", Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                Toast.makeText(this, "Incorrect password. Enter your login password.", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        btnNavAuthCancel?.setOnClickListener {
+            dialog.dismiss()
+        }
+
+        dialog.show()
     }
 }

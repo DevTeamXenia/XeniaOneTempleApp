@@ -82,7 +82,8 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal">
+        android:orientation="horizontal"
+        android:layout_marginBottom="8dp">
 
         <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/btnNavAuthCancel"
@@ -108,5 +109,16 @@
             android:textColor="@color/white"
             android:textSize="14sp" />
     </LinearLayout>
+
+    <androidx.appcompat.widget.AppCompatButton
+        android:id="@+id/btnNavAuthReprint"
+        android:layout_width="match_parent"
+        android:layout_height="46dp"
+        android:background="@drawable/bg_pay_button"
+        android:fontFamily="sans-serif-bold"
+        android:text="Reprint Last Bill"
+        android:textColor="@color/white"
+        android:textSize="14sp"
+        android:visibility="gone" />
 
 </LinearLayout>

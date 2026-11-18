@@ -186,12 +186,17 @@ class PaymentActivity : AppCompatActivity() {
         const val EXTRA_CUSTOMER_NAME = "extra_customer_name"
 
         const val EXTRA_CUSTOMER_MOBILE = "extra_customer_mobile"
+        const val EXTRA_IS_DUPLICATE_PRINT = "extra_is_duplicate_print"
     }
+
+    private var isDuplicatePrint = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityPaymentBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        isDuplicatePrint = intent.getBooleanExtra(EXTRA_IS_DUPLICATE_PRINT, false)
 
         val app = application as TempleApp
         orderRepository = app.container.orderRepository
@@ -297,6 +302,13 @@ class PaymentActivity : AppCompatActivity() {
         } else {
             bindNyxPrinterService()
             initKioskPrinter()
+
+            // Fallback auto-trigger print to guarantee printout comes out on Kiosk
+            Handler(Looper.getMainLooper()).postDelayed({
+                if (!isPrintingInProgress) {
+                    triggerPrint(isManual = false)
+                }
+            }, 1500L)
         }
 
         startAutoReturnTimer()
@@ -444,23 +456,12 @@ class PaymentActivity : AppCompatActivity() {
                 Log.d(TAG, "🔌 Found ${entries.size} Kiosk USB printer(s): ${entries[0]}")
                 connectKioskUsb(entries[0])
             } else {
-                Log.d(TAG, "ℹ️ No Kiosk USB printer detected via POSConnect")
-                // Fallback to Nyx service after 800ms if bound
-                Handler(Looper.getMainLooper()).postDelayed({
-                    if (printerService != null) {
-                        lifecycleScope.launch(Dispatchers.IO) {
-                            printReceiptOnNyx()
-                        }
-                    } else {
-                        binding.pbPrinter.visibility = View.GONE
-                        binding.tvPrinterStatus.text = "Printer Ready"
-                    }
-                }, 1000)
+                Log.d(TAG, "ℹ️ No Kiosk USB printer detected via POSConnect. Binding Nyx printer service...")
+                bindNyxPrinterService()
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error initializing Kiosk USB printer: ${e.message}", e)
-            binding.pbPrinter.visibility = View.GONE
-            binding.tvPrinterStatus.text = "Printer Ready"
+            bindNyxPrinterService()
         }
     }
 
@@ -475,6 +476,15 @@ class PaymentActivity : AppCompatActivity() {
     }
 
     private fun bindNyxPrinterService() {
+        if (printerService != null) {
+            if (!isPrintingInProgress) {
+                lifecycleScope.launch(Dispatchers.IO) {
+                    printReceiptOnNyx()
+                }
+            }
+            return
+        }
+
         val intent = Intent().apply {
             `package` = "net.nyx.printerservice"
             action = "net.nyx.printerservice.IPrinterService"
@@ -485,6 +495,11 @@ class PaymentActivity : AppCompatActivity() {
                 printerService = IPrinterService.Stub.asInterface(service)
                 isNyxBound = true
                 Log.d(TAG, "✅ Nyx Printer Service connected")
+                if (!isPrintingInProgress && printerService != null) {
+                    lifecycleScope.launch(Dispatchers.IO) {
+                        printReceiptOnNyx()
+                    }
+                }
             }
 
             override fun onServiceDisconnected(name: ComponentName?) {
@@ -498,6 +513,10 @@ class PaymentActivity : AppCompatActivity() {
             bindService(intent, serviceConnection!!, Context.BIND_AUTO_CREATE)
         } catch (e: Exception) {
             Log.w(TAG, "Could not bind Nyx printer service: ${e.message}")
+            runOnUiThread {
+                binding.pbPrinter.visibility = View.GONE
+                binding.tvPrinterStatus.text = "Printer Ready"
+            }
         }
     }
 
@@ -783,6 +802,13 @@ class PaymentActivity : AppCompatActivity() {
         paint.textSize = 32f
         paint.color = Color.BLACK
         canvas.drawText("Prebooking Prasadam Receipt", width / 2f, y, paint)
+
+        if (isDuplicatePrint) {
+            y += 36f
+            paint.textSize = 24f
+            paint.color = Color.RED
+            canvas.drawText("** DUPLICATE PRINT **", width / 2f, y, paint)
+        }
 
         // ---------------- Metadata (left aligned) ----------------
         y += 52f
