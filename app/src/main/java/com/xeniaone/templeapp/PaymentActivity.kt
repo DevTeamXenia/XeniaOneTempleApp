@@ -60,7 +60,6 @@ class PaymentActivity : AppCompatActivity() {
     private var receiptItems: List<ReceiptItem> = emptyList()
     private var currentLanguage: String = "en"
     private var formattedDate: String = ""
-
     private var paymentMode: String = ""
     private var cardNumber: String = ""
     private var approvalCode: String = ""
@@ -70,7 +69,6 @@ class PaymentActivity : AppCompatActivity() {
     private var orderCustomerName: String = ""
     private var orderMobileNumber: String = ""
 
-    // Launcher for Pine Labs App-to-App Print Intent (MethodId: 1002)
     private val pineLabsPrintLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -653,27 +651,138 @@ class PaymentActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Purges and resets the ESC/POS printer hardware state machine.
+     *
+     * If the previous bill stopped mid-print (e.g. paper ran out halfway, cover opened,
+     * or connection interrupt), the printer's internal hardware ASIC remains frozen in
+     * raster graphics mode (GS v 0), waiting for the remaining dot bytes.
+     * In that state, standard ESC @ (0x1B 0x40) commands are consumed as image pixels,
+     * which causes the NEXT order to misalign and print lines of garbage text/symbols.
+     *
+     * This sequence:
+     * 1) Sends real-time error recovery commands (DLE ENQ, CAN, ESC S).
+     * 2) Streams 24KB of null bytes (0x00) to satisfy and flush out any pending raster
+     *    payload counter so the printer cleanly finishes and EXITS raster mode.
+     *    (In standard command mode, 0x00 is NUL and completely ignored).
+     * 3) Sends CAN (0x18) + ESC S (0x1B 0x53) + ESC @ (0x1B 0x40) to reset all registers,
+     *    clear print buffers, and restore standard defaults.
+     */
+    private suspend fun purgeAndResetPrinterState(conn: IDeviceConnection, printer: POSPrinter) {
+        try {
+            // 1. Real-time emergency control codes
+            val realTimeCancel = byteArrayOf(
+                0x10.toByte(), 0x05.toByte(), 0x01.toByte(), // DLE ENQ 1: Recover from error
+                0x10.toByte(), 0x05.toByte(), 0x02.toByte(), // DLE ENQ 2: Recover & clear buffers
+                0x18.toByte(),                               // CAN: Cancel any line or page mode data
+                0x1B.toByte(), 0x53.toByte()                 // ESC S: Force Standard Mode (exit page mode)
+            )
+            conn.sendData(realTimeCancel)
+            delay(20)
+
+            // 2. Stream 24 KB of null bytes (0x00).
+            // If the printer was interrupted mid-raster (waiting for remaining dot bytes),
+            // this immediately exhausts the remaining byte counter as blank white dots
+            // and forces the printer to EXIT raster mode.
+            // If the printer is in command mode, NUL bytes are harmlessly ignored.
+            val nullDrain = ByteArray(24576)
+            val chunkSize = 8192
+            var offset = 0
+            while (offset < nullDrain.size) {
+                val len = minOf(chunkSize, nullDrain.size - offset)
+                val chunk = nullDrain.copyOfRange(offset, offset + len)
+                conn.sendData(chunk)
+                delay(15)
+                offset += len
+            }
+            delay(40)
+
+            // 3. Clean hardware reset
+            val cleanReset = byteArrayOf(
+                0x18.toByte(),                               // CAN
+                0x1B.toByte(), 0x53.toByte(),                // ESC S
+                0x1B.toByte(), 0x40.toByte()                 // ESC @ (Initialize printer hardware)
+            )
+            conn.sendData(cleanReset)
+            delay(100)
+        } catch (e: Exception) {
+            Log.w(TAG, "Notice during printer purge: ${e.message}")
+        }
+    }
+
+    /**
+     * Checks if the printer is currently out of paper or if the cover is open using ESC/POS DLE EOT real-time queries.
+     */
+    private fun isPaperOutOrCoverOpen(conn: IDeviceConnection): Pair<Boolean, String?> {
+        return try {
+            // 1. DLE EOT 4 (Paper roll sensor status)
+            conn.sendData(byteArrayOf(0x10.toByte(), 0x04.toByte(), 0x04.toByte()))
+            val resp = conn.readSync(200)
+            if (resp.isNotEmpty()) {
+                val statusByte = resp[0].toInt() and 0xFF
+                // In ESC/POS standard: bits 5 & 6 on = paper end (out of paper)
+                if ((statusByte and 0x60) != 0) {
+                    return Pair(true, "Paper roll is empty. Please insert paper and tap Print Receipt.")
+                }
+            }
+
+            // 2. DLE EOT 2 (Offline & cover open status)
+            conn.sendData(byteArrayOf(0x10.toByte(), 0x04.toByte(), 0x02.toByte()))
+            val resp2 = conn.readSync(200)
+            if (resp2.isNotEmpty()) {
+                val statusByte2 = resp2[0].toInt() and 0xFF
+                // Bit 2: cover is open
+                if ((statusByte2 and 0x04) != 0) {
+                    return Pair(true, "Printer cover is open. Please close cover.")
+                }
+                // Bit 5: paper out
+                if ((statusByte2 and 0x20) != 0) {
+                    return Pair(true, "Paper roll is empty. Please insert paper and tap Print Receipt.")
+                }
+            }
+
+            Pair(false, null)
+        } catch (_: Exception) {
+            Pair(false, null)
+        }
+    }
+
     private suspend fun printReceiptOnKioskUsb(): Boolean {
         return try {
             isPrintingInProgress = true
             val conn = curConnect ?: return false
             val printer = POSPrinter(conn)
-            val receiptBitmap = generateThermalReceiptBitmap()
 
             withContext(Dispatchers.Main) {
                 binding.pbPrinter.visibility = View.VISIBLE
                 binding.tvPrinterStatus.text = "Printing on Kiosk Thermal Printer..."
             }
 
-            // 1. Reset / Initialize printer (ESC @ = 0x1B, 0x40) to flush any dirty buffer state
-            printer.initializePrinter()
-            delay(50)
+            // 1. Purge & Resync: Force printer out of any frozen raster state (e.g. from mid-print paper out)
+            purgeAndResetPrinterState(conn, printer)
 
-            // 2. Set center alignment for receipt
+            // 2. Real-time sensor check for Paper Out / Cover Open before generating/sending raster bitmap
+            val (isBlocked, blockReason) = isPaperOutOrCoverOpen(conn)
+            if (isBlocked) {
+                isPrintingInProgress = false
+                isPrintFailed = true
+                BillingActivity.isPendingPrintAvailable = true
+                BillingActivity.isLastOrderPrintedSuccessfully = false
+                withContext(Dispatchers.Main) {
+                    binding.pbPrinter.visibility = View.GONE
+                    binding.tvPrinterStatus.text = "⚠️ $blockReason"
+                    Toast.makeText(this@PaymentActivity, blockReason ?: "Printer paper empty", Toast.LENGTH_LONG).show()
+                }
+                return false
+            }
+
+            val receiptBitmap = generateThermalReceiptBitmap()
+
+            // 3. Set center alignment for receipt
             printer.setAlignment(POSConst.ALIGNMENT_CENTER)
             delay(20)
 
-            // 3. Buffer-optimized bitmap streaming:
+            // 4. Buffer-optimized bitmap streaming:
             // Slicing into small 64-dot bands (576 width = 72 bytes/row -> 4,608 bytes/slice).
             // Thermal printer receive buffers are typically 4KB-16KB.
             // Sending small slices with a pacing delay (30ms) matching the thermal print head
@@ -684,6 +793,11 @@ class PaymentActivity : AppCompatActivity() {
             var yOffset = 0
 
             while (yOffset < totalHeight) {
+                // Check if connection was severed or printer faulted
+                if (curConnect?.isConnect() != true) {
+                    throw IllegalStateException("Printer connection lost or paper out mid-print")
+                }
+
                 val currentChunkHeight = minOf(sliceHeight, totalHeight - yOffset)
                 val slice = Bitmap.createBitmap(receiptBitmap, 0, yOffset, bitmapWidth, currentChunkHeight)
                 val sliceData = BitmapToByteData.rasterBmpToSendData(0, slice)
@@ -697,19 +811,20 @@ class PaymentActivity : AppCompatActivity() {
                 yOffset += currentChunkHeight
             }
 
-            // 4. Feed lines and cut paper
+            // 5. Feed lines and cut paper
             delay(100)
             printer.feedLine(3)
             delay(100)
             printer.cutHalfAndFeed(1)
             delay(150)
 
-            // 5. Clean reset for next print job
+            // 6. Clean reset for next print job
             printer.initializePrinter()
             delay(100)
 
             receiptBitmap.recycle()
             isPrintingInProgress = false
+            isPrintFailed = false
 
             withContext(Dispatchers.Main) {
                 binding.pbPrinter.visibility = View.GONE
@@ -720,6 +835,9 @@ class PaymentActivity : AppCompatActivity() {
             true
         } catch (e: Exception) {
             isPrintingInProgress = false
+            isPrintFailed = true
+            BillingActivity.isPendingPrintAvailable = true
+            BillingActivity.isLastOrderPrintedSuccessfully = false
             Log.e(TAG, "Error printing on Kiosk USB printer: ${e.message}", e)
             withContext(Dispatchers.Main) {
                 binding.pbPrinter.visibility = View.GONE
