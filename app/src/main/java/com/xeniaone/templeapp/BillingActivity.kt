@@ -93,8 +93,18 @@ class BillingActivity : AppCompatActivity() {
     private var qrPollingJob: kotlinx.coroutines.Job? = null
     private var qrCountDownTimer: CountDownTimer? = null
     private var qrDialog: AlertDialog? = null
+    private var reprintAuthDialog: AlertDialog? = null
+    private var drawerNavAuthDialog: AlertDialog? = null
     private var isQrPaymentHandled: Boolean = false
     private var isPrintPending: Boolean = false
+
+    private var cachedDrawerLayout: androidx.drawerlayout.widget.DrawerLayout? = null
+    private fun getDrawerLayout(): androidx.drawerlayout.widget.DrawerLayout? {
+        if (cachedDrawerLayout == null) {
+            cachedDrawerLayout = findViewById(R.id.drawerLayout)
+        }
+        return cachedDrawerLayout
+    }
 
     // Launcher for Pine Labs App-to-App Payment Intent (MethodId: 1001)
     private val pineLabsPaymentLauncher = registerForActivityResult(
@@ -724,14 +734,16 @@ class BillingActivity : AppCompatActivity() {
                 val companyId = authManager.companyId
                 val orderIdInt = pendingOrderId.toInt()
 
-                Log.d(TAG, "⚙️ Calling Process API for Pine Labs OrderId=$orderIdInt, CompanyId=$companyId")
+                val paymentRefToPass = if (rrn.isNotBlank()) rrn else pspRef
+                Log.d(TAG, "⚙️ Calling Process API for Pine Labs OrderId=$orderIdInt, CompanyId=$companyId, paymentRef=$paymentRefToPass")
 
                 val processResult = orderRepository.processOrder(
                     orderId = orderIdInt,
                     companyId = companyId,
                     customerId = 0,
                     settled = true,
-                    isWhatsApp = isWhatsAppEnabled()
+                    isWhatsApp = isWhatsAppEnabled(),
+                    paymentRef = paymentRefToPass
                 )
 
                 CommonMethod.dismissLoader()
@@ -1988,12 +2000,14 @@ class BillingActivity : AppCompatActivity() {
     private fun showDrawerPasswordDialog(onDismissCallback: () -> Unit) {
         if (isFinishing || isDestroyed) return
         drawerTimeoutTimer?.cancel()
+        drawerNavAuthDialog?.dismiss()
 
         val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_nav_auth, null)
         val dialog = AlertDialog.Builder(this)
             .setView(dialogView)
             .setCancelable(false)
             .create()
+        drawerNavAuthDialog = dialog
 
         dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
 
@@ -2082,7 +2096,7 @@ class BillingActivity : AppCompatActivity() {
                         return super.dispatchTouchEvent(ev)
                     }
 
-                    val drawerLayout = findViewById<androidx.drawerlayout.widget.DrawerLayout>(R.id.drawerLayout)
+                    val drawerLayout = getDrawerLayout()
                     val isOpened = drawerLayout?.isDrawerOpen(androidx.core.view.GravityCompat.START) == true
                     if (!isOpened && !isDrawerAuthenticated && !isPromptShowing && (now - lastPromptDismissTime > 1500L)) {
                         isPromptShowing = true
@@ -2101,6 +2115,10 @@ class BillingActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         stopQrPollingAndDismiss()
+        reprintAuthDialog?.dismiss()
+        reprintAuthDialog = null
+        drawerNavAuthDialog?.dismiss()
+        drawerNavAuthDialog = null
         drawerTimeoutTimer?.cancel()
         drawerAutoCloseTimer?.cancel()
         CommonMethod.dismissLoader()
@@ -2108,12 +2126,14 @@ class BillingActivity : AppCompatActivity() {
 
     private fun showKioskReprintAuthDialog() {
         if (isFinishing || isDestroyed) return
+        reprintAuthDialog?.dismiss()
         Log.i("KIOSK_REPRINT_LOG", "📋 [KioskReprint] Opening reprint authentication dialog...")
         val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_nav_auth, null)
         val dialog = AlertDialog.Builder(this)
             .setView(dialogView)
             .setCancelable(true)
             .create()
+        reprintAuthDialog = dialog
 
         dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
 
@@ -2135,6 +2155,7 @@ class BillingActivity : AppCompatActivity() {
 
             if (isValid) {
                 dialog.dismiss()
+                reprintAuthDialog = null
                 val lastIntent = lastOrderIntent
                 if (lastIntent != null) {
                     Log.i("KIOSK_REPRINT_LOG", "✅ [KioskReprint] Last order intent found! Preparing duplicate reprint intent.")
@@ -2156,6 +2177,7 @@ class BillingActivity : AppCompatActivity() {
         btnNavAuthCancel?.setOnClickListener {
             Log.d("KIOSK_REPRINT_LOG", "🚫 [KioskReprint] Reprint auth dialog cancelled by operator.")
             dialog.dismiss()
+            reprintAuthDialog = null
         }
 
         dialog.show()

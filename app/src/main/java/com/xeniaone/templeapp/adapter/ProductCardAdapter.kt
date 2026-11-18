@@ -25,6 +25,8 @@ class ProductCardAdapter(
     private val onQuantityChanged: (item: PrasadamItem, newQty: Int) -> Unit
 ) : RecyclerView.Adapter<ProductCardAdapter.ProductViewHolder>() {
 
+    private var activeKeypadDialog: androidx.appcompat.app.AlertDialog? = null
+
     fun updateItems(newItems: List<PrasadamItem>) {
         this.items = newItems
         notifyDataSetChanged()
@@ -84,19 +86,19 @@ class ProductCardAdapter(
                 binding.ivProduct.setImageResource(fallbackRes)
             }
 
-            binding.root.setOnClickListener {
+            binding.root.setOnSingleClickListener {
                 showQuantityKeypadDialog(item)
             }
 
-            binding.btnAdd.setOnClickListener {
+            binding.btnAdd.setOnSingleClickListener {
                 showQuantityKeypadDialog(item)
             }
 
-            binding.btnPlus.setOnClickListener {
+            binding.btnPlus.setOnSingleClickListener(300L) {
                 increaseQuantity(item)
             }
 
-            binding.btnMinus.setOnClickListener {
+            binding.btnMinus.setOnSingleClickListener(300L) {
                 if (item.quantity > 0) {
                     item.quantity--
                     updateCountBadge(item.quantity)
@@ -105,7 +107,7 @@ class ProductCardAdapter(
             }
 
             // Tapping tvCount opens a custom numeric keypad popup dialog
-            binding.tvCount.setOnClickListener {
+            binding.tvCount.setOnSingleClickListener {
                 showQuantityKeypadDialog(item)
             }
         }
@@ -150,6 +152,7 @@ class ProductCardAdapter(
         }
 
         private fun showQuantityKeypadDialog(item: PrasadamItem) {
+            if (activeKeypadDialog?.isShowing == true) return
             val context = binding.root.context
             val res = context.resources
 
@@ -370,6 +373,13 @@ class ProductCardAdapter(
                 dialog.dismiss()
             }
 
+            activeKeypadDialog = dialog
+            dialog.setOnDismissListener {
+                if (activeKeypadDialog == dialog) {
+                    activeKeypadDialog = null
+                }
+            }
+
             dialog.show()
 
             // Widen the dialog window (must be called after show())
@@ -378,6 +388,23 @@ class ProductCardAdapter(
                 (screenWidth * dialogWidthPercent).toInt(),
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
+        }
+    }
+}
+
+/**
+ * Extension function to prevent rapid repeated tapping / double-tapping on buttons.
+ */
+inline fun View.setOnSingleClickListener(
+    debounceTime: Long = 500L,
+    crossinline action: (v: View) -> Unit
+) {
+    var lastClickTime: Long = 0
+    this.setOnClickListener { v ->
+        val currentTime = android.os.SystemClock.elapsedRealtime()
+        if (currentTime - lastClickTime >= debounceTime) {
+            lastClickTime = currentTime
+            action(v)
         }
     }
 }

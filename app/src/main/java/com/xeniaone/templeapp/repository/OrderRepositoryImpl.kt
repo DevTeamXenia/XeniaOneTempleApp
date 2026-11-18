@@ -115,11 +115,12 @@ class OrderRepositoryImpl(
         companyId: Int,
         customerId: Int,
         settled: Boolean,
-        isWhatsApp: Boolean
+        isWhatsApp: Boolean,
+        paymentRef: String?
     ): Result<OrderKioskSummaryResponse> = withContext(ioDispatcher) {
         try {
-            Log.d(TAG, "📤 [POST processOrder] OrderId=$orderId, companyId=$companyId, settled=$settled, isWhatsApp=$isWhatsApp")
-            val response = orderApiService.processOrder(orderId, companyId, customerId, settled, isWhatsApp)
+            Log.d(TAG, "📤 [POST processOrder] OrderId=$orderId, companyId=$companyId, settled=$settled, isWhatsApp=$isWhatsApp, paymentRef=$paymentRef")
+            val response = orderApiService.processOrder(orderId, companyId, customerId, settled, isWhatsApp, paymentRef)
             if (response.isSuccessful && response.body() != null) {
                 val resBody = response.body()!!
                 Log.i(TAG, "📥 [POST processOrder Success]: Status=${resBody.status}, OrderId=${resBody.orderId}, Msg=${resBody.message}")

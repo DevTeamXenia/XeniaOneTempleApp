@@ -40,7 +40,8 @@ interface OrderApiService {
         @Query("companyId") companyId: Int,
         @Query("customerId") customerId: Int = 0,
         @Query("settled") settled: Boolean,
-        @Query("iswhatsapp") isWhatsApp: Boolean
+        @Query("iswhatsapp") isWhatsApp: Boolean,
+        @Query("paymentRef") paymentRef: String? = null
     ): Response<OrderKioskSummaryResponse>
 //
 //    @GET("api/Order/status/checkPayment/{orderId}")

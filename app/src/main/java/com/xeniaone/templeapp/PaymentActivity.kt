@@ -749,6 +749,8 @@ class PaymentActivity : AppCompatActivity() {
 
     private suspend fun printReceiptOnKioskUsb(): Boolean {
         return try {
+            kotlinx.coroutines.yield()
+            delay(150L) // Allow Activity window focus dispatch to settle before heavy raster generation
             isPrintingInProgress = true
             val conn = curConnect ?: return false
             val printer = POSPrinter(conn)
@@ -805,8 +807,9 @@ class PaymentActivity : AppCompatActivity() {
 
                 printer.sendData(sliceData)
 
-                // Pacing delay (30ms) matching thermal print head burn rate (~150-200mm/s).
-                // Keeps buffer empty and prevents USB bulk transfer buffer overrun.
+                // Yield and pacing delay (30ms) matching thermal print head burn rate (~150-200mm/s).
+                // Keeps buffer empty and prevents CPU starvation / ANR.
+                kotlinx.coroutines.yield()
                 delay(30)
                 yOffset += currentChunkHeight
             }

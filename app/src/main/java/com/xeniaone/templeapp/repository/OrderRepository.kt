@@ -27,7 +27,8 @@ interface OrderRepository {
         companyId: Int,
         customerId: Int = 0,
         settled: Boolean,
-        isWhatsApp: Boolean
+        isWhatsApp: Boolean,
+        paymentRef: String? = null
     ): Result<OrderKioskSummaryResponse>
 
 
