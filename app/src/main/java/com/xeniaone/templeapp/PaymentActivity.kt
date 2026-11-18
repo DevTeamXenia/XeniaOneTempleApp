@@ -974,7 +974,7 @@ class PaymentActivity : AppCompatActivity() {
 
         // ---------------- Centered QR Code ----------------
         val qrSize = 280
-        val qrData = if (encryptedOrderId.isNotBlank()) encryptedOrderId else if (orderId > 0) orderId.toString() else ""
+        val qrData = if (encryptedOrderId.isNotBlank()) encryptedOrderId else ""
         val qrBitmap = QrCodeGenerator.generate(qrData, qrSize)
         y += 30f
         val qrLeft = (width - qrSize) / 2f
