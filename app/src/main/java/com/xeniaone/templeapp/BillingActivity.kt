@@ -2108,6 +2108,7 @@ class BillingActivity : AppCompatActivity() {
 
     private fun showKioskReprintAuthDialog() {
         if (isFinishing || isDestroyed) return
+        Log.i("KIOSK_REPRINT_LOG", "📋 [KioskReprint] Opening reprint authentication dialog...")
         val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_nav_auth, null)
         val dialog = AlertDialog.Builder(this)
             .setView(dialogView)
@@ -2130,25 +2131,30 @@ class BillingActivity : AppCompatActivity() {
             val password = etNavPassword?.text?.toString()?.trim().orEmpty()
             val loginPassword = authManager.savedPassword
             val isValid = loginPassword.isNotBlank() && password == loginPassword
+            Log.d("KIOSK_REPRINT_LOG", "🔐 [KioskReprint] Password verification attempted. isValid=$isValid")
 
             if (isValid) {
                 dialog.dismiss()
                 val lastIntent = lastOrderIntent
                 if (lastIntent != null) {
+                    Log.i("KIOSK_REPRINT_LOG", "✅ [KioskReprint] Last order intent found! Preparing duplicate reprint intent.")
                     val reprintIntent = Intent(lastIntent).apply {
                         putExtra(PaymentActivity.EXTRA_IS_DUPLICATE_PRINT, true)
                     }
                     startActivity(reprintIntent)
                     Toast.makeText(this, "Reprinting last order as Duplicate", Toast.LENGTH_SHORT).show()
                 } else {
+                    Log.w("KIOSK_REPRINT_LOG", "⚠️ [KioskReprint] lastOrderIntent is NULL. No previous order available to reprint.")
                     Toast.makeText(this, "No previous order to print", Toast.LENGTH_SHORT).show()
                 }
             } else {
+                Log.e("KIOSK_REPRINT_LOG", "❌ [KioskReprint] Authentication failed: Incorrect operator password.")
                 Toast.makeText(this, "Incorrect password. Enter your login password.", Toast.LENGTH_SHORT).show()
             }
         }
 
         btnNavAuthCancel?.setOnClickListener {
+            Log.d("KIOSK_REPRINT_LOG", "🚫 [KioskReprint] Reprint auth dialog cancelled by operator.")
             dialog.dismiss()
         }
 

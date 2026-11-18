@@ -237,7 +237,8 @@ class PaymentActivity : AppCompatActivity() {
     }
 
     private fun fetchOrderDetailsAndInitializePrint() {
-        if (orderId <= 0L) {
+        if (orderId <= 0L || (isDuplicatePrint && receiptItems.isNotEmpty() && orderNo.isNotBlank())) {
+            Log.i(TAG, "🖨️ [Data-wise Reprint] Skipping server API getOrderDetails because order details & items are already present in Intent extras (isDuplicatePrint=$isDuplicatePrint).")
             initializeUiAndPrinting()
             return
         }
