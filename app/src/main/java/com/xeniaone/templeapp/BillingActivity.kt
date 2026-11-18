@@ -886,13 +886,15 @@ class BillingActivity : AppCompatActivity() {
 
                     Log.d("KIOSK_PAYMENT_DEBUG", "🚀 Opening QR Dialog: OrderId=$initialOrderId, EaseOrderId=$easeOrderIdFromSummary, QR URL=$qrUrlFromSummary")
 
+                    settleAndNavigateRazorpayQrOrder(initialOrderId, easeOrderIdFromSummary)
+
                     // Step 4: Show QR Dialog and start 3-second status polling
-                    showRazorpayQrDialog(
-                        orderId = initialOrderId,
-                        easeOrderId = easeOrderIdFromSummary,
-                        qrUrl = qrUrlFromSummary,
-                        totalAmount = total
-                    )
+//                    showRazorpayQrDialog(
+//                        orderId = initialOrderId,
+//                        easeOrderId = easeOrderIdFromSummary,
+//                        qrUrl = qrUrlFromSummary,
+//                        totalAmount = total
+//                    )
                 } else {
                     showModernMessageDialog("Order Failed", "Invalid Order ID received from summary")
                 }
@@ -915,6 +917,25 @@ class BillingActivity : AppCompatActivity() {
         val tvQrTimer = dialogView.findViewById<TextView>(R.id.tvQrTimer)
         val tvQrStatus = dialogView.findViewById<TextView>(R.id.tvQrStatus)
         val btnCancelQrPayment = dialogView.findViewById<View>(R.id.btnCancelQrPayment)
+
+        val pbQrHeaderLoader = dialogView.findViewById<ProgressBar>(R.id.pbQrHeaderLoader)
+        val ivQrHeaderIcon = dialogView.findViewById<ImageView>(R.id.ivQrHeaderIcon)
+        val tvQrDialogTitle = dialogView.findViewById<TextView>(R.id.tvQrDialogTitle)
+        val layoutQrResultOverlay = dialogView.findViewById<View>(R.id.layoutQrResultOverlay)
+        val ivQrResultIcon = dialogView.findViewById<ImageView>(R.id.ivQrResultIcon)
+        val pbQrSlipGenerating = dialogView.findViewById<ProgressBar>(R.id.pbQrSlipGenerating)
+        val tvQrResultTitle = dialogView.findViewById<TextView>(R.id.tvQrResultTitle)
+        val tvQrResultSubtitle = dialogView.findViewById<TextView>(R.id.tvQrResultSubtitle)
+        val tvQrInstruction = dialogView.findViewById<TextView>(R.id.tvQrInstruction)
+
+        val verificationMessages = listOf(
+            "Please wait while we verify your payment. This may take a few moments.",
+            "Processing Payment. Please wait...",
+            "Almost there! We're confirming your payment. Please wait..."
+        )
+        tvQrDialogTitle?.text = verificationMessages[0]
+        pbQrHeaderLoader?.visibility = View.VISIBLE
+        ivQrHeaderIcon?.visibility = View.GONE
 
         tvQrTotalAmount.text = String.format(Locale.US, "₹%.2f", totalAmount)
 
@@ -1042,6 +1063,12 @@ class BillingActivity : AppCompatActivity() {
 
             while (!isQrPaymentHandled && isActive) {
                 try {
+                    // Rotate verification message in header every tick (3s)
+                    val msgIndex = ((pollingSeconds / 3) % verificationMessages.size)
+                    withContext(Dispatchers.Main) {
+                        tvQrDialogTitle?.text = verificationMessages[msgIndex]
+                    }
+
                     Log.d(TAG, "🔍 Polling Razorpay QR status ($pollingSeconds sec): orderId=$orderId, easeOrderId=$easeOrderId")
                     val result = orderRepository.checkRazorpayQrPaymentStatus(orderId, easeOrderId)
                     val response = result.getOrNull()
@@ -1065,10 +1092,48 @@ class BillingActivity : AppCompatActivity() {
                         if (!isQrPaymentHandled) {
                             isQrPaymentHandled = true
                             withContext(Dispatchers.Main) {
-                                tvQrStatus.text = "✅ Payment Captured Successfully!"
-                                tvQrStatus.setTextColor(Color.parseColor("#2E7D32"))
-                                stopQrPollingAndDismiss()
-                                // Instantly settle and navigate with zero delay
+                                qrCountDownTimer?.cancel()
+                                btnCancelQrPayment?.visibility = View.GONE
+                                tvQrTimer?.visibility = View.GONE
+                                tvQrInstruction?.visibility = View.GONE
+
+                                // 1. Show Payment Success State
+                                pbQrHeaderLoader?.visibility = View.GONE
+                                ivQrHeaderIcon?.visibility = View.VISIBLE
+                                ivQrHeaderIcon?.setImageResource(R.drawable.ic_check_circle)
+                                ivQrHeaderIcon?.setColorFilter(Color.parseColor("#2E7D32"))
+                                tvQrDialogTitle?.text = "Payment Confirmed!"
+                                tvQrDialogTitle?.setTextColor(Color.parseColor("#2E7D32"))
+
+                                layoutQrResultOverlay?.visibility = View.VISIBLE
+                                ivQrResultIcon?.visibility = View.VISIBLE
+                                ivQrResultIcon?.setImageResource(R.drawable.ic_transaction_success)
+                                ivQrResultIcon?.clearColorFilter()
+                                pbQrSlipGenerating?.visibility = View.GONE
+                                tvQrResultTitle?.text = "Payment Successful!"
+                                tvQrResultTitle?.setTextColor(Color.parseColor("#2E7D32"))
+                                tvQrResultSubtitle?.text = "Your payment has been received successfully."
+
+                                tvQrStatus?.text = "✅ Payment Confirmed Successfully!"
+                                tvQrStatus?.setTextColor(Color.parseColor("#2E7D32"))
+
+                                // Brief pause so the customer sees the transaction success
+                                delay(1800L)
+
+                                // 2. Show "Generating slip..." state
+                                ivQrResultIcon?.visibility = View.GONE
+                                pbQrSlipGenerating?.visibility = View.VISIBLE
+                                tvQrResultTitle?.text = "Generating Receipt Slip"
+                                tvQrResultTitle?.setTextColor(Color.parseColor("#E65100"))
+                                tvQrResultSubtitle?.text = "Generating slip. Please wait..."
+
+                                tvQrDialogTitle?.text = "Generating slip. Please wait..."
+                                tvQrDialogTitle?.setTextColor(Color.parseColor("#1F2937"))
+                                pbQrHeaderLoader?.visibility = View.VISIBLE
+                                ivQrHeaderIcon?.visibility = View.GONE
+                                tvQrStatus?.text = "⏳ Generating your slip..."
+
+                                // 3. Call PlaceOrder (processOrder) API and navigate
                                 settleAndNavigateRazorpayQrOrder(orderId, easeOrderId)
                             }
                         }
@@ -1085,6 +1150,27 @@ class BillingActivity : AppCompatActivity() {
                         if (!isQrPaymentHandled) {
                             isQrPaymentHandled = true
                             withContext(Dispatchers.Main) {
+                                qrCountDownTimer?.cancel()
+                                pbQrHeaderLoader?.visibility = View.GONE
+                                ivQrHeaderIcon?.visibility = View.VISIBLE
+                                ivQrHeaderIcon?.setImageResource(R.drawable.ic_close)
+                                ivQrHeaderIcon?.setColorFilter(Color.RED)
+                                tvQrDialogTitle?.text = "Payment Failed"
+                                tvQrDialogTitle?.setTextColor(Color.RED)
+
+                                layoutQrResultOverlay?.visibility = View.VISIBLE
+                                ivQrResultIcon?.visibility = View.VISIBLE
+                                ivQrResultIcon?.setImageResource(R.drawable.ic_close)
+                                ivQrResultIcon?.setColorFilter(Color.RED)
+                                pbQrSlipGenerating?.visibility = View.GONE
+                                tvQrResultTitle?.text = "Payment Failed"
+                                tvQrResultTitle?.setTextColor(Color.RED)
+                                tvQrResultSubtitle?.text = if (message.isNotBlank()) message else "Payment was cancelled or failed. Please try again."
+
+                                tvQrStatus?.text = "❌ Payment Failed"
+                                tvQrStatus?.setTextColor(Color.RED)
+
+                                delay(2500L)
                                 stopQrPollingAndDismiss()
                                 cancelPendingRazorpayOrder()
                                 showModernMessageDialog("Payment Failed", if (message.isNotBlank()) message else "Payment failed or was cancelled. Please try again.")
@@ -1099,8 +1185,8 @@ class BillingActivity : AppCompatActivity() {
                             val newColor = if (isFirstState) Color.parseColor("#FF0000") else Color.RED
                             if (currentStatusText != newText) {
                                 currentStatusText = newText
-                                tvQrStatus.text = newText
-                                tvQrStatus.setTextColor(newColor)
+                                tvQrStatus?.text = newText
+                                tvQrStatus?.setTextColor(newColor)
                             }
                         }
                     }
@@ -1124,7 +1210,6 @@ class BillingActivity : AppCompatActivity() {
     }
 
     private fun settleAndNavigateRazorpayQrOrder(orderId: Int, rzpOrderId: String) {
-        CommonMethod.showLoader(this, "Settling Payment...")
         lifecycleScope.launch {
             try {
                 val companyId = authManager.companyId
@@ -1135,18 +1220,20 @@ class BillingActivity : AppCompatActivity() {
                     settled = true,
                     isWhatsApp = isWhatsAppEnabled()
                 )
-                CommonMethod.dismissLoader()
                 val settleResp = settleResult.getOrNull()
 
                 if (settleResult.isSuccess) {
-                    Log.i(TAG, "✅ Razorpay QR payment settled successfully instantly!")
+                    Log.i(TAG, "✅ Razorpay QR payment settled successfully via placeOrder process API!")
+                    delay(800L)
+                    stopQrPollingAndDismiss()
                     navigateToRazorpayReceipt(orderId, rzpOrderId)
                 } else {
+                    stopQrPollingAndDismiss()
                     val err = settleResp?.message ?: settleResult.exceptionOrNull()?.message ?: "Order settlement failed"
                     showModernMessageDialog("Settlement Failed", err)
                 }
             } catch (e: Exception) {
-                CommonMethod.dismissLoader()
+                stopQrPollingAndDismiss()
                 Log.e(TAG, "Error in settleAndNavigateRazorpayQrOrder: ${e.message}", e)
                 Toast.makeText(this@BillingActivity, "Settlement error: ${e.message}", Toast.LENGTH_SHORT).show()
             }

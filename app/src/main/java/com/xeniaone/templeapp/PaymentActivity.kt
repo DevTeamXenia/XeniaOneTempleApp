@@ -34,6 +34,7 @@ import com.google.gson.reflect.TypeToken
 import com.xeniaone.templeapp.databinding.ActivityPaymentBinding
 import com.xeniaone.templeapp.databinding.ItemReceiptRowBinding
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.nyx.printerservice.print.IPrinterService
@@ -42,6 +43,7 @@ import net.posprinter.IPOSListener
 import net.posprinter.POSConnect
 import net.posprinter.POSConst
 import net.posprinter.POSPrinter
+import net.posprinter.utils.BitmapToByteData
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -160,6 +162,7 @@ class PaymentActivity : AppCompatActivity() {
     private var serviceConnection: ServiceConnection? = null
     private var isPrintingInProgress = false
     private var isPrintFailed = false
+    private var hasAutoPrintedKiosk = false
 
     // Kiosk Auto-return Timer
     private var autoReturnTimer: CountDownTimer? = null
@@ -305,7 +308,8 @@ class PaymentActivity : AppCompatActivity() {
 
             // Fallback auto-trigger print to guarantee printout comes out on Kiosk
             Handler(Looper.getMainLooper()).postDelayed({
-                if (!isPrintingInProgress) {
+                if (!hasAutoPrintedKiosk && !isPrintingInProgress) {
+                    hasAutoPrintedKiosk = true
                     triggerPrint(isManual = false)
                 }
             }, 1500L)
@@ -386,6 +390,10 @@ class PaymentActivity : AppCompatActivity() {
         }
 
         binding.btnNewOrder.setOnClickListener {
+            if (isPrintingInProgress) {
+                Toast.makeText(this, "Receipt printing is in progress...", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
             returnToHome()
         }
     }
@@ -399,7 +407,14 @@ class PaymentActivity : AppCompatActivity() {
             }
 
             override fun onFinish() {
-                if (isPrintingInProgress) return
+                if (isPrintingInProgress) {
+                    Handler(Looper.getMainLooper()).postDelayed({
+                        if (!isPrintingInProgress) {
+                            returnToHome()
+                        }
+                    }, 3000L)
+                    return
+                }
                 returnToHome()
             }
         }.start()
@@ -430,7 +445,10 @@ class PaymentActivity : AppCompatActivity() {
                     binding.tvPrinterStatus.text = "KIOSK Printer Connected. Printing receipt..."
                 }
                 lifecycleScope.launch(Dispatchers.IO) {
-                    printReceiptOnKioskUsb()
+                    if (!hasAutoPrintedKiosk && !isPrintingInProgress) {
+                        hasAutoPrintedKiosk = true
+                        printReceiptOnKioskUsb()
+                    }
                 }
             }
             POSConnect.CONNECT_FAIL,
@@ -646,9 +664,48 @@ class PaymentActivity : AppCompatActivity() {
                 binding.tvPrinterStatus.text = "Printing on Kiosk Thermal Printer..."
             }
 
-            printer.printBitmap(receiptBitmap, POSConst.ALIGNMENT_CENTER, 576)
-                .feedLine(2)
-                .cutHalfAndFeed(1)
+            // 1. Reset / Initialize printer (ESC @ = 0x1B, 0x40) to flush any dirty buffer state
+            printer.initializePrinter()
+            delay(50)
+
+            // 2. Set center alignment for receipt
+            printer.setAlignment(POSConst.ALIGNMENT_CENTER)
+            delay(20)
+
+            // 3. Buffer-optimized bitmap streaming:
+            // Slicing into small 64-dot bands (576 width = 72 bytes/row -> 4,608 bytes/slice).
+            // Thermal printer receive buffers are typically 4KB-16KB.
+            // Sending small slices with a pacing delay (30ms) matching the thermal print head
+            // burning rate prevents buffer overflow, dropped bytes, and corrupt garbage characters.
+            val totalHeight = receiptBitmap.height
+            val bitmapWidth = receiptBitmap.width
+            val sliceHeight = 64
+            var yOffset = 0
+
+            while (yOffset < totalHeight) {
+                val currentChunkHeight = minOf(sliceHeight, totalHeight - yOffset)
+                val slice = Bitmap.createBitmap(receiptBitmap, 0, yOffset, bitmapWidth, currentChunkHeight)
+                val sliceData = BitmapToByteData.rasterBmpToSendData(0, slice)
+                slice.recycle()
+
+                printer.sendData(sliceData)
+
+                // Pacing delay (30ms) matching thermal print head burn rate (~150-200mm/s).
+                // Keeps buffer empty and prevents USB bulk transfer buffer overrun.
+                delay(30)
+                yOffset += currentChunkHeight
+            }
+
+            // 4. Feed lines and cut paper
+            delay(100)
+            printer.feedLine(3)
+            delay(100)
+            printer.cutHalfAndFeed(1)
+            delay(150)
+
+            // 5. Clean reset for next print job
+            printer.initializePrinter()
+            delay(100)
 
             receiptBitmap.recycle()
             isPrintingInProgress = false
