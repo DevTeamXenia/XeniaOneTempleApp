@@ -188,9 +188,11 @@ class PaymentActivity : AppCompatActivity() {
 
         const val EXTRA_CUSTOMER_MOBILE = "extra_customer_mobile"
         const val EXTRA_IS_DUPLICATE_PRINT = "extra_is_duplicate_print"
+        const val EXTRA_IS_TEST_PRINT = "extra_is_test_print"
     }
 
     private var isDuplicatePrint = false
+    private var isTestPrint = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -198,6 +200,7 @@ class PaymentActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         isDuplicatePrint = intent.getBooleanExtra(EXTRA_IS_DUPLICATE_PRINT, false)
+        isTestPrint = intent.getBooleanExtra(EXTRA_IS_TEST_PRINT, false)
 
         val app = application as TempleApp
         orderRepository = app.container.orderRepository
@@ -208,23 +211,25 @@ class PaymentActivity : AppCompatActivity() {
         if (orderId == 0L) {
             orderId = intent.getIntExtra(EXTRA_ORDER_ID, 0).toLong()
         }
-        orderNo = intent.getStringExtra(EXTRA_ORDER_NO) ?: ""
-        orderCustomerName = intent.getStringExtra(EXTRA_CUSTOMER_NAME) ?: ""
-        orderMobileNumber = intent.getStringExtra(EXTRA_CUSTOMER_MOBILE) ?: ""
-        pspRefNo = intent.getStringExtra(EXTRA_PSP_REF_NO) ?: ""
-        totalAmount = intent.getDoubleExtra(EXTRA_TOTAL_AMOUNT, 0.0)
+        orderNo = if (isTestPrint) "0" else (intent.getStringExtra(EXTRA_ORDER_NO) ?: "")
+        orderCustomerName = if (isTestPrint) "0" else (intent.getStringExtra(EXTRA_CUSTOMER_NAME) ?: "")
+        orderMobileNumber = if (isTestPrint) "0" else (intent.getStringExtra(EXTRA_CUSTOMER_MOBILE) ?: "")
+        pspRefNo = if (isTestPrint) "0" else (intent.getStringExtra(EXTRA_PSP_REF_NO) ?: "")
+        totalAmount = if (isTestPrint) 0.0 else intent.getDoubleExtra(EXTRA_TOTAL_AMOUNT, 0.0)
         currentLanguage = intent.getStringExtra(EXTRA_LANGUAGE_CODE) ?: "en"
-
-        // Pine Labs Extras
-        paymentMode = intent.getStringExtra(EXTRA_PAYMENT_MODE) ?: ""
-        cardNumber = intent.getStringExtra(EXTRA_CARD_NUMBER) ?: ""
-        approvalCode = intent.getStringExtra(EXTRA_APPROVAL_CODE) ?: ""
-        invoiceNumber = intent.getLongExtra(EXTRA_INVOICE_NUMBER, 0L)
-        rrn = intent.getStringExtra(EXTRA_RRN) ?: ""
-        cardType = intent.getStringExtra(EXTRA_CARD_TYPE) ?: ""
 
         val itemsJson = intent.getStringExtra(EXTRA_RECEIPT_ITEMS_JSON)
         receiptItems = parseReceiptItems(itemsJson)
+
+        if (isTestPrint) {
+            orderNo = "0"
+            formattedDate = "0"
+            orderCustomerName = "0"
+            orderMobileNumber = "0"
+            pspRefNo = "0"
+            totalAmount = 0.0
+            receiptItems = listOf(ReceiptItem(no = 1, name = "Test Prasadam Item", quantity = 1, rate = 0.0, total = 0.0))
+        }
 
         // Generate formatted date & time: e.g. "04-Sep-2024  07:50 AM" in IST
         formattedDate = SimpleDateFormat("dd-MMM-yyyy  hh:mm a", Locale.ENGLISH).apply {
@@ -450,7 +455,6 @@ class PaymentActivity : AppCompatActivity() {
                     }
                 }
             }
-            POSConnect.CONNECT_FAIL,
             POSConnect.CONNECT_INTERRUPT,
             POSConnect.SEND_FAIL -> {
                 Log.e(TAG, "❌ KIOSK USB Printer connection failed (code=$code)")
@@ -964,10 +968,11 @@ class PaymentActivity : AppCompatActivity() {
             }
         }
 
-        // ---------------- Temple Header ----------------
+        // ---------------- Temple Header / Test Print Header ----------------
         paint.textAlign = Paint.Align.CENTER
         paint.textSize = 34f
-        drawWrapped("Sabarimala Sree Dharmasastha Temple", width / 2f, maxTextWidth, 40f, Paint.Align.CENTER)
+        val headerTitle = if (isTestPrint) "TEST PRINT" else "Sabarimala Sree Dharmasastha Temple"
+        drawWrapped(headerTitle, width / 2f, maxTextWidth, 40f, Paint.Align.CENTER)
 
 //        y += 36f
 //        paint.textSize = 24f
@@ -1097,12 +1102,14 @@ class PaymentActivity : AppCompatActivity() {
         // ---------------- Centered QR Code ----------------
         val qrSize = 280
         val qrData = if (encryptedOrderId.isNotBlank()) encryptedOrderId else ""
-        val qrBitmap = QrCodeGenerator.generate(qrData, qrSize)
-        y += 30f
-        val qrLeft = (width - qrSize) / 2f
-        canvas.drawBitmap(qrBitmap, qrLeft, y, null)
-        qrBitmap.recycle()
-        y += qrSize + 40f                      // bottom padding so the cutter doesn't clip the QR
+        if (qrData.isNotBlank()) {
+            val qrBitmap = QrCodeGenerator.generate(qrData, qrSize)
+            y += 30f
+            val qrLeft = (width - qrSize) / 2f
+            canvas.drawBitmap(qrBitmap, qrLeft, y, null)
+            qrBitmap.recycle()
+            y += qrSize + 40f                      // bottom padding so the cutter doesn't clip the QR
+        }
 
 
         val footerMsg = authManager.footerMessage

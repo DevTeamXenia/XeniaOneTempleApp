@@ -95,8 +95,11 @@ class BillingActivity : AppCompatActivity() {
     private var qrDialog: AlertDialog? = null
     private var reprintAuthDialog: AlertDialog? = null
     private var drawerNavAuthDialog: AlertDialog? = null
+    private var activeMobileKeypadDialog: AlertDialog? = null
     private var isQrPaymentHandled: Boolean = false
     private var isPrintPending: Boolean = false
+    private var isPaymentProcessing: Boolean = false
+    private var lastPayClickTime: Long = 0L
 
     private var cachedDrawerLayout: androidx.drawerlayout.widget.DrawerLayout? = null
     private fun getDrawerLayout(): androidx.drawerlayout.widget.DrawerLayout? {
@@ -181,8 +184,14 @@ class BillingActivity : AppCompatActivity() {
                 .show()
         }
 
-        // Pay button listener
+        // Pay button listener with double-tap debouncer
         binding.btnPay.setOnClickListener {
+            val now = android.os.SystemClock.elapsedRealtime()
+            if (now - lastPayClickTime < 1000L) {
+                Log.w(TAG, "⚠️ Rapid tap detected on Pay button. Ignoring duplicate click.")
+                return@setOnClickListener
+            }
+            lastPayClickTime = now
             proceedToPayment()
         }
 
@@ -220,10 +229,23 @@ class BillingActivity : AppCompatActivity() {
             }
         }
 
+        var lastTvBottom1ClickTime = 0L
         binding.tvBottom1?.setOnClickListener {
-            if (!PineLabsManager.isPineLabsAvailable(this)) {
-                showKioskReprintAuthDialog()
+            val now = System.currentTimeMillis()
+            if (now - lastTvBottom1ClickTime < 500L) {
+                if (!PineLabsManager.isPineLabsAvailable(this)) {
+                    showKioskReprintAuthDialog()
+                }
             }
+            lastTvBottom1ClickTime = now
+        }
+
+        binding.btnTestPrint?.setOnClickListener {
+            val intent = Intent(this, PaymentActivity::class.java).apply {
+                putExtra(PaymentActivity.EXTRA_IS_TEST_PRINT, true)
+                putExtra(PaymentActivity.EXTRA_TOTAL_AMOUNT, 0.0)
+            }
+            startActivity(intent)
         }
 
         applyLanguageStrings()
@@ -234,11 +256,6 @@ class BillingActivity : AppCompatActivity() {
         binding.etDevoteeMobile.showSoftInputOnFocus = false
         binding.etDevoteeMobile.setOnClickListener {
             showMobileKeypadDialog()
-        }
-        binding.etDevoteeMobile.setOnFocusChangeListener { _, hasFocus ->
-            if (hasFocus) {
-                showMobileKeypadDialog()
-            }
         }
 
         if (authManager.employeeImage.isNotBlank()) {
@@ -318,6 +335,7 @@ class BillingActivity : AppCompatActivity() {
         } else {
             "Enter Mobile Number"
         }
+//        binding.tvDevoteeMobileNotice?.text = hintText
         val spannableHint = android.text.SpannableString(hintText)
         spannableHint.setSpan(
             android.text.style.StyleSpan(android.graphics.Typeface.BOLD),
@@ -476,6 +494,7 @@ class BillingActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        isPaymentProcessing = false
         detectAndDisplayPineLabsDevice()
         updateDevoteeMobileHint()
 
@@ -509,6 +528,10 @@ class BillingActivity : AppCompatActivity() {
     }
 
     private fun proceedToPayment() {
+        if (isPaymentProcessing) {
+            Log.w(TAG, "⚠️ Payment is already in progress. Ignoring duplicate trigger.")
+            return
+        }
         if (!validateMobileNumberForWhatsApp()) return
         val activeItems = allItems.filter { it.quantity > 0 }
         val total = activeItems.sumOf { it.totalAmount }
@@ -565,7 +588,16 @@ class BillingActivity : AppCompatActivity() {
         txnType: Long,
         modeName: String
     ) {
-        if (!validateMobileNumberForWhatsApp()) return
+        if (isPaymentProcessing) {
+            Log.w(TAG, "⚠️ Pine Labs payment is already processing. Ignoring duplicate click.")
+            return
+        }
+        isPaymentProcessing = true
+
+        if (!validateMobileNumberForWhatsApp()) {
+            isPaymentProcessing = false
+            return
+        }
         val cartItems = activeItems.map { item ->
             OrderCartItem(
                 productId = item.id.toIntOrNull() ?: 0,
@@ -648,6 +680,7 @@ class BillingActivity : AppCompatActivity() {
 
                 pineLabsPaymentLauncher.launch(pineIntent)
             } catch (e: Exception) {
+                isPaymentProcessing = false
                 CommonMethod.dismissLoader()
                 Log.e(TAG, "Error initiating Pine Labs payment: ${e.message}", e)
                 Toast.makeText(this@BillingActivity, "Pine Labs error: ${e.message}", Toast.LENGTH_SHORT).show()
@@ -659,6 +692,7 @@ class BillingActivity : AppCompatActivity() {
      * Handles the callback received from Pine Labs MasterApp DoTransaction.
      */
     private fun handlePineLabsPaymentResult(resultCode: Int, data: Intent?) {
+        isPaymentProcessing = false
         val response = PineLabsManager.parseTransactionResponse(data)
         Log.d(TAG, "Pine Labs Payment Result: isApproved=${response?.isApproved}, code=${response?.response?.responseCode}, msg=${response?.response?.responseMsg}")
 
@@ -794,6 +828,12 @@ class BillingActivity : AppCompatActivity() {
 
 
     private fun proceedWithRazorpayQrPayment(activeItems: List<PrasadamItem>, total: Double) {
+        if (isPaymentProcessing) {
+            Log.w(TAG, "⚠️ Razorpay QR payment is already processing. Ignoring duplicate click.")
+            return
+        }
+        isPaymentProcessing = true
+
         val cartItems = activeItems.map { item ->
             OrderCartItem(
                 productId = item.id.toIntOrNull() ?: 0,
@@ -898,15 +938,15 @@ class BillingActivity : AppCompatActivity() {
 
                     Log.d("KIOSK_PAYMENT_DEBUG", "🚀 Opening QR Dialog: OrderId=$initialOrderId, EaseOrderId=$easeOrderIdFromSummary, QR URL=$qrUrlFromSummary")
 
-                    settleAndNavigateRazorpayQrOrder(initialOrderId, easeOrderIdFromSummary)
+//                    settleAndNavigateRazorpayQrOrder(initialOrderId, easeOrderIdFromSummary)
 
                     // Step 4: Show QR Dialog and start 3-second status polling
-//                    showRazorpayQrDialog(
-//                        orderId = initialOrderId,
-//                        easeOrderId = easeOrderIdFromSummary,
-//                        qrUrl = qrUrlFromSummary,
-//                        totalAmount = total
-//                    )
+                    showRazorpayQrDialog(
+                        orderId = initialOrderId,
+                        easeOrderId = easeOrderIdFromSummary,
+                        qrUrl = qrUrlFromSummary,
+                        totalAmount = total
+                    )
                 } else {
                     showModernMessageDialog("Order Failed", "Invalid Order ID received from summary")
                 }
@@ -927,11 +967,11 @@ class BillingActivity : AppCompatActivity() {
         val ivRazorpayQrCode = dialogView.findViewById<ImageView>(R.id.ivRazorpayQrCode)
         val pbQrLoading = dialogView.findViewById<ProgressBar>(R.id.pbQrLoading)
         val tvQrTimer = dialogView.findViewById<TextView>(R.id.tvQrTimer)
-        val tvQrStatus = dialogView.findViewById<TextView>(R.id.tvQrStatus)
         val btnCancelQrPayment = dialogView.findViewById<View>(R.id.btnCancelQrPayment)
 
         val pbQrHeaderLoader = dialogView.findViewById<ProgressBar>(R.id.pbQrHeaderLoader)
         val ivQrHeaderIcon = dialogView.findViewById<ImageView>(R.id.ivQrHeaderIcon)
+        val ivQrHeaderTitleIcon = dialogView.findViewById<ImageView>(R.id.ivQrHeaderTitleIcon)
         val tvQrDialogTitle = dialogView.findViewById<TextView>(R.id.tvQrDialogTitle)
         val layoutQrResultOverlay = dialogView.findViewById<View>(R.id.layoutQrResultOverlay)
         val ivQrResultIcon = dialogView.findViewById<ImageView>(R.id.ivQrResultIcon)
@@ -945,9 +985,11 @@ class BillingActivity : AppCompatActivity() {
             "Processing Payment. Please wait...",
             "Almost there! We're confirming your payment. Please wait..."
         )
-        tvQrDialogTitle?.text = verificationMessages[0]
-        pbQrHeaderLoader?.visibility = View.VISIBLE
+        tvQrDialogTitle?.text = "Razorpay UPI QR Payment"
+        pbQrHeaderLoader?.visibility = View.GONE
+        ivQrHeaderTitleIcon?.visibility = View.VISIBLE
         ivQrHeaderIcon?.visibility = View.GONE
+        tvQrTimer?.visibility = View.GONE
 
         tvQrTotalAmount.text = String.format(Locale.US, "₹%.2f", totalAmount)
 
@@ -1053,7 +1095,7 @@ class BillingActivity : AppCompatActivity() {
             override fun onTick(millisUntilFinished: Long) {
                 val minutes = (millisUntilFinished / 1000) / 60
                 val seconds = (millisUntilFinished / 1000) % 60
-                tvQrTimer.text = String.format(Locale.US, "QR expires in %02d:%02d", minutes, seconds)
+                tvQrTimer.text = String.format(Locale.US, "Please Wait %02d:%02d", minutes, seconds)
             }
 
             override fun onFinish() {
@@ -1071,14 +1113,22 @@ class BillingActivity : AppCompatActivity() {
         qrPollingJob = lifecycleScope.launch {
             var failedRetryCount = 0
             var pollingSeconds = 0
-            var currentStatusText = ""
 
             while (!isQrPaymentHandled && isActive) {
                 try {
-                    // Rotate verification message in header every tick (3s)
-                    val msgIndex = ((pollingSeconds / 3) % verificationMessages.size)
                     withContext(Dispatchers.Main) {
-                        tvQrDialogTitle?.text = verificationMessages[msgIndex]
+                        if (pollingSeconds < 15) {
+                            tvQrDialogTitle?.text = "Razorpay UPI QR Payment"
+                            pbQrHeaderLoader?.visibility = View.GONE
+                            ivQrHeaderTitleIcon?.visibility = View.VISIBLE
+                            tvQrTimer?.visibility = View.GONE
+                        } else {
+                            pbQrHeaderLoader?.visibility = View.VISIBLE
+                            ivQrHeaderTitleIcon?.visibility = View.GONE
+                            tvQrTimer?.visibility = View.VISIBLE
+                            val msgIndex = (((pollingSeconds - 15) / 3) % verificationMessages.size)
+                            tvQrDialogTitle?.text = verificationMessages[msgIndex]
+                        }
                     }
 
                     Log.d(TAG, "🔍 Polling Razorpay QR status ($pollingSeconds sec): orderId=$orderId, easeOrderId=$easeOrderId")
@@ -1111,6 +1161,7 @@ class BillingActivity : AppCompatActivity() {
 
                                 // 1. Show Payment Success State
                                 pbQrHeaderLoader?.visibility = View.GONE
+                                ivQrHeaderTitleIcon?.visibility = View.GONE
                                 ivQrHeaderIcon?.visibility = View.VISIBLE
                                 ivQrHeaderIcon?.setImageResource(R.drawable.ic_check_circle)
                                 ivQrHeaderIcon?.setColorFilter(Color.parseColor("#2E7D32"))
@@ -1126,9 +1177,6 @@ class BillingActivity : AppCompatActivity() {
                                 tvQrResultTitle?.setTextColor(Color.parseColor("#2E7D32"))
                                 tvQrResultSubtitle?.text = "Your payment has been received successfully."
 
-                                tvQrStatus?.text = "✅ Payment Confirmed Successfully!"
-                                tvQrStatus?.setTextColor(Color.parseColor("#2E7D32"))
-
                                 // Brief pause so the customer sees the transaction success
                                 delay(1800L)
 
@@ -1143,7 +1191,6 @@ class BillingActivity : AppCompatActivity() {
                                 tvQrDialogTitle?.setTextColor(Color.parseColor("#1F2937"))
                                 pbQrHeaderLoader?.visibility = View.VISIBLE
                                 ivQrHeaderIcon?.visibility = View.GONE
-                                tvQrStatus?.text = "⏳ Generating your slip..."
 
                                 // 3. Call PlaceOrder (processOrder) API and navigate
                                 settleAndNavigateRazorpayQrOrder(orderId, easeOrderId)
@@ -1179,9 +1226,6 @@ class BillingActivity : AppCompatActivity() {
                                 tvQrResultTitle?.setTextColor(Color.RED)
                                 tvQrResultSubtitle?.text = if (message.isNotBlank()) message else "Payment was cancelled or failed. Please try again."
 
-                                tvQrStatus?.text = "❌ Payment Failed"
-                                tvQrStatus?.setTextColor(Color.RED)
-
                                 delay(2500L)
                                 stopQrPollingAndDismiss()
                                 cancelPendingRazorpayOrder()
@@ -1191,16 +1235,6 @@ class BillingActivity : AppCompatActivity() {
                         break
                     } else {
                         failedRetryCount = 0
-                        withContext(Dispatchers.Main) {
-                            val isFirstState = (pollingSeconds / 10) % 2 == 0
-                            val newText = if (isFirstState) "⏳ Waiting for payment confirmation..." else "PLEASE WAIT..."
-                            val newColor = if (isFirstState) Color.parseColor("#FF0000") else Color.RED
-                            if (currentStatusText != newText) {
-                                currentStatusText = newText
-                                tvQrStatus?.text = newText
-                                tvQrStatus?.setTextColor(newColor)
-                            }
-                        }
                     }
                 } catch (e: CancellationException) {
                     throw e
@@ -1253,6 +1287,7 @@ class BillingActivity : AppCompatActivity() {
     }
 
     private fun stopQrPollingAndDismiss() {
+        isPaymentProcessing = false
         qrPollingJob?.cancel()
         qrPollingJob = null
         qrCountDownTimer?.cancel()
@@ -1403,6 +1438,12 @@ class BillingActivity : AppCompatActivity() {
         onSuccess: () -> Unit = {},
         onError: (String) -> Unit = {}
     ) {
+        if (isPaymentProcessing) {
+            Log.w(TAG, "⚠️ Cash payment is already processing. Ignoring duplicate click.")
+            return
+        }
+        isPaymentProcessing = true
+
         val cartItems = activeItems.map { item ->
             OrderCartItem(
                 productId = item.id.toIntOrNull() ?: 0,
@@ -1521,6 +1562,7 @@ class BillingActivity : AppCompatActivity() {
                     productAdapter.notifyDataSetChanged()
                     updateUi()
                 } else {
+                    isPaymentProcessing = false
                     val errorMsg = if (!orderResponse?.message.isNullOrBlank()) {
                         orderResponse.message
                     } else {
@@ -1530,6 +1572,7 @@ class BillingActivity : AppCompatActivity() {
                     onError(errorMsg)
                 }
             } catch (e: Exception) {
+                isPaymentProcessing = false
                 CommonMethod.dismissLoader()
                 val err = e.message ?: "Cash payment error"
                 Log.e(TAG, "Error in proceedWithCashPayment: $err", e)
@@ -1775,6 +1818,7 @@ class BillingActivity : AppCompatActivity() {
                 binding.tilDevoteeMobile.error = "Mobile number is mandatory when WhatsApp is enabled"
                 Toast.makeText(this, "Please enter a valid 10-digit mobile number for WhatsApp receipt", Toast.LENGTH_LONG).show()
                 binding.etDevoteeMobile.requestFocus()
+                showMobileKeypadDialog()
                 return false
             } else {
                 binding.tilDevoteeMobile.error = null
@@ -1786,6 +1830,7 @@ class BillingActivity : AppCompatActivity() {
     }
 
     private fun showMobileKeypadDialog() {
+        if (activeMobileKeypadDialog?.isShowing == true) return
         var currentInput = binding.etDevoteeMobile.text?.toString()?.trim() ?: ""
         var isFreshInput = currentInput.isBlank()
 
@@ -1808,6 +1853,27 @@ class BillingActivity : AppCompatActivity() {
             gravity = android.view.Gravity.CENTER_HORIZONTAL
             setPadding(rootPadPx, rootPadPx, rootPadPx, rootPadPx)
         }
+
+        val noticeText = if (isWhatsAppEnabled()) {
+            "Enter Your Mobile Number To Receive Receipt In WhatsApp"
+        } else {
+            "Enter Mobile Number"
+        }
+
+        val tvNotice = TextView(this).apply {
+            setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 14f)
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            gravity = android.view.Gravity.CENTER
+            setTextColor(getColor(R.color.temple_gold_primary))
+            text = noticeText
+            layoutParams = android.widget.LinearLayout.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                bottomMargin = displayMarginBottomPx / 2
+            }
+        }
+        rootLayout.addView(tvNotice)
 
         val tvDisplay = TextView(this).apply {
             setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, displayTextPx)
@@ -1967,6 +2033,12 @@ class BillingActivity : AppCompatActivity() {
             .setTitle("")
             .setView(scrollView)
             .create()
+        activeMobileKeypadDialog = dialog
+        dialog.setOnDismissListener {
+            if (activeMobileKeypadDialog == dialog) {
+                activeMobileKeypadDialog = null
+            }
+        }
 
         btnCancel.setOnClickListener {
             dialog.dismiss()
@@ -2119,6 +2191,8 @@ class BillingActivity : AppCompatActivity() {
         reprintAuthDialog = null
         drawerNavAuthDialog?.dismiss()
         drawerNavAuthDialog = null
+        activeMobileKeypadDialog?.dismiss()
+        activeMobileKeypadDialog = null
         drawerTimeoutTimer?.cancel()
         drawerAutoCloseTimer?.cancel()
         CommonMethod.dismissLoader()
@@ -2139,13 +2213,16 @@ class BillingActivity : AppCompatActivity() {
 
         val tvNavAuthMessage = dialogView.findViewById<TextView>(R.id.tvNavAuthMessage)
         val etNavPassword = dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.etNavPassword)
-        val btnNavAuthVerify = dialogView.findViewById<View>(R.id.btnNavAuthVerify)
+        val layoutVerifyRow = dialogView.findViewById<View>(R.id.layoutVerifyRow)
+        val layoutReprintTestRow = dialogView.findViewById<View>(R.id.layoutReprintTestRow)
         val btnNavAuthCancel = dialogView.findViewById<View>(R.id.btnNavAuthCancel)
+        val btnNavAuthCancelStandard = dialogView.findViewById<View>(R.id.btnNavAuthCancelStandard)
         val btnNavAuthReprint = dialogView.findViewById<View>(R.id.btnNavAuthReprint)
+        val btnNavAuthTestPrint = dialogView.findViewById<View>(R.id.btnNavAuthTestPrint)
 
-        tvNavAuthMessage?.text = "Enter operator password to reprint last bill."
-        btnNavAuthVerify?.visibility = View.GONE
-        btnNavAuthReprint?.visibility = View.VISIBLE
+        tvNavAuthMessage?.text = "Enter operator password to reprint or test print."
+        layoutVerifyRow?.visibility = View.GONE
+        layoutReprintTestRow?.visibility = View.VISIBLE
 
         btnNavAuthReprint?.setOnClickListener {
             val password = etNavPassword?.text?.toString()?.trim().orEmpty()
@@ -2174,11 +2251,32 @@ class BillingActivity : AppCompatActivity() {
             }
         }
 
-        btnNavAuthCancel?.setOnClickListener {
+        btnNavAuthTestPrint?.setOnClickListener {
+            val password = etNavPassword?.text?.toString()?.trim().orEmpty()
+            val loginPassword = authManager.savedPassword
+            val isValid = loginPassword.isNotBlank() && password == loginPassword
+
+            if (isValid) {
+                dialog.dismiss()
+                reprintAuthDialog = null
+                val intent = Intent(this, PaymentActivity::class.java).apply {
+                    putExtra(PaymentActivity.EXTRA_IS_TEST_PRINT, true)
+                    putExtra(PaymentActivity.EXTRA_TOTAL_AMOUNT, 0.0)
+                }
+                startActivity(intent)
+                Toast.makeText(this, "Generating Test Print", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "Incorrect password. Enter your login password.", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        val cancelListener = View.OnClickListener {
             Log.d("KIOSK_REPRINT_LOG", "🚫 [KioskReprint] Reprint auth dialog cancelled by operator.")
             dialog.dismiss()
             reprintAuthDialog = null
         }
+        btnNavAuthCancel?.setOnClickListener(cancelListener)
+        btnNavAuthCancelStandard?.setOnClickListener(cancelListener)
 
         dialog.show()
     }

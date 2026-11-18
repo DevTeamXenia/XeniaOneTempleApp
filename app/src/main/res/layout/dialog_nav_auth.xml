@@ -78,15 +78,16 @@
             android:textSize="15sp" />
     </com.google.android.material.textfield.TextInputLayout>
 
-    <!-- Action Buttons Row -->
+    <!-- Standard Verify Action Row -->
     <LinearLayout
+        android:id="@+id/layoutVerifyRow"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:layout_marginBottom="8dp">
 
         <androidx.appcompat.widget.AppCompatButton
-            android:id="@+id/btnNavAuthCancel"
+            android:id="@+id/btnNavAuthCancelStandard"
             android:layout_width="0dp"
             android:layout_height="46dp"
             android:layout_weight="1"
@@ -110,15 +111,51 @@
             android:textSize="14sp" />
     </LinearLayout>
 
-    <androidx.appcompat.widget.AppCompatButton
-        android:id="@+id/btnNavAuthReprint"
+    <!-- 3 Buttons Horizontal Row for Reprint & Test Print -->
+    <LinearLayout
+        android:id="@+id/layoutReprintTestRow"
         android:layout_width="match_parent"
-        android:layout_height="46dp"
-        android:background="@drawable/bg_pay_button"
-        android:fontFamily="sans-serif-bold"
-        android:text="Reprint Last Bill"
-        android:textColor="@color/white"
-        android:textSize="14sp"
-        android:visibility="gone" />
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:weightSum="3"
+        android:visibility="gone">
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btnNavAuthCancel"
+            android:layout_width="0dp"
+            android:layout_height="46dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="4dp"
+            android:background="@drawable/bg_cancel_payment_button"
+            android:fontFamily="sans-serif-bold"
+            android:text="Cancel"
+            android:textColor="@color/text_muted"
+            android:textSize="12sp" />
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btnNavAuthReprint"
+            android:layout_width="0dp"
+            android:layout_height="46dp"
+            android:layout_weight="1"
+            android:layout_marginHorizontal="4dp"
+            android:background="@drawable/bg_pay_button"
+            android:fontFamily="sans-serif-bold"
+            android:text="Reprint"
+            android:textColor="@color/white"
+            android:textSize="12sp" />
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btnNavAuthTestPrint"
+            android:layout_width="0dp"
+            android:layout_height="46dp"
+            android:layout_weight="1"
+            android:layout_marginStart="4dp"
+            android:backgroundTint="#1976D2"
+            android:background="@drawable/bg_pay_button"
+            android:fontFamily="sans-serif-bold"
+            android:text="Test Print"
+            android:textColor="@color/white"
+            android:textSize="12sp" />
+    </LinearLayout>
 
 </LinearLayout>

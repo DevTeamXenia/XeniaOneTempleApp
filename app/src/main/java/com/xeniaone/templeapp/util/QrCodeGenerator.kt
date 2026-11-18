@@ -9,6 +9,11 @@ import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 
 object QrCodeGenerator {
     fun generate(content: String, size: Int = 512): Bitmap {
+        if (content.isBlank()) {
+            val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+            bitmap.eraseColor(Color.WHITE)
+            return bitmap
+        }
         val hints = HashMap<EncodeHintType, Any>().apply {
             put(EncodeHintType.CHARACTER_SET, "UTF-8")
             put(EncodeHintType.ERROR_CORRECTION, ErrorCorrectionLevel.H)

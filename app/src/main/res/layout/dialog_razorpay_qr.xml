@@ -24,6 +24,16 @@
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
+            <ImageView
+                android:id="@+id/ivQrHeaderTitleIcon"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_gravity="center_vertical"
+                android:contentDescription="UPI QR"
+                android:src="@drawable/ic_qr_code"
+                app:tint="@color/temple_gold_primary"
+                android:visibility="visible" />
+
             <FrameLayout
                 android:layout_width="32dp"
                 android:layout_height="32dp"
@@ -36,7 +46,7 @@
                     android:layout_height="28dp"
                     android:layout_gravity="center"
                     android:indeterminateTint="@color/temple_gold_primary"
-                    android:visibility="visible" />
+                    android:visibility="gone" />
 
                 <ImageView
                     android:id="@+id/ivQrHeaderIcon"
@@ -55,9 +65,9 @@
                 android:layout_marginStart="12dp"
                 android:layout_weight="1"
                 android:fontFamily="sans-serif-bold"
-                android:text="Please wait while we verify your payment. This may take a few moments."
+                android:text="Razorpay UPI QR Payment"
                 android:textColor="@color/text_dark"
-                android:textSize="16sp" />
+                android:textSize="20sp" />
         </LinearLayout>
 
         <!-- Amount Summary Card -->
@@ -177,7 +187,7 @@
             android:fontFamily="sans-serif-bold"
             android:paddingHorizontal="6dp"
             android:paddingVertical="7dp"
-            android:text="QR expires in 05:00"
+            android:text="Please Wait 05:00"
             android:textColor="@color/white"
             android:textSize="14sp" />
 
@@ -186,23 +196,11 @@
             android:id="@+id/tvQrInstruction"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginBottom="20dp"
             android:fontFamily="sans-serif-medium"
             android:gravity="center"
             android:text="Scan using GPay, PhonePe, Paytm or any UPI App"
             android:textColor="@color/text_muted"
-            android:textSize="14sp" />
-
-        <!-- Dynamic Polling Status -->
-        <TextView
-            android:id="@+id/tvQrStatus"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:layout_marginBottom="20dp"
-            android:fontFamily="sans-serif-bold"
-            android:gravity="center"
-            android:text="⏳ Waiting for payment confirmation..."
-            android:textColor="@color/delete_red"
             android:textSize="14sp" />
 
         <!-- Cancel Payment Button -->

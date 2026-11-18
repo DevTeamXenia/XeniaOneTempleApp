@@ -192,7 +192,7 @@
 
                     <!-- Optional Devotee Mobile Number & Manual Print Button -->
                     <LinearLayout
-                        android:layout_width="match_parent"
+                        android:layout_width="500dp"
                         android:layout_height="wrap_content"
                         android:layout_marginHorizontal="@dimen/screen_margin_horizontal"
                         android:layout_marginTop="20dp"
@@ -205,9 +205,8 @@
                         <com.google.android.material.textfield.TextInputLayout
                             android:id="@+id/tilDevoteeMobile"
                             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                            android:layout_width="0dp"
+                            android:layout_width="250dp"
                             android:layout_height="wrap_content"
-                            android:layout_weight="1"
                             android:hint="@string/mobile_number_hint"
                             app:boxCornerRadiusBottomEnd="8dp"
                             app:boxCornerRadiusBottomStart="8dp"
@@ -220,37 +219,58 @@
 
                             <com.google.android.material.textfield.TextInputEditText
                                 android:id="@+id/etDevoteeMobile"
-                                android:layout_width="match_parent"
+                                android:layout_width="250dp"
                                 android:layout_height="wrap_content"
                                 android:fontFamily="sans-serif-black"
                                 android:includeFontPadding="true"
                                 android:inputType="phone"
                                 android:maxLength="10"
                                 android:maxLines="1"
-                                app:boxStrokeWidth="2.5dp"
-                                app:boxStrokeWidthFocused="3.5dp"
                                 android:textColor="@color/black"
                                 android:textSize="16sp"
-                                android:textStyle="bold" />
+                                android:textStyle="bold"
+                                app:boxStrokeWidth="2.5dp"
+                                app:boxStrokeWidthFocused="3.5dp" />
                         </com.google.android.material.textfield.TextInputLayout>
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnManualPrint"
-                            android:layout_width="55dp"
-                            android:layout_height="55dp"
-                            android:layout_marginStart="8dp"
+                            android:layout_width="70dp"
+                            android:layout_height="66dp"
+                            android:layout_marginStart="4dp"
                             android:backgroundTint="@color/pay_button_orange"
                             android:contentDescription="@string/cd_generate_print"
+                            android:textStyle="bold"
                             android:fontFamily="sans-serif-bold"
                             android:paddingHorizontal="14dp"
                             android:text="@string/btn_print"
                             android:textColor="@color/white"
-                            android:textSize="8sp"
+                            android:textSize="10sp"
                             android:visibility="visible"
                             app:cornerRadius="10dp"
                             app:iconGravity="textStart"
                             app:iconPadding="6dp"
                             app:iconSize="28dp"
+                            app:iconTint="@color/white" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnTestPrint"
+                            android:layout_width="70dp"
+                            android:layout_height="66dp"
+                            android:layout_marginStart="4dp"
+                            android:backgroundTint="#1976D2"
+                            android:contentDescription="Test Print"
+                            android:fontFamily="sans-serif-bold"
+                            android:paddingHorizontal="8dp"
+                            android:text="Test Print"
+                            android:textColor="@color/white"
+                            android:textSize="9sp"
+                            android:textStyle="bold"
+                            android:visibility="visible"
+                            app:cornerRadius="10dp"
+                            app:iconGravity="textStart"
+                            app:iconPadding="4dp"
+                            app:iconSize="24dp"
                             app:iconTint="@color/white" />
 
                     </LinearLayout>

@@ -56,6 +56,29 @@ object BillingDialogHelper {
             setPadding(rootPadPx, rootPadPx, rootPadPx, rootPadPx)
         }
 
+        val prefs = activity.getSharedPreferences("kiosk_settings", android.content.Context.MODE_PRIVATE)
+        val isWhatsAppOn = if (PineLabsManager.isPineLabsAvailable(activity)) false else prefs.getBoolean("pref_whatsapp_enabled", true)
+        val noticeText = if (isWhatsAppOn) {
+            "Enter Your Mobile Number To Receive Receipt In WhatsApp"
+        } else {
+            "Enter Mobile Number"
+        }
+
+        val tvNotice = TextView(activity).apply {
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            setTextColor(activity.getColor(R.color.temple_gold_primary))
+            text = noticeText
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                bottomMargin = displayMarginBottomPx / 2
+            }
+        }
+        rootLayout.addView(tvNotice)
+
         val tvDisplay = TextView(activity).apply {
             setTextSize(TypedValue.COMPLEX_UNIT_PX, displayTextPx)
             typeface = Typeface.DEFAULT_BOLD

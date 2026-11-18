@@ -60,7 +60,7 @@
 
             </FrameLayout>
 
-            <!-- Optional Devotee Mobile Number -->
+            <!-- Optional Devotee Mobile Number & Manual/Test Print Buttons -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -69,34 +69,93 @@
                 android:layout_marginBottom="@dimen/mobile_field_margin_bottom"
                 android:orientation="vertical">
 
-                <com.google.android.material.textfield.TextInputLayout
-                    android:id="@+id/tilDevoteeMobile"
-                    style="@style/BoldTextInputLayoutHint"
+                <TextView
+                    android:id="@+id/tvDevoteeMobileNotice"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="6dp"
+                    android:fontFamily="sans-serif-bold"
+                    android:text="Enter Your Mobile Number To Receive Receipt In WhatsApp"
+                    android:textColor="@color/temple_gold_primary"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="@string/mobile_number_hint"
-                    app:boxCornerRadiusBottomEnd="8dp"
-                    app:boxCornerRadiusBottomStart="8dp"
-                    app:boxCornerRadiusTopEnd="8dp"
-                    app:boxCornerRadiusTopStart="8dp"
-                    app:boxStrokeColor="@color/temple_gold_primary"
-                    app:hintTextAppearance="@style/BoldHintTextAppearance"
-                    app:hintTextColor="@color/temple_gold_primary">
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
 
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etDevoteeMobile"
-                        android:layout_width="match_parent"
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/tilDevoteeMobile"
+                        style="@style/BoldTextInputLayoutHint"
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:fontFamily="sans-serif-black"
-                        android:includeFontPadding="true"
-                        android:inputType="phone"
-                        android:maxLength="10"
-                        android:maxLines="1"
-                        android:textColor="@color/black"
-                        android:textStyle="bold"
-                        android:textSize="@dimen/text_size_small" />
-                </com.google.android.material.textfield.TextInputLayout>
+                        android:layout_weight="1"
+                        android:hint="@string/mobile_number_hint"
+                        app:boxCornerRadiusBottomEnd="8dp"
+                        app:boxCornerRadiusBottomStart="8dp"
+                        app:boxCornerRadiusTopEnd="8dp"
+                        app:boxCornerRadiusTopStart="8dp"
+                        app:boxStrokeColor="@color/temple_gold_primary"
+                        app:hintTextAppearance="@style/BoldHintTextAppearance"
+                        app:hintTextColor="@color/temple_gold_primary">
 
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etDevoteeMobile"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="sans-serif-black"
+                            android:includeFontPadding="true"
+                            android:inputType="phone"
+                            android:maxLength="10"
+                            android:maxLines="1"
+                            android:textColor="@color/black"
+                            android:textSize="@dimen/text_size_small"
+                            android:textStyle="bold" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnManualPrint"
+                        android:layout_width="70dp"
+                        android:layout_height="66dp"
+                        android:layout_marginStart="8dp"
+                        android:backgroundTint="@color/pay_button_orange"
+                        android:contentDescription="@string/cd_generate_print"
+                        android:fontFamily="sans-serif-bold"
+                        android:paddingHorizontal="14dp"
+                        android:text="@string/btn_print"
+                        android:textColor="@color/white"
+                        android:textSize="10sp"
+                        android:textStyle="bold"
+                        android:visibility="visible"
+                        app:cornerRadius="10dp"
+                        app:iconGravity="textStart"
+                        app:iconPadding="6dp"
+                        app:iconSize="28dp"
+                        app:iconTint="@color/white" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnTestPrint"
+                        android:layout_width="70dp"
+                        android:layout_height="66dp"
+                        android:layout_marginStart="8dp"
+                        android:backgroundTint="#1976D2"
+                        android:contentDescription="Test Print"
+                        android:fontFamily="sans-serif-bold"
+                        android:paddingHorizontal="8dp"
+                        android:text="Test Print"
+                        android:textColor="@color/white"
+                        android:textSize="9sp"
+                        android:textStyle="bold"
+                        android:visibility="visible"
+                        app:cornerRadius="10dp"
+                        app:iconGravity="textStart"
+                        app:iconPadding="4dp"
+                        app:iconSize="24dp"
+                        app:iconTint="@color/white" />
+
+                </LinearLayout>
             </LinearLayout>
 
             <!-- Malayalam: wrap_content + line spacing so tall glyphs are never clipped -->
