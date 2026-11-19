@@ -254,9 +254,14 @@ class BillingActivity : AppCompatActivity() {
         updateDevoteeMobileHint()
         binding.etDevoteeMobile.setTypeface(null, android.graphics.Typeface.BOLD)
         binding.etDevoteeMobile.showSoftInputOnFocus = false
-        binding.etDevoteeMobile.setOnClickListener {
+        binding.etDevoteeMobile.isFocusable = false
+        binding.etDevoteeMobile.isFocusableInTouchMode = false
+
+        val openKeypadListener = View.OnClickListener {
             showMobileKeypadDialog()
         }
+        binding.etDevoteeMobile.setOnClickListener(openKeypadListener)
+        binding.tilDevoteeMobile.setOnClickListener(openKeypadListener)
 
         if (authManager.employeeImage.isNotBlank()) {
             loadEmployeeBannerImage(authManager.employeeImage)
@@ -940,7 +945,7 @@ class BillingActivity : AppCompatActivity() {
 
 //                    settleAndNavigateRazorpayQrOrder(initialOrderId, easeOrderIdFromSummary)
 
-                    // Step 4: Show QR Dialog and start 3-second status polling
+//                     Step 4: Show QR Dialog and start 3-second status polling
                     showRazorpayQrDialog(
                         orderId = initialOrderId,
                         easeOrderId = easeOrderIdFromSummary,
@@ -2087,6 +2092,7 @@ class BillingActivity : AppCompatActivity() {
         val etNavPassword = dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.etNavPassword)
         val btnNavAuthVerify = dialogView.findViewById<View>(R.id.btnNavAuthVerify)
         val btnNavAuthCancel = dialogView.findViewById<View>(R.id.btnNavAuthCancel)
+        val btnNavAuthCancelStandard = dialogView.findViewById<View>(R.id.btnNavAuthCancelStandard)
 
         btnNavAuthVerify?.setOnClickListener {
             val password = etNavPassword?.text?.toString()?.trim().orEmpty()
@@ -2114,12 +2120,15 @@ class BillingActivity : AppCompatActivity() {
             }
         }
 
-        btnNavAuthCancel?.setOnClickListener {
+        val cancelClickListener = View.OnClickListener {
             drawerTimeoutTimer?.cancel()
             isPromptShowing = false
             lastPromptDismissTime = System.currentTimeMillis()
             dialog.dismiss()
         }
+
+        btnNavAuthCancel?.setOnClickListener(cancelClickListener)
+        btnNavAuthCancelStandard?.setOnClickListener(cancelClickListener)
 
         dialog.setOnDismissListener {
             drawerTimeoutTimer?.cancel()

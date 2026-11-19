@@ -1,9 +1,12 @@
 package com.xeniaone.templeapp
 
 import android.annotation.SuppressLint
+import android.app.PendingIntent
+import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.ServiceConnection
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -11,6 +14,9 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
+import android.hardware.usb.UsbDevice
+import android.hardware.usb.UsbManager
+import android.os.Build
 import android.os.Bundle
 import android.os.CountDownTimer
 import android.os.Handler
@@ -34,6 +40,7 @@ import com.google.gson.reflect.TypeToken
 import com.xeniaone.templeapp.databinding.ActivityPaymentBinding
 import com.xeniaone.templeapp.databinding.ItemReceiptRowBinding
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -161,6 +168,8 @@ class PaymentActivity : AppCompatActivity() {
     private var isPrintingInProgress = false
     private var isPrintFailed = false
     private var hasAutoPrintedKiosk = false
+    private var usbReceiverRegistered = false
+    private var printerReconnectJob: kotlinx.coroutines.Job? = null
 
     // Kiosk Auto-return Timer
     private var autoReturnTimer: CountDownTimer? = null
@@ -171,6 +180,7 @@ class PaymentActivity : AppCompatActivity() {
 
     companion object {
         private const val TAG = "PaymentActivity"
+        private const val ACTION_USB_PERMISSION = "com.xeniaone.templeapp.USB_PERMISSION"
         const val EXTRA_ORDER_ID = "extra_order_id"
         const val EXTRA_ORDER_NO = "extra_order_no"
         const val EXTRA_ENCRYPTED_ORDER_ID = "extra_encrypted_order_id"
@@ -412,11 +422,14 @@ class PaymentActivity : AppCompatActivity() {
 
             override fun onFinish() {
                 if (isPrintingInProgress) {
+                    Log.d(TAG, "Auto-return timer finished, but printing is still in progress. Waiting...")
                     Handler(Looper.getMainLooper()).postDelayed({
                         if (!isPrintingInProgress) {
                             returnToHome()
+                        } else {
+                            startAutoReturnTimer()
                         }
-                    }, 3000L)
+                    }, 4000L)
                     return
                 }
                 returnToHome()
@@ -425,6 +438,10 @@ class PaymentActivity : AppCompatActivity() {
     }
 
     private fun returnToHome() {
+        if (isPrintingInProgress) {
+            Log.w(TAG, "⚠️ Attempted to return to home while printing is in progress. Postponing...")
+            return
+        }
         autoReturnTimer?.cancel()
         val intent = Intent(applicationContext, BillingActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
@@ -440,31 +457,101 @@ class PaymentActivity : AppCompatActivity() {
     // PRINTER INTEGRATION (POSConnect for KIOSK & Nyx PrinterService)
     // ─────────────────────────────────────────────────────────────────────────
 
+    private fun registerUsbPermissionReceiver() {
+        if (usbReceiverRegistered) return
+        val filter = IntentFilter().apply {
+            addAction(ACTION_USB_PERMISSION)
+            addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(usbReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            registerReceiver(usbReceiver, filter)
+        }
+        usbReceiverRegistered = true
+    }
+
+    private val usbReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            val action = intent?.action
+            Log.d(TAG, "🔌 USB Broadcast received: action = $action")
+            if (ACTION_USB_PERMISSION == action) {
+                synchronized(this) {
+                    val granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)
+                    Log.d(TAG, "🔌 USB Permission Result: granted = $granted")
+                    if (granted) {
+                        initKioskPrinter()
+                    } else {
+                        Log.w(TAG, "❌ USB Permission denied by user.")
+                    }
+                }
+            } else if (UsbManager.ACTION_USB_DEVICE_ATTACHED == action) {
+                Log.d(TAG, "🔌 USB Device Cable Attached / Re-plugged! Auto-reconnecting printer...")
+                lifecycleScope.launch(Dispatchers.Main) {
+                    delay(300L)
+                    initKioskPrinter()
+                }
+            }
+        }
+    }
+
+    private fun startPrinterReconnectPolling() {
+        if (printerReconnectJob?.isActive == true || BillingActivity.isLastOrderPrintedSuccessfully) return
+        printerReconnectJob = lifecycleScope.launch(Dispatchers.Main) {
+            var retryCount = 0
+            while (!BillingActivity.isLastOrderPrintedSuccessfully && (curConnect == null || curConnect?.isConnect() != true) && !isFinishing && !isDestroyed) {
+                retryCount++
+                Log.d(TAG, "🔄 [Printer Auto-Retry] Attempting printer re-connection (Attempt #$retryCount)...")
+                binding.pbPrinter.visibility = View.VISIBLE
+                binding.tvPrinterStatus.text = "Connection lost. Re-connecting to printer (Attempt #$retryCount)..."
+                initKioskPrinter()
+                delay(3000L)
+            }
+        }
+    }
+
     private val connectListener = IPOSListener { code, _ ->
         when (code) {
             POSConnect.CONNECT_SUCCESS -> {
                 Log.d(TAG, "✅ KIOSK USB Printer connected successfully!")
+                printerReconnectJob?.cancel()
+                printerReconnectJob = null
+                isPrintingInProgress = false
                 runOnUiThread {
                     binding.pbPrinter.visibility = View.GONE
                     binding.tvPrinterStatus.text = "KIOSK Printer Connected. Printing receipt..."
                 }
                 lifecycleScope.launch(Dispatchers.IO) {
-                    if (!hasAutoPrintedKiosk && !isPrintingInProgress) {
-                        hasAutoPrintedKiosk = true
-                        printReceiptOnKioskUsb()
-                    }
+                    hasAutoPrintedKiosk = true
+                    printReceiptOnKioskUsb()
                 }
             }
+            POSConnect.CONNECT_FAIL,
             POSConnect.CONNECT_INTERRUPT,
             POSConnect.SEND_FAIL -> {
                 Log.e(TAG, "❌ KIOSK USB Printer connection failed (code=$code)")
+                isPrintingInProgress = false
+                hasAutoPrintedKiosk = false
+                try { curConnect?.close() } catch (_: Exception) {}
+                curConnect = null
                 runOnUiThread {
                     binding.pbPrinter.visibility = View.GONE
-                    binding.tvPrinterStatus.text = "Kiosk USB Printer not connected"
+                    binding.tvPrinterStatus.text = "Kiosk USB Printer disconnected. Retrying..."
                 }
+                startPrinterReconnectPolling()
             }
             POSConnect.USB_DETACHED -> {
                 Log.w(TAG, "⚠️ KIOSK USB Printer detached")
+                isPrintingInProgress = false
+                hasAutoPrintedKiosk = false
+                try { curConnect?.close() } catch (_: Exception) {}
+                curConnect = null
+                runOnUiThread {
+                    binding.pbPrinter.visibility = View.GONE
+                    binding.tvPrinterStatus.text = "Printer cable detached. Please re-plug USB cable."
+                }
+                startPrinterReconnectPolling()
             }
         }
     }
@@ -472,12 +559,39 @@ class PaymentActivity : AppCompatActivity() {
     private fun initKioskPrinter() {
         try {
             POSConnect.init(applicationContext)
-            val entries = POSConnect.getUsbDevices(applicationContext)
+            val usbManager = getSystemService(Context.USB_SERVICE) as? UsbManager
+            val systemUsbDevices = usbManager?.deviceList?.values?.toList() ?: emptyList()
+            var entries = POSConnect.getUsbDevices(applicationContext)
+
+            if (entries.isEmpty() && systemUsbDevices.isNotEmpty()) {
+                Log.d(TAG, "🔌 POSConnect returned 0 devices, but UsbManager found ${systemUsbDevices.size} USB device(s): ${systemUsbDevices[0].deviceName}")
+                val fallbackPath = systemUsbDevices[0].deviceName
+                entries = listOf(fallbackPath)
+            }
+
             if (entries.isNotEmpty()) {
                 Log.d(TAG, "🔌 Found ${entries.size} Kiosk USB printer(s): ${entries[0]}")
-                connectKioskUsb(entries[0])
+                val usbDevice = systemUsbDevices.firstOrNull()
+                if (usbManager != null && usbDevice != null && !usbManager.hasPermission(usbDevice)) {
+                    Log.d(TAG, "🔐 Requesting USB permission for printer device: ${usbDevice.deviceName}")
+                    val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                    } else {
+                        PendingIntent.FLAG_UPDATE_CURRENT
+                    }
+                    val permissionIntent = PendingIntent.getBroadcast(
+                        this,
+                        0,
+                        Intent(ACTION_USB_PERMISSION),
+                        flags
+                    )
+                    registerUsbPermissionReceiver()
+                    usbManager.requestPermission(usbDevice, permissionIntent)
+                } else {
+                    connectKioskUsb(entries[0])
+                }
             } else {
-                Log.d(TAG, "ℹ️ No Kiosk USB printer detected via POSConnect. Binding Nyx printer service...")
+                Log.d(TAG, "ℹ️ No Kiosk USB printer detected via POSConnect or UsbManager. Binding Nyx printer service...")
                 bindNyxPrinterService()
             }
         } catch (e: Exception) {
@@ -561,19 +675,22 @@ class PaymentActivity : AppCompatActivity() {
         binding.pbPrinter.visibility = View.VISIBLE
         binding.tvPrinterStatus.text = "Printing receipt..."
 
-        lifecycleScope.launch(Dispatchers.IO) {
-            val kioskPrinted = if (curConnect != null) {
-                printReceiptOnKioskUsb()
-            } else false
-
-            if (!kioskPrinted && printerService != null) {
-                printReceiptOnNyx()
-            } else if (!kioskPrinted && curConnect == null && printerService == null) {
-                withContext(Dispatchers.Main) {
-                    binding.pbPrinter.visibility = View.GONE
-                    binding.tvPrinterStatus.text = "Receipt displayed on Kiosk screen"
-                    if (isManual) {
-                        Toast.makeText(this@PaymentActivity, "No physical thermal printer connected", Toast.LENGTH_SHORT).show()
+        // If USB connection was dropped or disconnected, attempt auto-reconnect
+        if (curConnect == null || curConnect?.isConnect() != true) {
+            Log.d(TAG, "🔌 Attempting Kiosk USB printer re-connection...")
+            initKioskPrinter()
+        } else {
+            lifecycleScope.launch(Dispatchers.IO) {
+                val kioskPrinted = printReceiptOnKioskUsb()
+                if (!kioskPrinted && printerService != null) {
+                    printReceiptOnNyx()
+                } else if (!kioskPrinted && curConnect == null && printerService == null) {
+                    withContext(Dispatchers.Main) {
+                        binding.pbPrinter.visibility = View.GONE
+                        binding.tvPrinterStatus.text = "Receipt displayed on Kiosk screen"
+                        if (isManual) {
+                            Toast.makeText(this@PaymentActivity, "No physical thermal printer connected", Toast.LENGTH_SHORT).show()
+                        }
                     }
                 }
             }
@@ -674,41 +791,14 @@ class PaymentActivity : AppCompatActivity() {
      */
     private suspend fun purgeAndResetPrinterState(conn: IDeviceConnection, printer: POSPrinter) {
         try {
-            // 1. Real-time emergency control codes
-            val realTimeCancel = byteArrayOf(
-                0x10.toByte(), 0x05.toByte(), 0x01.toByte(), // DLE ENQ 1: Recover from error
-                0x10.toByte(), 0x05.toByte(), 0x02.toByte(), // DLE ENQ 2: Recover & clear buffers
-                0x18.toByte(),                               // CAN: Cancel any line or page mode data
-                0x1B.toByte(), 0x53.toByte()                 // ESC S: Force Standard Mode (exit page mode)
-            )
-            conn.sendData(realTimeCancel)
-            delay(20)
-
-            // 2. Stream 24 KB of null bytes (0x00).
-            // If the printer was interrupted mid-raster (waiting for remaining dot bytes),
-            // this immediately exhausts the remaining byte counter as blank white dots
-            // and forces the printer to EXIT raster mode.
-            // If the printer is in command mode, NUL bytes are harmlessly ignored.
-            val nullDrain = ByteArray(24576)
-            val chunkSize = 8192
-            var offset = 0
-            while (offset < nullDrain.size) {
-                val len = minOf(chunkSize, nullDrain.size - offset)
-                val chunk = nullDrain.copyOfRange(offset, offset + len)
-                conn.sendData(chunk)
-                delay(15)
-                offset += len
-            }
-            delay(40)
-
-            // 3. Clean hardware reset
+            // Clean ESC/POS hardware reset
             val cleanReset = byteArrayOf(
                 0x18.toByte(),                               // CAN
                 0x1B.toByte(), 0x53.toByte(),                // ESC S
                 0x1B.toByte(), 0x40.toByte()                 // ESC @ (Initialize printer hardware)
             )
             conn.sendData(cleanReset)
-            delay(100)
+            delay(50)
         } catch (e: Exception) {
             Log.w(TAG, "Notice during printer purge: ${e.message}")
         }
@@ -719,44 +809,28 @@ class PaymentActivity : AppCompatActivity() {
      */
     private fun isPaperOutOrCoverOpen(conn: IDeviceConnection): Pair<Boolean, String?> {
         return try {
-            // 1. DLE EOT 4 (Paper roll sensor status)
+            // DLE EOT 4 (Paper roll sensor status query)
             conn.sendData(byteArrayOf(0x10.toByte(), 0x04.toByte(), 0x04.toByte()))
-            val resp = conn.readSync(200)
+            val resp = conn.readSync(100)
             if (resp.isNotEmpty()) {
                 val statusByte = resp[0].toInt() and 0xFF
-                // In ESC/POS standard: bits 5 & 6 on = paper end (out of paper)
-                if ((statusByte and 0x60) != 0) {
+                // Strict check: Only block if both bits 5 & 6 are clearly set (0x60)
+                if ((statusByte and 0x60) == 0x60) {
                     return Pair(true, "Paper roll is empty. Please insert paper and tap Print Receipt.")
                 }
             }
-
-            // 2. DLE EOT 2 (Offline & cover open status)
-            conn.sendData(byteArrayOf(0x10.toByte(), 0x04.toByte(), 0x02.toByte()))
-            val resp2 = conn.readSync(200)
-            if (resp2.isNotEmpty()) {
-                val statusByte2 = resp2[0].toInt() and 0xFF
-                // Bit 2: cover is open
-                if ((statusByte2 and 0x04) != 0) {
-                    return Pair(true, "Printer cover is open. Please close cover.")
-                }
-                // Bit 5: paper out
-                if ((statusByte2 and 0x20) != 0) {
-                    return Pair(true, "Paper roll is empty. Please insert paper and tap Print Receipt.")
-                }
-            }
-
             Pair(false, null)
         } catch (_: Exception) {
             Pair(false, null)
         }
     }
 
-    private suspend fun printReceiptOnKioskUsb(): Boolean {
-        return try {
+    private suspend fun printReceiptOnKioskUsb(): Boolean = withContext(NonCancellable) {
+        try {
             kotlinx.coroutines.yield()
             delay(150L) // Allow Activity window focus dispatch to settle before heavy raster generation
             isPrintingInProgress = true
-            val conn = curConnect ?: return false
+            val conn = curConnect ?: return@withContext false
             val printer = POSPrinter(conn)
 
             withContext(Dispatchers.Main) {
@@ -779,7 +853,7 @@ class PaymentActivity : AppCompatActivity() {
                     binding.tvPrinterStatus.text = "⚠️ $blockReason"
                     Toast.makeText(this@PaymentActivity, blockReason ?: "Printer paper empty", Toast.LENGTH_LONG).show()
                 }
-                return false
+                return@withContext false
             }
 
             val receiptBitmap = generateThermalReceiptBitmap()
@@ -1167,6 +1241,12 @@ class PaymentActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         autoReturnTimer?.cancel()
+        printerReconnectJob?.cancel()
+        printerReconnectJob = null
+        if (usbReceiverRegistered) {
+            try { unregisterReceiver(usbReceiver) } catch (_: Exception) {}
+            usbReceiverRegistered = false
+        }
         try {
             curConnect?.close()
         } catch (_: Exception) {}
