@@ -334,16 +334,13 @@ object BillingDialogHelper {
             val refId = etCashRefId.text?.toString()?.trim() ?: ""
             val adminPassword = etAdminPassword?.text?.toString()?.trim() ?: ""
 
-            Log.d(TAG, "💵 Cash Dialog Submit: refId='$refId', passwordProvided=${adminPassword.isNotEmpty()}")
 
             if (refId.isEmpty()) {
-                Log.w(TAG, "⚠️ Cash Dialog Error: Payment Reference ID is empty")
                 android.widget.Toast.makeText(activity, "Please enter Payment Reference ID", android.widget.Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
             if (adminPassword.isEmpty()) {
-                Log.w(TAG, "⚠️ Cash Dialog Error: Admin Password is empty")
                 android.widget.Toast.makeText(activity, "Please enter Admin Password", android.widget.Toast.LENGTH_SHORT).show()
                 etAdminPassword?.error = "Password Required"
                 etAdminPassword?.requestFocus()
@@ -352,14 +349,12 @@ object BillingDialogHelper {
 
             val expectedAdminPwd = authManager.adminPassword
             if (expectedAdminPwd.isNotBlank() && adminPassword != expectedAdminPwd) {
-                Log.w(TAG, "❌ Cash Dialog Error: Incorrect Admin Password entered")
                 android.widget.Toast.makeText(activity, "Incorrect Admin Password", android.widget.Toast.LENGTH_SHORT).show()
                 etAdminPassword?.error = "Incorrect Password"
                 etAdminPassword?.requestFocus()
                 return@setOnClickListener
             }
 
-            Log.i(TAG, "✅ Cash Dialog Validated Successfully for refId='$refId'")
             onContinue(
                 refId,
                 adminPassword,

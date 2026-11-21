@@ -188,7 +188,6 @@ class BillingActivity : AppCompatActivity() {
         binding.btnPay.setOnClickListener {
             val now = android.os.SystemClock.elapsedRealtime()
             if (now - lastPayClickTime < 1000L) {
-                Log.w(TAG, "⚠️ Rapid tap detected on Pay button. Ignoring duplicate click.")
                 return@setOnClickListener
             }
             lastPayClickTime = now
@@ -298,7 +297,6 @@ class BillingActivity : AppCompatActivity() {
                         }
                     }
                 } catch (e: Exception) {
-                    Log.w(TAG, "Profile fetch fallback to saved: ${e.message}")
                 }
             }
 
@@ -314,7 +312,6 @@ class BillingActivity : AppCompatActivity() {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 socketManager.productsFlow.collect { socketProducts ->
                     if (socketProducts.isNotEmpty()) {
-                        Log.i(TAG, "📥 [Socket Products Flow] Collected ${socketProducts.size} products from SocketFlow stream!")
                         hideProductsLoader()
                         bindSocketProducts(socketProducts)
                     }
@@ -326,7 +323,6 @@ class BillingActivity : AppCompatActivity() {
         lifecycleScope.launch {
             delay(5000)
             if (allItems.isEmpty()) {
-                Log.w(TAG, "Socket response timed out, loading default prasadam items with 0 quantities")
                 hideProductsLoader()
                 loadDefaultPrasadamItems()
             }
@@ -411,8 +407,6 @@ class BillingActivity : AppCompatActivity() {
             val newItems = mutableListOf<PrasadamItem>()
             val gson = Gson()
             for (p in socketProducts) {
-                Log.d("BillingActivity", "Parsed SocketProduct: ${gson.toJson(p)}")
-                Log.d("BillingActivity", "Product: ${p.productName}, maxQtyPerOrder: ${p.maxQtyPerOrder}")
                 val nameLower = p.productName.lowercase()
                 val fallbackRes = when {
                     nameLower.contains("appam") && !nameLower.contains("combo") -> R.drawable.item_appam
@@ -443,7 +437,6 @@ class BillingActivity : AppCompatActivity() {
             updateProductGridSpan()
             productAdapter.updateItems(allItems)
             updateUi()
-            Log.i(TAG, "🖥️ [Product Display] Successfully displayed ${newItems.size} items on the product list grid.")
         }
     }
 
@@ -514,7 +507,6 @@ class BillingActivity : AppCompatActivity() {
                     startLockTask()
                 }
             } catch (e: Exception) {
-                Log.w(TAG, "Re-enforce lock task failed: ${e.message}")
             }
         }
     }
@@ -525,16 +517,13 @@ class BillingActivity : AppCompatActivity() {
             binding.layoutPineLabsStatus.visibility = View.VISIBLE
             binding.btnManualPrint?.visibility = View.VISIBLE
             binding.tvPineLabsBadge.text = "⚡ Pine Labs POS Ready"
-            Log.i(TAG, "Pine Labs POS detected: ${PineLabsManager.getDeviceStatusDescription(this)}")
         } else {
             binding.layoutPineLabsStatus.visibility = View.GONE
-            Log.d(TAG, "Pine Labs not detected: ${PineLabsManager.getDeviceStatusDescription(this)}")
         }
     }
 
     private fun proceedToPayment() {
         if (isPaymentProcessing) {
-            Log.w(TAG, "⚠️ Payment is already in progress. Ignoring duplicate trigger.")
             return
         }
         if (!validateMobileNumberForWhatsApp()) return
@@ -594,7 +583,6 @@ class BillingActivity : AppCompatActivity() {
         modeName: String
     ) {
         if (isPaymentProcessing) {
-            Log.w(TAG, "⚠️ Pine Labs payment is already processing. Ignoring duplicate click.")
             return
         }
         isPaymentProcessing = true
@@ -671,9 +659,6 @@ class BillingActivity : AppCompatActivity() {
                 val orderId = orderResponse?.orderId?.toLong() ?: (System.currentTimeMillis() % 100000000)
                 pendingOrderId = orderId
 
-                Log.d(TAG, "Launching Pine Labs DoTransaction for Order #$orderId, Amount: ₹$total, Type: $txnType")
-                Log.i(TAG, "🔑 [PineLabs AppId Log] BillingActivity -> passing applicationId = ${authManager.pineLabsApplicationId}")
-
                 val pineIntent = PineLabsManager.createTransactionIntent(
                     context = this@BillingActivity,
                     billingRefNo = orderId.toString(),
@@ -687,7 +672,6 @@ class BillingActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 isPaymentProcessing = false
                 CommonMethod.dismissLoader()
-                Log.e(TAG, "Error initiating Pine Labs payment: ${e.message}", e)
                 Toast.makeText(this@BillingActivity, "Pine Labs error: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
@@ -699,8 +683,6 @@ class BillingActivity : AppCompatActivity() {
     private fun handlePineLabsPaymentResult(resultCode: Int, data: Intent?) {
         isPaymentProcessing = false
         val response = PineLabsManager.parseTransactionResponse(data)
-        Log.d(TAG, "Pine Labs Payment Result: isApproved=${response?.isApproved}, code=${response?.response?.responseCode}, msg=${response?.response?.responseMsg}")
-
         if (response != null && response.isApproved) {
             val detail = response.detail
             val approvalCode = detail?.approvalCode.orEmpty()
@@ -727,7 +709,6 @@ class BillingActivity : AppCompatActivity() {
             val errorMsg = response?.response?.responseMsg
                 ?: response?.detail?.remark
                 ?: "Payment was cancelled or could not be completed on Pine Labs terminal."
-            Log.w(TAG, "Pine Labs payment failed/cancelled: $errorMsg")
             showModernMessageDialog("Transaction Not Completed", errorMsg)
         }
     }
@@ -755,6 +736,30 @@ class BillingActivity : AppCompatActivity() {
         dialog.show()
     }
 
+    private fun showPlaceOrderRetryDialog(
+        pspRef: String,
+        approvalCode: String,
+        cardNumber: String,
+        cardType: String,
+        invoiceNo: Long,
+        rrn: String,
+        errorMessage: String
+    ) {
+        if (isFinishing || isDestroyed) return
+        AlertDialog.Builder(this)
+            .setTitle("Order Processing Failed")
+            .setMessage("Payment was approved, but server order processing failed: $errorMessage\n\nPlease tap Retry to complete the order and generate print.")
+            .setCancelable(false)
+            .setPositiveButton("Retry") { _, _ ->
+                processAndNavigatePineLabsOrder(pspRef, approvalCode, cardNumber, cardType, invoiceNo, rrn)
+            }
+            .setNegativeButton("Cancel") { dialog, _ ->
+                dialog.dismiss()
+                Toast.makeText(this, "Order processing cancelled.", Toast.LENGTH_LONG).show()
+            }
+            .show()
+    }
+
     /**
      * Executes Process API (api/Order/kiosk/placeOrder/{orderId}/Proccess) with settled=true
      * upon Pine Labs payment approval, then clears cart and launches thermal print screen.
@@ -774,8 +779,6 @@ class BillingActivity : AppCompatActivity() {
                 val orderIdInt = pendingOrderId.toInt()
 
                 val paymentRefToPass = if (rrn.isNotBlank()) rrn else pspRef
-                Log.d(TAG, "⚙️ Calling Process API for Pine Labs OrderId=$orderIdInt, CompanyId=$companyId, paymentRef=$paymentRefToPass")
-
                 val processResult = orderRepository.processOrder(
                     orderId = orderIdInt,
                     companyId = companyId,
@@ -786,42 +789,44 @@ class BillingActivity : AppCompatActivity() {
                 )
 
                 CommonMethod.dismissLoader()
-                val processResponse = processResult.getOrNull()
-                Log.d(TAG, "⚙️ Pine Labs Process API Response: Status=${processResponse?.status}, OrderId=${processResponse?.orderId}, Message=${processResponse?.message}")
+                if (processResult.isSuccess && processResult.getOrNull() != null) {
+                    val processResponse = processResult.getOrNull()!!
+                    val finalOrderId = processResponse.orderId?.toLong() ?: pendingOrderId
 
-                val finalOrderId = processResponse?.orderId?.toLong() ?: pendingOrderId
+                    val intent = Intent(this@BillingActivity, PaymentActivity::class.java).apply {
+                        putExtra(PaymentActivity.EXTRA_ORDER_ID, finalOrderId)
+                        putExtra(PaymentActivity.EXTRA_PSP_REF_NO, pspRef)
+                        putExtra(PaymentActivity.EXTRA_TOTAL_AMOUNT, pendingTotal)
+                        putExtra(PaymentActivity.EXTRA_RECEIPT_ITEMS_JSON, pendingReceiptItemsJson)
+                        putExtra(PaymentActivity.EXTRA_LANGUAGE_CODE, currentLanguage)
+                        putExtra(PaymentActivity.EXTRA_PAYMENT_MODE, pendingPaymentMode)
+                        putExtra(PaymentActivity.EXTRA_CARD_NUMBER, cardNumber)
+                        putExtra(PaymentActivity.EXTRA_APPROVAL_CODE, approvalCode)
+                        putExtra(PaymentActivity.EXTRA_INVOICE_NUMBER, invoiceNo)
+                        putExtra(PaymentActivity.EXTRA_RRN, rrn)
+                        putExtra(PaymentActivity.EXTRA_CARD_TYPE, cardType)
+                    }
+                    lastOrderIntent = intent
+                    isLastOrderPrintedSuccessfully = false
 
-                val intent = Intent(this@BillingActivity, PaymentActivity::class.java).apply {
-                    putExtra(PaymentActivity.EXTRA_ORDER_ID, finalOrderId)
-                    putExtra(PaymentActivity.EXTRA_PSP_REF_NO, pspRef)
-                    putExtra(PaymentActivity.EXTRA_TOTAL_AMOUNT, pendingTotal)
-                    putExtra(PaymentActivity.EXTRA_RECEIPT_ITEMS_JSON, pendingReceiptItemsJson)
-                    putExtra(PaymentActivity.EXTRA_LANGUAGE_CODE, currentLanguage)
-                    putExtra(PaymentActivity.EXTRA_PAYMENT_MODE, pendingPaymentMode)
-                    putExtra(PaymentActivity.EXTRA_CARD_NUMBER, cardNumber)
-                    putExtra(PaymentActivity.EXTRA_APPROVAL_CODE, approvalCode)
-                    putExtra(PaymentActivity.EXTRA_INVOICE_NUMBER, invoiceNo)
-                    putExtra(PaymentActivity.EXTRA_RRN, rrn)
-                    putExtra(PaymentActivity.EXTRA_CARD_TYPE, cardType)
-                }
-                lastOrderIntent = intent
-                isLastOrderPrintedSuccessfully = false
+                    // Clear cart & devotee inputs upon payment completion
+                    allItems.forEach { it.quantity = 0 }
+                    binding.etDevoteeMobile.text?.clear()
+                    productAdapter.notifyDataSetChanged()
+                    updateUi()
 
-                // Clear cart & devotee inputs upon payment completion
-                allItems.forEach { it.quantity = 0 }
-                binding.etDevoteeMobile.text?.clear()
-                productAdapter.notifyDataSetChanged()
-                updateUi()
-
-                if (isPrintEnabled()) {
-                    startActivity(intent)
+                    if (isPrintEnabled()) {
+                        startActivity(intent)
+                    } else {
+                        Toast.makeText(this@BillingActivity, "Payment approved successfully (Print Disabled)", Toast.LENGTH_LONG).show()
+                    }
                 } else {
-                    Toast.makeText(this@BillingActivity, "Payment approved successfully (Print Disabled)", Toast.LENGTH_LONG).show()
+                    val err = processResult.exceptionOrNull()?.message ?: "Server returned error"
+                    showPlaceOrderRetryDialog(pspRef, approvalCode, cardNumber, cardType, invoiceNo, rrn, err)
                 }
             } catch (e: Exception) {
                 CommonMethod.dismissLoader()
-                Log.e(TAG, "Error processing Pine Labs order: ${e.message}", e)
-                Toast.makeText(this@BillingActivity, "Pine Labs process error: ${e.message}", Toast.LENGTH_SHORT).show()
+                showPlaceOrderRetryDialog(pspRef, approvalCode, cardNumber, cardType, invoiceNo, rrn, e.message ?: "Unknown error")
             }
         }
     }
@@ -834,7 +839,6 @@ class BillingActivity : AppCompatActivity() {
 
     private fun proceedWithRazorpayQrPayment(activeItems: List<PrasadamItem>, total: Double) {
         if (isPaymentProcessing) {
-            Log.w(TAG, "⚠️ Razorpay QR payment is already processing. Ignoring duplicate click.")
             return
         }
         isPaymentProcessing = true
@@ -864,20 +868,16 @@ class BillingActivity : AppCompatActivity() {
                 // Step 1: Fetch Payment Providers: GET /api/PaymentProvider/company/{companyId}
                 val providersResult = orderRepository.getPaymentProviders(companyId)
                 val providers = providersResult.getOrNull() ?: emptyList()
-                Log.d("KIOSK_PAYMENT_DEBUG", "📊 Payment Providers API Response: $providers")
 
                 // Check for ProviderId where Name == "RAZORAYQR"
                 val razorpayQrProvider = providers.firstOrNull { it.name.equals("RAZORAYQR", ignoreCase = true) }
                 if (razorpayQrProvider == null) {
                     CommonMethod.dismissLoader()
                     val msg = if (providers.isEmpty()) "No payment providers found for Company ID: $companyId" else "RAZORAYQR payment provider is not configured"
-                    Log.w(TAG, "⚠️ $msg")
                     showModernMessageDialog("Payment Error", msg)
                     return@launch
                 }
                 val targetProviderId = razorpayQrProvider.providerId
-
-                Log.d("KIOSK_PAYMENT_DEBUG", "✅ Matched Name == 'RAZORAYQR', ProviderId: $targetProviderId (Object: $razorpayQrProvider)")
 
                 val sdf = SimpleDateFormat(
                     "yyyy-MM-dd'T'HH:mm:ss",
@@ -909,7 +909,6 @@ class BillingActivity : AppCompatActivity() {
                 )
 
                 // Step 2: Call Summary API: POST /api/Order/kiosk/summary with paymentProviderId
-                Log.d("KIOSK_PAYMENT_DEBUG", "📤 Sending Summary Request: paymentProviderId=$targetProviderId, companyId=$companyId, branchId=$branchId")
                 val summaryResult = orderRepository.createKioskOrder(
                     companyId = companyId,
                     branchId = branchId,
@@ -919,15 +918,12 @@ class BillingActivity : AppCompatActivity() {
                 )
 
                 val summaryResponse = summaryResult.getOrNull()
-                Log.d("KIOSK_PAYMENT_DEBUG", "📋 Summary API Response: Status=${summaryResponse?.status}, OrderId=${summaryResponse?.orderId}, EaseOrderId=${summaryResponse?.easeOrderId}, Data=${summaryResponse?.data}, Message=${summaryResponse?.message}")
-
                 if (summaryResponse == null || !summaryResponse.status.equals("Success", ignoreCase = true)) {
                     CommonMethod.dismissLoader()
                     val err = summaryResponse?.message ?: summaryResult.exceptionOrNull()?.message ?: "Order summary creation failed"
                     showModernMessageDialog("Order Failed", err)
                     return@launch
                 }
-
                 val initialOrderId = summaryResponse.orderId ?: 0
                 val easeOrderIdFromSummary = summaryResponse.easeOrderId ?: ""
                 val qrUrlFromSummary = summaryResponse.data ?: ""
@@ -941,7 +937,6 @@ class BillingActivity : AppCompatActivity() {
                     pendingCustomerName = ""
                     pendingCustomerMobile = devoteeMobile
 
-                    Log.d("KIOSK_PAYMENT_DEBUG", "🚀 Opening QR Dialog: OrderId=$initialOrderId, EaseOrderId=$easeOrderIdFromSummary, QR URL=$qrUrlFromSummary")
 
 //                    settleAndNavigateRazorpayQrOrder(initialOrderId, easeOrderIdFromSummary)
 
@@ -957,7 +952,6 @@ class BillingActivity : AppCompatActivity() {
                 }
             } catch (e: Exception) {
                 CommonMethod.dismissLoader()
-                Log.e(TAG, "Error in proceedWithRazorpayQrPayment: ${e.message}", e)
                 Toast.makeText(this@BillingActivity, "Razorpay QR error: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
@@ -1009,7 +1003,6 @@ class BillingActivity : AppCompatActivity() {
         // Asynchronously download and load QR Poster Image
         if (qrUrl.isNotBlank()) {
             pbQrLoading.visibility = View.VISIBLE
-            Log.d("KIOSK_PAYMENT_DEBUG", "🖼️ Downloading Razorpay Poster Image from URL: $qrUrl")
             lifecycleScope.launch(Dispatchers.IO) {
                 var posterBitmap: android.graphics.Bitmap? = null
                 try {
@@ -1032,18 +1025,14 @@ class BillingActivity : AppCompatActivity() {
                         posterBitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
 
                         if (posterBitmap != null) {
-                            Log.d("KIOSK_PAYMENT_DEBUG", "✅ Poster direct image decoded! Size: ${bytes.size} bytes, Bitmap: ${posterBitmap.width}x${posterBitmap.height}")
                         } else {
                             val htmlContent = String(bytes, Charsets.UTF_8)
-                            Log.d("KIOSK_PAYMENT_DEBUG", "📄 Response is HTML (${htmlContent.length} chars). Extracting image URL...")
-
                             val imgUrlPattern = Regex("""(?i)<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']|<img[^>]+src=["']([^"']+)["']|https?://[^\s"'<>]+\.(?:png|jpg|jpeg|webp)""")
                             val match = imgUrlPattern.find(htmlContent)
                             val extractedImageUrl = match?.groups?.get(1)?.value ?: match?.groups?.get(2)?.value ?: match?.value
 
                             if (!extractedImageUrl.isNullOrBlank()) {
                                 val finalImageUrl = if (extractedImageUrl.startsWith("http")) extractedImageUrl else if (extractedImageUrl.startsWith("//")) "https:$extractedImageUrl" else "https://rzp.io$extractedImageUrl"
-                                Log.d("KIOSK_PAYMENT_DEBUG", "🎯 Extracted Image URL from HTML: $finalImageUrl")
 
                                 val imgRequest = Request.Builder()
                                     .url(finalImageUrl)
@@ -1054,24 +1043,19 @@ class BillingActivity : AppCompatActivity() {
                                 if (imgResponse.isSuccessful && imgResponse.body != null) {
                                     val imgBytes = imgResponse.body!!.bytes()
                                     posterBitmap = BitmapFactory.decodeByteArray(imgBytes, 0, imgBytes.size)
-                                    Log.d("KIOSK_PAYMENT_DEBUG", "✅ Extracted poster image decoded! Size: ${imgBytes.size} bytes, Bitmap: ${posterBitmap?.width}x${posterBitmap?.height}")
                                 }
                             }
                         }
                     } else {
-                        Log.w("KIOSK_PAYMENT_DEBUG", "Poster HTTP response failed: code=${response.code}")
                     }
                 } catch (e: Exception) {
-                    Log.e("KIOSK_PAYMENT_DEBUG", "Error fetching poster image via OkHttp: ${e.message}", e)
                 }
 
                 // Fallback to local ZXing QR Bitmap if remote poster download returned null
                 if (posterBitmap == null) {
                     try {
                         posterBitmap = QrCodeGenerator.generate(qrUrl, 512)
-                        Log.d("KIOSK_PAYMENT_DEBUG", "Fallback: Generated local ZXing QR Bitmap")
                     } catch (e: Exception) {
-                        Log.e("KIOSK_PAYMENT_DEBUG", "ZXing fallback generation failed: ${e.message}", e)
                     }
                 }
 
@@ -1136,7 +1120,6 @@ class BillingActivity : AppCompatActivity() {
                         }
                     }
 
-                    Log.d(TAG, "🔍 Polling Razorpay QR status ($pollingSeconds sec): orderId=$orderId, easeOrderId=$easeOrderId")
                     val result = orderRepository.checkRazorpayQrPaymentStatus(orderId, easeOrderId)
                     val response = result.getOrNull()
                     val statusItem = response?.data?.firstOrNull()
@@ -1145,7 +1128,6 @@ class BillingActivity : AppCompatActivity() {
                     val isFinal = statusItem?.isFinal == true || response?.rootIsFinal == true
                     val message = statusItem?.message ?: ""
 
-                    Log.d(TAG, "📊 Razorpay QR Status: '$paymentStatus', ProviderStatus: '$providerStatus', IsFinal: $isFinal, Message: '$message'")
 
                     val isSuccess = paymentStatus == "CAPTURED" || paymentStatus == "PAID" || paymentStatus == "SUCCESS" || paymentStatus == "COMPLETED" || paymentStatus == "S" ||
                                     providerStatus == "CAPTURED" || providerStatus == "PAID" || providerStatus == "SUCCESS" || providerStatus == "COMPLETED" || providerStatus == "S" ||
@@ -1205,12 +1187,10 @@ class BillingActivity : AppCompatActivity() {
                     } else if (isFailed) {
                         if (failedRetryCount < 3) {
                             failedRetryCount++
-                            Log.w(TAG, "⚠️ Razorpay QR Status reported failed/expired. Retrying check ($failedRetryCount/3)...")
                             delay(2000L)
                             pollingSeconds += 2
                             continue
                         }
-                        Log.e(TAG, "❌ Razorpay QR Payment Failed after 3 retries: status=$paymentStatus, providerStatus=$providerStatus, msg=$message")
                         if (!isQrPaymentHandled) {
                             isQrPaymentHandled = true
                             withContext(Dispatchers.Main) {
@@ -1244,7 +1224,6 @@ class BillingActivity : AppCompatActivity() {
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    Log.w(TAG, "Network error during QR status poll (retrying next tick): ${e.message}")
                 }
 
                 delay(3000L)
@@ -1274,7 +1253,6 @@ class BillingActivity : AppCompatActivity() {
                 val settleResp = settleResult.getOrNull()
 
                 if (settleResult.isSuccess) {
-                    Log.i(TAG, "✅ Razorpay QR payment settled successfully via placeOrder process API!")
                     delay(800L)
                     stopQrPollingAndDismiss()
                     navigateToRazorpayReceipt(orderId, rzpOrderId)
@@ -1285,7 +1263,6 @@ class BillingActivity : AppCompatActivity() {
                 }
             } catch (e: Exception) {
                 stopQrPollingAndDismiss()
-                Log.e(TAG, "Error in settleAndNavigateRazorpayQrOrder: ${e.message}", e)
                 Toast.makeText(this@BillingActivity, "Settlement error: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
@@ -1368,10 +1345,8 @@ class BillingActivity : AppCompatActivity() {
 
                 if (result.isSuccess) {
                     Toast.makeText(this@BillingActivity, "Order cancelled successfully", Toast.LENGTH_SHORT).show()
-                    Log.i(TAG, "✅ Order cancelled: OrderId=$pendingOrderId")
                 } else {
                     val err = response?.message ?: result.exceptionOrNull()?.message ?: "Failed to cancel order"
-                    Log.w(TAG, "Cancel order warning: $err")
                 }
             } catch (e: Exception) {
                 CommonMethod.dismissLoader()
@@ -1379,7 +1354,6 @@ class BillingActivity : AppCompatActivity() {
                 binding.etDevoteeMobile.text?.clear()
                 productAdapter.notifyDataSetChanged()
                 updateUi()
-                Log.e(TAG, "Error cancelling order: ${e.message}", e)
             }
         }
     }
@@ -1444,7 +1418,6 @@ class BillingActivity : AppCompatActivity() {
         onError: (String) -> Unit = {}
     ) {
         if (isPaymentProcessing) {
-            Log.w(TAG, "⚠️ Cash payment is already processing. Ignoring duplicate click.")
             return
         }
         isPaymentProcessing = true
@@ -1518,7 +1491,6 @@ class BillingActivity : AppCompatActivity() {
                         ?: "CASH-${System.currentTimeMillis()}"
 
                     // Step 2: Execute Process API for Cash Order (settled=true)
-                    Log.d(TAG, "⚙️ Calling Process API for Cash OrderId=$initialOrderId")
                     val processResult = orderRepository.processOrder(
                         orderId = initialOrderId,
                         companyId = companyId,
@@ -1528,8 +1500,6 @@ class BillingActivity : AppCompatActivity() {
                     )
                     val processResponse = processResult.getOrNull()
                     val finalOrderId = processResponse?.orderId ?: initialOrderId
-                    Log.d(TAG, "⚙️ Cash Process API Response: Status=${processResponse?.status}, OrderId=$finalOrderId")
-
                     val receiptItems = activeItems.mapIndexed { index, item ->
                         com.xeniaone.templeapp.model.ReceiptItem(
                             no = index + 1,
@@ -1573,14 +1543,12 @@ class BillingActivity : AppCompatActivity() {
                     } else {
                         orderResult.exceptionOrNull()?.message ?: "Cash order creation failed"
                     }
-                    Log.e(TAG, "Cash order creation error: $errorMsg")
                     onError(errorMsg)
                 }
             } catch (e: Exception) {
                 isPaymentProcessing = false
                 CommonMethod.dismissLoader()
                 val err = e.message ?: "Cash payment error"
-                Log.e(TAG, "Error in proceedWithCashPayment: $err", e)
                 onError(err)
             }
         }
@@ -1690,7 +1658,6 @@ class BillingActivity : AppCompatActivity() {
                         startLockTask() // Screen pinning / Lock Kiosk
                         Toast.makeText(this, "KIOSK Mode Enabled (Locked)", Toast.LENGTH_SHORT).show()
                     } catch (e: Exception) {
-                        Log.w(TAG, "Start lock task failed: ${e.message}")
                         Toast.makeText(this, "Screen pinning not supported", Toast.LENGTH_SHORT).show()
                     }
                 } else {
@@ -1701,7 +1668,7 @@ class BillingActivity : AppCompatActivity() {
                     stopLockTask()
                     Toast.makeText(this, "KIOSK Mode Disabled (Unlocked)", Toast.LENGTH_SHORT).show()
                 } catch (e: Exception) {
-                    Log.w(TAG, "Stop lock task failed: ${e.message}")
+
                 }
             }
         }
@@ -1775,9 +1742,9 @@ class BillingActivity : AppCompatActivity() {
                 state,
                 android.content.pm.PackageManager.DONT_KILL_APP
             )
-            Log.d(TAG, "HomeLauncherAlias state updated to: isEnabled=$isEnabled")
+
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to update HomeLauncherAlias state: ${e.message}")
+
         }
     }
 
@@ -1791,7 +1758,7 @@ class BillingActivity : AppCompatActivity() {
                 startActivity(intent)
                 Toast.makeText(this, "Please allow 'Display over other apps' for Kiosk auto-start", Toast.LENGTH_LONG).show()
             } catch (e: Exception) {
-                Log.w(TAG, "Failed to request overlay permission: ${e.message}")
+
             }
         }
     }
@@ -2109,7 +2076,6 @@ class BillingActivity : AppCompatActivity() {
                     try {
                         stopLockTask() // UNPIN only for Kiosk mode
                     } catch (e: Exception) {
-                        Log.w(TAG, "Stop lock task error: ${e.message}")
                     }
                 }
                 val drawerLayout = findViewById<androidx.drawerlayout.widget.DrawerLayout>(R.id.drawerLayout)
@@ -2210,7 +2176,6 @@ class BillingActivity : AppCompatActivity() {
     private fun showKioskReprintAuthDialog() {
         if (isFinishing || isDestroyed) return
         reprintAuthDialog?.dismiss()
-        Log.i("KIOSK_REPRINT_LOG", "📋 [KioskReprint] Opening reprint authentication dialog...")
         val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_nav_auth, null)
         val dialog = AlertDialog.Builder(this)
             .setView(dialogView)
@@ -2237,25 +2202,21 @@ class BillingActivity : AppCompatActivity() {
             val password = etNavPassword?.text?.toString()?.trim().orEmpty()
             val loginPassword = authManager.savedPassword
             val isValid = loginPassword.isNotBlank() && password == loginPassword
-            Log.d("KIOSK_REPRINT_LOG", "🔐 [KioskReprint] Password verification attempted. isValid=$isValid")
 
             if (isValid) {
                 dialog.dismiss()
                 reprintAuthDialog = null
                 val lastIntent = lastOrderIntent
                 if (lastIntent != null) {
-                    Log.i("KIOSK_REPRINT_LOG", "✅ [KioskReprint] Last order intent found! Preparing duplicate reprint intent.")
                     val reprintIntent = Intent(lastIntent).apply {
                         putExtra(PaymentActivity.EXTRA_IS_DUPLICATE_PRINT, true)
                     }
                     startActivity(reprintIntent)
                     Toast.makeText(this, "Reprinting last order as Duplicate", Toast.LENGTH_SHORT).show()
                 } else {
-                    Log.w("KIOSK_REPRINT_LOG", "⚠️ [KioskReprint] lastOrderIntent is NULL. No previous order available to reprint.")
                     Toast.makeText(this, "No previous order to print", Toast.LENGTH_SHORT).show()
                 }
             } else {
-                Log.e("KIOSK_REPRINT_LOG", "❌ [KioskReprint] Authentication failed: Incorrect operator password.")
                 Toast.makeText(this, "Incorrect password. Enter your login password.", Toast.LENGTH_SHORT).show()
             }
         }
@@ -2280,7 +2241,6 @@ class BillingActivity : AppCompatActivity() {
         }
 
         val cancelListener = View.OnClickListener {
-            Log.d("KIOSK_REPRINT_LOG", "🚫 [KioskReprint] Reprint auth dialog cancelled by operator.")
             dialog.dismiss()
             reprintAuthDialog = null
         }

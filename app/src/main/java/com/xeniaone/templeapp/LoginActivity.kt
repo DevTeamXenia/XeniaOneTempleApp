@@ -80,20 +80,7 @@ class LoginActivity : AppCompatActivity() {
             viewModel.login(username, password, rememberMe)
         }
 
-        // Add Test Crash button dynamically
-//        val crashButton = android.widget.Button(this).apply {
-//            text = "Test Crash"
-//            setOnClickListener {
-//                throw RuntimeException("Test Crash") // Force a crash
-//            }
-//        }
-//        addContentView(
-//            crashButton,
-//            android.view.ViewGroup.LayoutParams(
-//                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-//                android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-//            )
-//        )
+
 
         // Observe ViewModel state
         observeLoginState()

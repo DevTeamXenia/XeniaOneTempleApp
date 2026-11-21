@@ -24,12 +24,11 @@ class TempleApp : Application() {
             FirebaseApp.initializeApp(this)
             FirebaseCrashlytics.getInstance().setCrashlyticsCollectionEnabled(true)
         } catch (e: Exception) {
-            Log.e("TempleApp", "Crashlytics init failed", e)
+
         }
 
 
         container = DependencyContainer(this)
         isPineLabsDevice = PineLabsManager.isPineLabsAvailable(this)
-        Log.i("TempleApp", "Device initialized: ${PineLabsManager.getDeviceStatusDescription(this)}")
     }
 }

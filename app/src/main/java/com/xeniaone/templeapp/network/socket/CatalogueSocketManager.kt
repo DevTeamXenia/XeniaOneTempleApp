@@ -49,10 +49,8 @@ class CatalogueSocketManager(
         this.companyId = companyId
         this.branchId = branchId
         this.tableId = tableId
-        Log.i(TAG, "🔌 [SignalR Connect] Initiating connection to $hubUrl with companyId=$companyId, branchId=$branchId, tableId=$tableId")
 
         if (hubConnection != null && hubConnection?.connectionState == HubConnectionState.CONNECTED) {
-            Log.d(TAG, "ℹ️ Already connected, requesting fresh products")
             requestProducts()
             return
         }
@@ -72,22 +70,18 @@ class CatalogueSocketManager(
             )
 
             hubConnection?.onClosed { error ->
-                Log.w(TAG, "⚠️ [SignalR Closed] Connection closed: ${error?.message}")
                 _connectionState.value = HubConnectionState.DISCONNECTED
                 reconnect()
             }
 
             startConnection()
         } catch (e: Exception) {
-            Log.e(TAG, "❌ [SignalR Init Error] Error initializing SignalR hub: ${e.message}", e)
         }
     }
 
     private fun startConnection() {
-        Log.d(TAG, "🚀 [SignalR Start] Attempting to start hub connection...")
         hubConnection?.start()?.subscribe(
             {
-                Log.i(TAG, "✅ [SignalR Connected] Connected successfully to $hubUrl")
                 _connectionState.value = HubConnectionState.CONNECTED
                 retryCount = 0
                 isReconnecting = false
@@ -99,7 +93,6 @@ class CatalogueSocketManager(
                 requestProducts()
             },
             { error ->
-                Log.e(TAG, "❌ [SignalR Start Error] start error: ${error.message}", error)
                 _connectionState.value = HubConnectionState.DISCONNECTED
                 reconnect()
             }
@@ -107,7 +100,6 @@ class CatalogueSocketManager(
     }
 
     fun requestProducts(tableId: Int? = this.tableId) {
-        Log.d(TAG, "📦 [SignalR Request] Requesting products via socket: companyId=$companyId, branchId=$branchId, tableId=$tableId")
         safeSend(
             "SendCatalogueUpdate",
             "PRODUCT",
@@ -128,11 +120,9 @@ class CatalogueSocketManager(
     private fun safeSend(method: String, vararg args: Any?): Boolean {
         return try {
             val conn = hubConnection ?: run {
-                Log.w(TAG, "⚠️ [SignalR Send] Cannot send '$method', hubConnection is null")
                 return false
             }
             if (conn.connectionState != HubConnectionState.CONNECTED) {
-                Log.w(TAG, "⚠️ [SignalR Send] Cannot send '$method', connection state is ${conn.connectionState}")
                 if (!isReconnecting) reconnect()
                 return false
             }
@@ -141,15 +131,12 @@ class CatalogueSocketManager(
             conn.send(method, *args)
             true
         } catch (e: Exception) {
-            Log.e(TAG, "❌ [SignalR Send Error] failed for method $method: ${e.message}", e)
             false
         }
     }
 
     private fun handleCatalogueUpdate(type: String, payload: Any?) {
-        Log.i(TAG, "📥 [SignalR Receive] ReceiveCatalogueUpdate triggered with type='$type'")
         if (payload == null) {
-            Log.w(TAG, "⚠️ [SignalR Receive] payload is null for type=$type")
             return
         }
         try {
@@ -159,11 +146,9 @@ class CatalogueSocketManager(
             if (type.equals("PRODUCT", ignoreCase = true)) {
                 val response = gson.fromJson(json, ProductResponse::class.java)
                 val list = response.products?.products ?: emptyList()
-                Log.i(TAG, "✅ [SignalR Products] Parsed ${list.size} products from Socket!")
                 _productsFlow.value = list
             }
         } catch (e: Exception) {
-            Log.e(TAG, "❌ [SignalR Error] parsing catalogue update for type=$type: ${e.message}", e)
         }
     }
 
@@ -191,7 +176,6 @@ class CatalogueSocketManager(
                 val delayTime = (1000L * 2.0.pow(retryCount.toDouble()))
                     .toLong()
                     .coerceAtMost(10000L)
-                Log.d(TAG, "🔄 [SignalR Reconnect] Reconnecting SignalR in ${delayTime}ms (Attempt #$retryCount)")
                 delay(delayTime)
 
                 if (hubConnection?.connectionState == HubConnectionState.CONNECTED) {
@@ -200,7 +184,6 @@ class CatalogueSocketManager(
                 }
                 startConnection()
             } catch (e: Exception) {
-                Log.e(TAG, "❌ [SignalR Reconnect Error] Reconnect failed: ${e.message}", e)
             } finally {
                 isReconnecting = false
             }
@@ -209,11 +192,9 @@ class CatalogueSocketManager(
 
     fun disconnect() {
         try {
-            Log.i(TAG, "🔌 [SignalR Disconnect] Disconnecting hub connection...")
             hubConnection?.stop()
             _connectionState.value = HubConnectionState.DISCONNECTED
         } catch (e: Exception) {
-            Log.e(TAG, "❌ [SignalR Disconnect Error] Error disconnecting: ${e.message}", e)
         }
     }
 }

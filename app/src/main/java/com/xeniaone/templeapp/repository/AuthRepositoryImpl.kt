@@ -50,31 +50,25 @@ class AuthRepositoryImpl(
 
     override suspend fun getEmployeeProfile(authToken: String): Resource<EmployeeProfileResponse> =
         withContext(ioDispatcher) {
-            Log.d(TAG, "getEmployeeProfile: request started")
+
             try {
                 val authHeader = if (authToken.startsWith("Bearer ")) authToken else "Bearer $authToken"
-                Log.d(TAG, "getEmployeeProfile: auth header set (token length=${authToken.length})")
+
 
                 val response = authApiService.getEmployeeProfile(authHeader)
-                Log.d(TAG, "getEmployeeProfile: response received, code=${response.code()}, successful=${response.isSuccessful}")
 
                 if (response.isSuccessful && response.body() != null) {
                     val profileResponse = response.body()!!
                     if (profileResponse.isSuccess) {
-                        Log.i(TAG, "getEmployeeProfile: profile fetched successfully")
-                        Log.d(TAG, "getEmployeeProfile: full response = ${Gson().toJson(profileResponse)}")
                         Resource.Success(profileResponse)
                     } else {
-                        Log.w(TAG, "getEmployeeProfile: API returned failure, message=${profileResponse.message}")
                         Resource.Error(profileResponse.message ?: "Failed to fetch employee profile.")
                     }
                 } else {
                     val errorMsg = "Profile request failed (${response.code()}): ${response.message()}"
-                    Log.e(TAG, "getEmployeeProfile: $errorMsg, bodyNull=${response.body() == null}")
                     Resource.Error(errorMsg, response.code())
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "getEmployeeProfile: exception - ${e.localizedMessage}", e)
                 Resource.Error(e.localizedMessage ?: "Failed to retrieve employee profile.")
             }
         }

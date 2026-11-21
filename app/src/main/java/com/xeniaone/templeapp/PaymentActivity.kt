@@ -23,7 +23,6 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.RemoteException
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.widget.Toast
@@ -80,20 +79,16 @@ class PaymentActivity : AppCompatActivity() {
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         isPrintingInProgress = false
-        Log.d(TAG, "🖨️ [PineLabs Print Result] resultCode=${result.resultCode}, dataIsNull=${result.data == null}")
         if (result.data != null) {
             val extras = result.data?.extras
             if (extras != null) {
                 for (key in extras.keySet()) {
-                    Log.d(TAG, "🖨️ [PineLabs Print Result Extra] $key = ${extras.get(key).toString()}")
                 }
             }
         }
         val responseData = result.data?.getStringExtra(PineLabsConstants.EXTRA_RESPONSE_DATA)
-        Log.d(TAG, "🖨️ [PineLabs Print Response DATA]: $responseData")
-
         val printResponse = PineLabsManager.parsePrintResponse(result.data)
-        Log.d(TAG, "🖨️ [PineLabs Print Response Parsed]: isSuccess=${printResponse?.isSuccess}, code=${printResponse?.response?.responseCode}, msg=${printResponse?.response?.responseMsg}")
+
 
         binding.pbPrinter.visibility = View.GONE
         if (printResponse != null && printResponse.isSuccess) {
@@ -102,14 +97,11 @@ class PaymentActivity : AppCompatActivity() {
             BillingActivity.isPendingPrintAvailable = false
             BillingActivity.isLastOrderPrintedSuccessfully = true
             binding.tvPrinterStatus.text = "✅ Receipt printed on Pine Labs POS!"
-            Log.i(TAG, "✅ [PineLabs Print] Receipt printed successfully on terminal!")
             startAutoReturnTimer()
         } else {
             val rawCode = printResponse?.response?.responseCode ?: -1
             val rawMsg = printResponse?.response?.responseMsg.orEmpty()
             val msg = PineLabsManager.getPrinterErrorMessage(rawCode, rawMsg)
-            Log.w(TAG, "⚠️ [PineLabs Print] Print failed or returned warning: $msg (Code: $rawCode)")
-
             if (PineLabsManager.shouldRetry(printResponse)) {
                 binding.tvPrinterStatus.text = "Retrying print (${PineLabsManager.currentRetryCount}/${PineLabsManager.MAX_PINE_LABS_RETRIES})..."
                 Handler(Looper.getMainLooper()).postDelayed({
@@ -135,7 +127,6 @@ class PaymentActivity : AppCompatActivity() {
                         isPrintingInProgress = false
                         isPrintFailed = true
                         BillingActivity.isPendingPrintAvailable = true
-                        Log.e(TAG, "❌ [PineLabs Print Retry Error] ${e.message}", e)
                         binding.tvPrinterStatus.text = "Print error: ${e.message}"
                         startAutoReturnTimer()
                     }
@@ -156,7 +147,6 @@ class PaymentActivity : AppCompatActivity() {
             isPrintingInProgress = false
             binding.pbPrinter.visibility = View.GONE
             binding.tvPrinterStatus.text = "Print error: ${e.message}"
-            Log.e(TAG, "❌ [PineLabs Print Launch Error] ${e.message}", e)
         }
     }
 
@@ -251,14 +241,12 @@ class PaymentActivity : AppCompatActivity() {
 
     private fun fetchOrderDetailsAndInitializePrint() {
         if (orderId <= 0L || (isDuplicatePrint && receiptItems.isNotEmpty() && orderNo.isNotBlank())) {
-            Log.i(TAG, "🖨️ [Data-wise Reprint] Skipping server API getOrderDetails because order details & items are already present in Intent extras (isDuplicatePrint=$isDuplicatePrint).")
             initializeUiAndPrinting()
             return
         }
 
         lifecycleScope.launch {
             try {
-                Log.d(TAG, "Fetching order details for orderId=$orderId from GET api/Order/$orderId")
                 val result = orderRepository.getOrderDetails(orderId)
                 val orderData = result.getOrNull()?.data
                 if (orderData != null) {
@@ -273,14 +261,13 @@ class PaymentActivity : AppCompatActivity() {
                     }
                     if (!orderData.orderDate.isNullOrBlank()) {
                         formattedDate = convertUtcToLocalIst(orderData.orderDate)
-                        Log.d(TAG, "Fetched orderDate from server (converted to IST): $formattedDate")
                     }
-                    Log.d(TAG, "Fetched order details: orderNo=$orderNo, encryptedOrderId=$encryptedOrderId, paymentRef=${orderData.PaymentRef}, orderDate=$formattedDate")
+
                 } else {
-                    Log.w(TAG, "getOrderDetails failed or returned null: ${result.exceptionOrNull()?.message}")
+
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Error fetching order details for orderId=$orderId: ${e.message}", e)
+
             }
             withContext(Dispatchers.Main) {
                 initializeUiAndPrinting()
@@ -300,7 +287,6 @@ class PaymentActivity : AppCompatActivity() {
             }
             localFormat.format(date)
         } catch (e: Exception) {
-            Log.e(TAG, "Error parsing server orderDate '$utcDateStr': ${e.message}", e)
             formattedDate
         }
     }
@@ -311,7 +297,6 @@ class PaymentActivity : AppCompatActivity() {
 
         // Detect if running on Pine Labs device
         if (PineLabsManager.isPineLabsAvailable(this)) {
-            Log.d(TAG, "Pine Labs POS detected. Initializing Pine Labs print...")
             binding.tvPrinterStatus.text = "Pine Labs POS detected. Printing receipt..."
             Handler(Looper.getMainLooper()).postDelayed({
                 printReceiptOnPineLabs()
@@ -339,7 +324,7 @@ class PaymentActivity : AppCompatActivity() {
                 val items: List<ReceiptItem> = Gson().fromJson(json, type)
                 if (items.isNotEmpty()) return items
             } catch (e: Exception) {
-                Log.e(TAG, "Error parsing receipt items json: ${e.message}", e)
+
             }
         }
 
@@ -392,10 +377,7 @@ class PaymentActivity : AppCompatActivity() {
             binding.llReceiptItems.addView(rowBinding.root)
         }
 
-//        // Centered QR Code at footer
-//        val qrData = "upi://pay?pa=sabarimala@sib&pn=SabarimalaTemple&tr=$displayOrderId&am=$displayTotal&cu=INR"
-//        val qrBitmap = QrCodeGenerator.generate(qrData, 240)
-//        binding.ivReceiptQr.setImageBitmap(qrBitmap)
+
     }
 
     private fun setupListeners() {
@@ -422,7 +404,6 @@ class PaymentActivity : AppCompatActivity() {
 
             override fun onFinish() {
                 if (isPrintingInProgress) {
-                    Log.d(TAG, "Auto-return timer finished, but printing is still in progress. Waiting...")
                     Handler(Looper.getMainLooper()).postDelayed({
                         if (!isPrintingInProgress) {
                             returnToHome()
@@ -439,7 +420,6 @@ class PaymentActivity : AppCompatActivity() {
 
     private fun returnToHome() {
         if (isPrintingInProgress) {
-            Log.w(TAG, "⚠️ Attempted to return to home while printing is in progress. Postponing...")
             return
         }
         autoReturnTimer?.cancel()
@@ -475,19 +455,15 @@ class PaymentActivity : AppCompatActivity() {
     private val usbReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val action = intent?.action
-            Log.d(TAG, "🔌 USB Broadcast received: action = $action")
             if (ACTION_USB_PERMISSION == action) {
                 synchronized(this) {
                     val granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)
-                    Log.d(TAG, "🔌 USB Permission Result: granted = $granted")
                     if (granted) {
                         initKioskPrinter()
                     } else {
-                        Log.w(TAG, "❌ USB Permission denied by user.")
                     }
                 }
             } else if (UsbManager.ACTION_USB_DEVICE_ATTACHED == action) {
-                Log.d(TAG, "🔌 USB Device Cable Attached / Re-plugged! Auto-reconnecting printer...")
                 lifecycleScope.launch(Dispatchers.Main) {
                     delay(300L)
                     initKioskPrinter()
@@ -502,7 +478,6 @@ class PaymentActivity : AppCompatActivity() {
             var retryCount = 0
             while (!BillingActivity.isLastOrderPrintedSuccessfully && (curConnect == null || curConnect?.isConnect() != true) && !isFinishing && !isDestroyed) {
                 retryCount++
-                Log.d(TAG, "🔄 [Printer Auto-Retry] Attempting printer re-connection (Attempt #$retryCount)...")
                 binding.pbPrinter.visibility = View.VISIBLE
                 binding.tvPrinterStatus.text = "Connection lost. Re-connecting to printer (Attempt #$retryCount)..."
                 initKioskPrinter()
@@ -514,7 +489,6 @@ class PaymentActivity : AppCompatActivity() {
     private val connectListener = IPOSListener { code, _ ->
         when (code) {
             POSConnect.CONNECT_SUCCESS -> {
-                Log.d(TAG, "✅ KIOSK USB Printer connected successfully!")
                 printerReconnectJob?.cancel()
                 printerReconnectJob = null
                 isPrintingInProgress = false
@@ -530,7 +504,6 @@ class PaymentActivity : AppCompatActivity() {
             POSConnect.CONNECT_FAIL,
             POSConnect.CONNECT_INTERRUPT,
             POSConnect.SEND_FAIL -> {
-                Log.e(TAG, "❌ KIOSK USB Printer connection failed (code=$code)")
                 isPrintingInProgress = false
                 hasAutoPrintedKiosk = false
                 try { curConnect?.close() } catch (_: Exception) {}
@@ -542,7 +515,6 @@ class PaymentActivity : AppCompatActivity() {
                 startPrinterReconnectPolling()
             }
             POSConnect.USB_DETACHED -> {
-                Log.w(TAG, "⚠️ KIOSK USB Printer detached")
                 isPrintingInProgress = false
                 hasAutoPrintedKiosk = false
                 try { curConnect?.close() } catch (_: Exception) {}
@@ -564,16 +536,13 @@ class PaymentActivity : AppCompatActivity() {
             var entries = POSConnect.getUsbDevices(applicationContext)
 
             if (entries.isEmpty() && systemUsbDevices.isNotEmpty()) {
-                Log.d(TAG, "🔌 POSConnect returned 0 devices, but UsbManager found ${systemUsbDevices.size} USB device(s): ${systemUsbDevices[0].deviceName}")
                 val fallbackPath = systemUsbDevices[0].deviceName
                 entries = listOf(fallbackPath)
             }
 
             if (entries.isNotEmpty()) {
-                Log.d(TAG, "🔌 Found ${entries.size} Kiosk USB printer(s): ${entries[0]}")
                 val usbDevice = systemUsbDevices.firstOrNull()
                 if (usbManager != null && usbDevice != null && !usbManager.hasPermission(usbDevice)) {
-                    Log.d(TAG, "🔐 Requesting USB permission for printer device: ${usbDevice.deviceName}")
                     val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                         PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
                     } else {
@@ -591,11 +560,9 @@ class PaymentActivity : AppCompatActivity() {
                     connectKioskUsb(entries[0])
                 }
             } else {
-                Log.d(TAG, "ℹ️ No Kiosk USB printer detected via POSConnect or UsbManager. Binding Nyx printer service...")
                 bindNyxPrinterService()
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error initializing Kiosk USB printer: ${e.message}", e)
             bindNyxPrinterService()
         }
     }
@@ -606,7 +573,7 @@ class PaymentActivity : AppCompatActivity() {
             curConnect = POSConnect.createDevice(POSConnect.DEVICE_TYPE_USB)
             curConnect?.connect(pathName, connectListener)
         } catch (e: Exception) {
-            Log.e(TAG, "Error connecting USB device: ${e.message}", e)
+
         }
     }
 
@@ -629,7 +596,6 @@ class PaymentActivity : AppCompatActivity() {
             override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
                 printerService = IPrinterService.Stub.asInterface(service)
                 isNyxBound = true
-                Log.d(TAG, "✅ Nyx Printer Service connected")
                 if (!isPrintingInProgress && printerService != null) {
                     lifecycleScope.launch(Dispatchers.IO) {
                         printReceiptOnNyx()
@@ -640,14 +606,12 @@ class PaymentActivity : AppCompatActivity() {
             override fun onServiceDisconnected(name: ComponentName?) {
                 printerService = null
                 isNyxBound = false
-                Log.w(TAG, "Nyx Printer Service disconnected")
             }
         }
 
         try {
             bindService(intent, serviceConnection!!, Context.BIND_AUTO_CREATE)
         } catch (e: Exception) {
-            Log.w(TAG, "Could not bind Nyx printer service: ${e.message}")
             runOnUiThread {
                 binding.pbPrinter.visibility = View.GONE
                 binding.tvPrinterStatus.text = "Printer Ready"
@@ -677,7 +641,6 @@ class PaymentActivity : AppCompatActivity() {
 
         // If USB connection was dropped or disconnected, attempt auto-reconnect
         if (curConnect == null || curConnect?.isConnect() != true) {
-            Log.d(TAG, "🔌 Attempting Kiosk USB printer re-connection...")
             initKioskPrinter()
         } else {
             lifecycleScope.launch(Dispatchers.IO) {
@@ -717,7 +680,6 @@ class PaymentActivity : AppCompatActivity() {
             val displayTotal = if (totalAmount > 0.0) totalAmount else receiptItems.sumOf { it.total }
             val qrData = if (encryptedOrderId.isNotBlank()) encryptedOrderId else ""
 
-            Log.d(TAG, "🖨️ [PineLabs Text Print] Preparing print items for orderId=$displayOrderId, total=$displayTotal, mode=$displayPaymentMode")
 
             val footerBitmap = try {
                 BitmapFactory.decodeResource(resources, R.drawable.footer)
@@ -746,11 +708,8 @@ class PaymentActivity : AppCompatActivity() {
 
             PineLabsManager.cachePrintSession(displayOrderId, printItems)
 
-            Log.d(TAG, "🖨️ [PineLabs Text Print] Built ${printItems.size} text print items.")
             printItems.forEachIndexed { index, item ->
-                Log.d(TAG, "🖨️ [PrintItem $index] Type=${item.printDataType}, Center=${item.isCenterAligned}, Data='${item.dataToPrint}'")
             }
-            Log.i(TAG, "🔑 [PineLabs AppId Log] PaymentActivity -> passing applicationId = ${authManager.pineLabsApplicationId}")
 
             val printIntent = PineLabsManager.createPrintIntent(
                 context = this,
@@ -762,11 +721,9 @@ class PaymentActivity : AppCompatActivity() {
 
             footerBitmap?.recycle()
 
-            Log.d(TAG, "🖨️ [PineLabs Text Print] Launching print intent package=${printIntent.getPackage()}, action=${printIntent.action}")
             launchPineLabsPrint(printIntent)
         } catch (e: Exception) {
             isPrintingInProgress = false
-            Log.e(TAG, "❌ [PineLabs Print] Error initiating Pine Labs text print: ${e.message}", e)
             binding.pbPrinter.visibility = View.GONE
             binding.tvPrinterStatus.text = "Print error: ${e.message}"
         }
@@ -800,7 +757,7 @@ class PaymentActivity : AppCompatActivity() {
             conn.sendData(cleanReset)
             delay(50)
         } catch (e: Exception) {
-            Log.w(TAG, "Notice during printer purge: ${e.message}")
+
         }
     }
 
@@ -919,7 +876,6 @@ class PaymentActivity : AppCompatActivity() {
             isPrintFailed = true
             BillingActivity.isPendingPrintAvailable = true
             BillingActivity.isLastOrderPrintedSuccessfully = false
-            Log.e(TAG, "Error printing on Kiosk USB printer: ${e.message}", e)
             withContext(Dispatchers.Main) {
                 binding.pbPrinter.visibility = View.GONE
                 binding.tvPrinterStatus.text = "Print error: ${e.message}"
@@ -955,7 +911,6 @@ class PaymentActivity : AppCompatActivity() {
             true
         } catch (e: RemoteException) {
             isPrintingInProgress = false
-            Log.e(TAG, "RemoteException in Nyx printing: ${e.message}", e)
             withContext(Dispatchers.Main) {
                 binding.pbPrinter.visibility = View.GONE
                 binding.tvPrinterStatus.text = "Printer service error"
@@ -994,7 +949,6 @@ class PaymentActivity : AppCompatActivity() {
                 scaled
             } else null
         } catch (e: Exception) {
-            Log.e(TAG, "Could not load footer image: ${e.message}", e)
             null
         }
         val footerExtraHeight = (footerBitmap?.height ?: 0) + 60
@@ -1047,14 +1001,6 @@ class PaymentActivity : AppCompatActivity() {
         paint.textSize = 34f
         val headerTitle = if (isTestPrint) "TEST PRINT" else "Sabarimala Sree Dharmasastha Temple"
         drawWrapped(headerTitle, width / 2f, maxTextWidth, 40f, Paint.Align.CENTER)
-
-//        y += 36f
-//        paint.textSize = 24f
-//        paint.color = Color.BLACK
-//        drawWrapped("Swamy Ayyappan Rd, Sannidhanam, Sabarimala, Kerala 689662", width / 2f, maxTextWidth, 30f)
-//
-//        y += 32f
-//        drawWrapped("Phone: (703) 690-9355; website: www.sabarimala.com", width / 2f, maxTextWidth, 30f)
 
         y += 58f
         paint.textSize = 32f
@@ -1163,13 +1109,6 @@ class PaymentActivity : AppCompatActivity() {
             canvas.drawText(" User: ${currentUserName.trim()}", right, y, paint)
         }
 
-//        // ---------------- Footer ----------------
-//        y += 62f
-//        paint.color = Color.BLACK
-//        paint.textAlign = Paint.Align.CENTER
-//        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-//        paint.textSize = 28f
-//        drawWrapped("Thank you for Your Generosity", width / 2f, maxTextWidth, 34f)
 
         // ---------------- Footer Message & Company Brand (below QR) ----------------
 

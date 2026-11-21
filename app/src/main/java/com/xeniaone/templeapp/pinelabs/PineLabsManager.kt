@@ -5,7 +5,6 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.os.Build
-import android.util.Log
 import com.google.gson.Gson
 import com.xeniaone.templeapp.model.ReceiptItem
 import java.text.SimpleDateFormat
@@ -46,7 +45,6 @@ object PineLabsManager {
             false
         }
         if (isPackageInstalled) {
-            Log.d(TAG, "Pine Labs MasterApp package detected: ${PineLabsConstants.PACKAGE_NAME}")
             return true
         }
 
@@ -56,7 +54,6 @@ object PineLabsManager {
         }
         val activities = pm.queryIntentActivities(hybridIntent, 0)
         if (activities.isNotEmpty()) {
-            Log.d(TAG, "Pine Labs HYBRID_REQUEST activity resolved: ${activities.size} candidate(s)")
             return true
         }
 
@@ -73,7 +70,6 @@ object PineLabsManager {
                 hardware.contains("pinelabs")
 
         if (isPineHardware) {
-            Log.d(TAG, "Pine Labs hardware signature detected: mfg=$manufacturer, model=$model")
             return true
         }
 
@@ -112,7 +108,6 @@ object PineLabsManager {
         userId: String = PineLabsConstants.DEFAULT_USER_ID,
         mobileNumber: String? = null
     ): String {
-        Log.i(TAG, "🔑 [PineLabs AppId Log] buildTransactionPayload -> applicationId = $applicationId, userId = $userId")
         val amountInPaise = (amountRupees * 100.0).roundToLong()
         val request = PineLabsTransactionRequest(
             header = PineLabsHeader(
@@ -150,7 +145,6 @@ object PineLabsManager {
             applicationId = applicationId,
             userId = userId
         )
-        Log.d(TAG, "Creating Pine Labs Transaction Intent with payload: $payload")
 
         return Intent(PineLabsConstants.ACTION_HYBRID_REQUEST).apply {
             setPackage(PineLabsConstants.PACKAGE_NAME)
@@ -165,14 +159,11 @@ object PineLabsManager {
     fun parseTransactionResponse(data: Intent?): PineLabsTransactionResponse? {
         val json = data?.getStringExtra(PineLabsConstants.EXTRA_RESPONSE_DATA)
         if (json.isNullOrBlank()) {
-            Log.w(TAG, "Empty or null RESPONSE_DATA from Pine Labs MasterApp")
             return null
         }
-        Log.d(TAG, "Pine Labs Transaction Response JSON: $json")
         return try {
             gson.fromJson(json, PineLabsTransactionResponse::class.java)
         } catch (e: Exception) {
-            Log.e(TAG, "Error parsing Pine Labs transaction response: ${e.message}", e)
             null
         }
     }
@@ -198,7 +189,6 @@ object PineLabsManager {
                 dateStr
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error formatting server date '$dateStr': ${e.message}", e)
             dateStr
         }
     }
@@ -272,32 +262,24 @@ object PineLabsManager {
             orderNo.isNotBlank() -> orderNo.trim()
             else -> ""
         }
-        Log.d(TAG, "Input orderNo='$orderNo', orderId='$orderId' -> rawId='$rawId'")
 
         val displayOrderId = if (rawId.contains("N", ignoreCase = true)) {
-            Log.d(TAG, "rawId contains 'N' -> extracting part after last N")
 
             val afterLastN = rawId.substringAfterLast("N")
             val afterN = afterLastN.substringAfterLast("n").trim()
-            Log.d(TAG, "substringAfterLast(\"N\")='$afterLastN', after last 'n'='$afterN'")
 
             if (afterN.isNotBlank()) {
-                Log.d(TAG, "Using afterN='$afterN'")
                 afterN
             } else {
                 val stripped = rawId.replace(Regex("^(NO\\.|NO|N-|N|#|ORD-)", RegexOption.IGNORE_CASE), "").trim()
-                Log.w(TAG, "afterN blank, fallback to prefix-stripped value='$stripped'")
                 stripped
             }
         } else {
             val stripped = rawId.replace(Regex("^(NO\\.|NO|N-|N|#|ORD-)", RegexOption.IGNORE_CASE), "").trim()
-            Log.d(TAG, "rawId has no 'N' -> prefix-stripped value='$stripped'")
             stripped
         }
 
-        Log.i(TAG, "Final displayOrderId='$displayOrderId' (orderNo='$orderNo')")
         if (displayOrderId.isBlank()) {
-            Log.e(TAG, "displayOrderId is EMPTY for orderNo='$orderNo'")
         }
 
         addRow("Receipt No:", displayOrderId)
@@ -414,7 +396,6 @@ object PineLabsManager {
         applicationId: String = PineLabsConstants.DEFAULT_APPLICATION_ID,
         userId: String = PineLabsConstants.DEFAULT_USER_ID
     ): String {
-        Log.i(TAG, "🔑 [PineLabs AppId Log] buildPrintPayload -> applicationId = $applicationId, userId = $userId")
         val request = PineLabsPrintRequest(
             header = PineLabsHeader(
                 applicationId = applicationId,
@@ -447,7 +428,6 @@ object PineLabsManager {
             applicationId = applicationId,
             userId = userId
         )
-        Log.d(TAG, "Creating Pine Labs Print Intent with payload: $payload")
 
         return Intent(PineLabsConstants.ACTION_HYBRID_REQUEST).apply {
             setPackage(PineLabsConstants.PACKAGE_NAME)
@@ -495,30 +475,24 @@ object PineLabsManager {
      */
     fun parsePrintResponse(data: Intent?): PineLabsPrintResponse? {
         if (data == null) {
-            Log.w(TAG, "❌ [PineLabs Print] result.data is NULL from MasterApp")
             return null
         }
         val json = data.getStringExtra(PineLabsConstants.EXTRA_RESPONSE_DATA)
             ?: data.getStringExtra("ResponseData")
             ?: data.getStringExtra("response_data")
 
-        Log.d(TAG, "🖨️ [PineLabs Print Response Raw JSON]: $json")
         if (json.isNullOrBlank()) {
             val bundle = data.extras
             if (bundle != null) {
                 for (key in bundle.keySet()) {
-                    Log.d(TAG, "🖨️ [PineLabs Print Bundle Extra] $key = ${bundle.get(key).toString()}")
                 }
             }
-            Log.w(TAG, "⚠️ [PineLabs Print] Empty or null RESPONSE_DATA from Pine Labs Print API")
             return null
         }
         return try {
             val res = gson.fromJson(json, PineLabsPrintResponse::class.java)
-            Log.d(TAG, "🖨️ [PineLabs Print Parsed] ResponseCode=${res?.response?.responseCode}, Message=${res?.response?.responseMsg}")
             res
         } catch (e: Exception) {
-            Log.e(TAG, "❌ [PineLabs Print] Error parsing Pine Labs print response: ${e.message}", e)
             null
         }
     }
@@ -539,14 +513,12 @@ object PineLabsManager {
         lastCachedPrintRefNo = refNo
         lastCachedPrintItems = items
         currentRetryCount = 0
-        Log.d(TAG, "🖨️ [PineLabs Retry] Cached ${items.size} print items for refNo=$refNo")
     }
 
     fun resetRetryState() {
         lastCachedPrintItems = null
         lastCachedPrintRefNo = ""
         currentRetryCount = 0
-        Log.d(TAG, "🖨️ [PineLabs Retry] Reset retry state cache.")
     }
 
     fun shouldRetry(response: PineLabsPrintResponse?): Boolean {
@@ -557,7 +529,6 @@ object PineLabsManager {
         }
         if (currentRetryCount < MAX_PINE_LABS_RETRIES && !lastCachedPrintItems.isNullOrEmpty()) {
             currentRetryCount++
-            Log.i(TAG, "🔄 [PineLabs Print Retry] Attempt $currentRetryCount of $MAX_PINE_LABS_RETRIES using cached print items.")
             return true
         }
         resetRetryState()
