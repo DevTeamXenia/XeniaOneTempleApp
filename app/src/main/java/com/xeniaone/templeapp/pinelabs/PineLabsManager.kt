@@ -251,11 +251,15 @@ object PineLabsManager {
             )
         }
 
+        val isSalesReport = paymentModeTitle.equals("Sales Report", ignoreCase = true)
+
         // 1. Temple Header
         addCenter("Sabarimala Sree Dharmasastha Temple")
         addDivider('=')
-        addCenter("Prebooking Prasadam Receipt")
-        addDivider('=')
+        if (!isSalesReport) {
+            addCenter("Prebooking Prasadam Receipt")
+            addDivider('=')
+        }
 
         // 2. Metadata
         val rawId = when {
@@ -282,9 +286,13 @@ object PineLabsManager {
         if (displayOrderId.isBlank()) {
         }
 
-        addRow("Receipt No:", displayOrderId)
+        if (!isSalesReport) {
+            addRow("Receipt No:", displayOrderId)
+        }
         addRow("Date:", formatServerDate(dateFormatted))
-        if (paymentModeTitle.isNotBlank()) addRow("Payment Mode:", paymentModeTitle)
+        if (paymentModeTitle.isNotBlank() && !isSalesReport) {
+            addRow("Payment Mode:", paymentModeTitle)
+        }
         if (customerName.isNotBlank()) addRow("Name:", customerName.trim())
         if (mobileNumber.isNotBlank()) addRow("Mobile:", mobileNumber.trim())
         addDivider('-')
@@ -357,14 +365,15 @@ object PineLabsManager {
             }
         }
 
-        if (footerMessage.isNotBlank()) {
-            addMultiLine(footerMessage)
-        }
+        if (!paymentModeTitle.equals("Sales Report", ignoreCase = true)) {
+            if (footerMessage.isNotBlank()) {
+                addMultiLine(footerMessage)
+            }
 
-
-        // 9. Company Brand (below Footer Image)
-        if (companyBrand.isNotBlank() && companyBrand.trim() != footerMessage.trim()) {
-            addMultiLine(companyBrand)
+            // 9. Company Brand (below Footer Image)
+            if (companyBrand.isNotBlank() && companyBrand.trim() != footerMessage.trim()) {
+                addMultiLine(companyBrand)
+            }
         }
 
         // 10. Feed space at paper end

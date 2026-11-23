@@ -18,7 +18,7 @@ class DependencyContainer(context: Context) {
     val authRepository: AuthRepository by lazy {
         AuthRepositoryImpl(authApiService, Dispatchers.IO)
     }
-    val orderApiService: OrderApiService by lazy { RetrofitClient.createOrderApiService() }
+    val orderApiService: OrderApiService by lazy { RetrofitClient.createOrderApiService(context) }
     val orderRepository: OrderRepository by lazy {
         OrderRepositoryImpl(orderApiService, Dispatchers.IO)
     }

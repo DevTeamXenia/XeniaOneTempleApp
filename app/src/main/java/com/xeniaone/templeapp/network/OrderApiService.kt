@@ -64,4 +64,12 @@ interface OrderApiService {
         @Query("companyId") companyId: Int,
         @Query("settled") settled: Boolean = false
     ): Response<OrderKioskSummaryResponse>
+
+    @GET("api/Report/saleReport")
+    suspend fun getSaleReport(
+        @Query("pageIndex") pageIndex: Int = 1,
+        @Query("pageSize") pageSize: Int = 1375,
+        @Query("startDate") startDate: String,
+        @Query("endDate") endDate: String
+    ): Response<com.google.gson.JsonObject>
 }

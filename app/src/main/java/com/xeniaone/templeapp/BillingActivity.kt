@@ -573,6 +573,278 @@ class BillingActivity : AppCompatActivity() {
         BillingDialogHelper.showPineLabsTerminalInfoDialog(this, authManager)
     }
 
+    private fun showReportsDialog() {
+        if (isFinishing || isDestroyed) return
+        val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_reports, null)
+        val dialog = AlertDialog.Builder(this)
+            .setView(dialogView)
+            .setCancelable(true)
+            .create()
+
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+
+        val etReportFromDate = dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.etReportFromDate)
+        val etReportToDate = dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.etReportToDate)
+        val layoutReportItemsContainer = dialogView.findViewById<android.widget.LinearLayout>(R.id.layoutReportItemsContainer)
+        val tvReportTotalAmount = dialogView.findViewById<TextView>(R.id.tvReportTotalAmount)
+        val btnCancelReport = dialogView.findViewById<View>(R.id.btnCancelReport)
+        val btnPrintReport = dialogView.findViewById<View>(R.id.btnPrintReport)
+
+        val apiDateTimeFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.ENGLISH)
+        val displayDateTimeFormat = SimpleDateFormat("dd-MMM-yyyy HH:mm:ss", Locale.ENGLISH)
+
+        val calendarFrom = java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.HOUR_OF_DAY, 0)
+            set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0)
+        }
+        val calendarTo = java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.HOUR_OF_DAY, 23)
+            set(java.util.Calendar.MINUTE, 59)
+            set(java.util.Calendar.SECOND, 59)
+        }
+
+        var selectedFromDateTime = apiDateTimeFormat.format(calendarFrom.time)
+        var selectedToDateTime = apiDateTimeFormat.format(calendarTo.time)
+
+        etReportFromDate?.setText(displayDateTimeFormat.format(calendarFrom.time))
+        etReportToDate?.setText(displayDateTimeFormat.format(calendarTo.time))
+
+        var currentReportTotal = 0.0
+        val reportReceiptItems = mutableListOf<ReceiptItem>()
+
+        val fetchAndDisplayReport = {
+            layoutReportItemsContainer?.removeAllViews()
+            tvReportTotalAmount?.text = "Loading..."
+
+            val startDateParam = selectedFromDateTime
+            val endDateParam = selectedToDateTime
+
+            lifecycleScope.launch {
+                try {
+                    val app = application as TempleApp
+                    val result = app.container.orderRepository.getSaleReport(startDateParam, endDateParam)
+                    val jsonObj = result.getOrNull()
+
+                    if (result.isSuccess && jsonObj != null) {
+                        layoutReportItemsContainer?.removeAllViews()
+                        reportReceiptItems.clear()
+
+                        val dataObj = jsonObj.getAsJsonObject("Data")
+                        val ordersArray = dataObj?.getAsJsonArray("Data")
+                            ?: jsonObj.getAsJsonArray("Data")
+                            ?: jsonObj.getAsJsonArray("items")
+
+                        val itemSummaryMap = mutableMapOf<String, Pair<Double, Double>>() // Name -> Pair(Qty, Amount)
+                        var grandTotal = 0.0
+
+                        if (ordersArray != null && ordersArray.size() > 0) {
+                            for (orderElement in ordersArray) {
+                                val orderObj = orderElement.asJsonObject
+                                val itemsArray = orderObj.getAsJsonArray("Items")
+                                    ?: orderObj.getAsJsonArray("items")
+
+                                if (itemsArray != null) {
+                                    for (itemElement in itemsArray) {
+                                        val itemObj = itemElement.asJsonObject
+                                        val itemName = itemObj.get("ItemName")?.asString
+                                            ?: itemObj.get("itemName")?.asString
+                                            ?: itemObj.get("Name")?.asString
+                                            ?: "Item"
+
+                                        val qty = itemObj.get("Quantity")?.asDouble
+                                            ?: itemObj.get("quantity")?.asDouble
+                                            ?: 1.0
+
+                                        val amount = itemObj.get("Amount")?.asDouble
+                                            ?: itemObj.get("amount")?.asDouble
+                                            ?: 0.0
+
+                                        val existing = itemSummaryMap[itemName] ?: Pair(0.0, 0.0)
+                                        itemSummaryMap[itemName] = Pair(existing.first + qty, existing.second + amount)
+                                    }
+                                }
+                            }
+                        }
+
+                        var itemCount = 0
+                        var index = 0
+                        for ((name, pair) in itemSummaryMap) {
+                            itemCount++
+                            index++
+                            val (qty, amount) = pair
+                            grandTotal += amount
+
+                            reportReceiptItems.add(
+                                ReceiptItem(
+                                    no = index,
+                                    name = name,
+                                    quantity = qty.toInt(),
+                                    rate = if (qty > 0) amount / qty else amount,
+                                    total = amount
+                                )
+                            )
+
+                            val rowView = LayoutInflater.from(this@BillingActivity).inflate(R.layout.item_report_row, layoutReportItemsContainer, false)
+                            val tvReportItemName = rowView.findViewById<TextView>(R.id.tvReportItemName)
+                            val tvReportItemQty = rowView.findViewById<TextView>(R.id.tvReportItemQty)
+                            val tvReportItemAmount = rowView.findViewById<TextView>(R.id.tvReportItemAmount)
+
+                            tvReportItemName?.text = name
+                            tvReportItemQty?.text = qty.toInt().toString()
+                            tvReportItemAmount?.text = String.format(Locale.getDefault(), "₹%.2f", amount)
+
+                            layoutReportItemsContainer?.addView(rowView)
+                        }
+
+                        val apiTotal = dataObj?.get("TotalAmount")?.asDouble
+                            ?: jsonObj.get("TotalAmount")?.asDouble
+                            ?: grandTotal
+
+                        currentReportTotal = apiTotal
+                        tvReportTotalAmount?.text = String.format(Locale.getDefault(), "₹%.2f", apiTotal)
+
+                        if (itemCount == 0) {
+                            val emptyView = TextView(this@BillingActivity).apply {
+                                text = "No sales records found for selected date & time range."
+                                setPadding(16, 32, 16, 32)
+                                gravity = android.view.Gravity.CENTER
+                                setTextColor(resources.getColor(R.color.text_muted, theme))
+                                textSize = 14f
+                            }
+                            layoutReportItemsContainer?.addView(emptyView)
+                        }
+                    } else {
+                        tvReportTotalAmount?.text = "₹0.00"
+                        val errorView = TextView(this@BillingActivity).apply {
+                            text = "Failed to load report: ${result.exceptionOrNull()?.message ?: "Unknown error"}"
+                            setPadding(16, 32, 16, 32)
+                            gravity = android.view.Gravity.CENTER
+                            setTextColor(resources.getColor(R.color.delete_red, theme))
+                            textSize = 13f
+                        }
+                        layoutReportItemsContainer?.addView(errorView)
+                    }
+                } catch (e: Exception) {
+                    tvReportTotalAmount?.text = "₹0.00"
+                    val errorView = TextView(this@BillingActivity).apply {
+                        text = "Error: ${e.message}"
+                        setPadding(16, 32, 16, 32)
+                        gravity = android.view.Gravity.CENTER
+                        setTextColor(resources.getColor(R.color.delete_red, theme))
+                        textSize = 13f
+                    }
+                    layoutReportItemsContainer?.addView(errorView)
+                }
+            }
+        }
+
+        val dateTimePickerListener = View.OnClickListener { v ->
+            val et = v as? com.google.android.material.textfield.TextInputEditText
+            val isFrom = (et == etReportFromDate)
+            val targetCalendar = if (isFrom) calendarFrom else calendarTo
+
+            android.app.DatePickerDialog(
+                this,
+                { _, year, month, dayOfMonth ->
+                    targetCalendar.set(java.util.Calendar.YEAR, year)
+                    targetCalendar.set(java.util.Calendar.MONTH, month)
+                    targetCalendar.set(java.util.Calendar.DAY_OF_MONTH, dayOfMonth)
+
+                    android.app.TimePickerDialog(
+                        this,
+                        { _, hourOfDay, minute ->
+                            targetCalendar.set(java.util.Calendar.HOUR_OF_DAY, hourOfDay)
+                            targetCalendar.set(java.util.Calendar.MINUTE, minute)
+                            targetCalendar.set(java.util.Calendar.SECOND, 0)
+
+                            val displayStr = displayDateTimeFormat.format(targetCalendar.time)
+                            val apiStr = apiDateTimeFormat.format(targetCalendar.time)
+                            et?.setText(displayStr)
+
+                            if (isFrom) {
+                                selectedFromDateTime = apiStr
+                            } else {
+                                selectedToDateTime = apiStr
+                            }
+                            fetchAndDisplayReport()
+                        },
+                        targetCalendar.get(java.util.Calendar.HOUR_OF_DAY),
+                        targetCalendar.get(java.util.Calendar.MINUTE),
+                        true
+                    ).show()
+                },
+                targetCalendar.get(java.util.Calendar.YEAR),
+                targetCalendar.get(java.util.Calendar.MONTH),
+                targetCalendar.get(java.util.Calendar.DAY_OF_MONTH)
+            ).show()
+        }
+
+        etReportFromDate?.setOnClickListener(dateTimePickerListener)
+        etReportToDate?.setOnClickListener(dateTimePickerListener)
+
+        fetchAndDisplayReport()
+
+        btnCancelReport?.setOnClickListener {
+            dialog.dismiss()
+        }
+
+        btnPrintReport?.setOnClickListener {
+            dialog.dismiss()
+            if (PineLabsManager.isPineLabsAvailable(this)) {
+                Toast.makeText(this, "Printing Sales Report on Pine Labs...", Toast.LENGTH_SHORT).show()
+                try {
+                    val currentUserName = authManager.employeeName.ifBlank { authManager.savedUsername }
+                    val footerBitmap = try {
+                        android.graphics.BitmapFactory.decodeResource(resources, R.drawable.footer)
+                    } catch (_: Exception) {
+                        null
+                    }
+                    val printItems = PineLabsManager.buildTempleReceiptPrintItems(
+                        orderId = "REPORT",
+                        orderNo = "REPORT",
+                        dateFormatted = SimpleDateFormat("dd-MMM-yyyy  hh:mm a", Locale.ENGLISH).format(Date()),
+                        paymentRef = "SALES-REPORT",
+                        paymentModeTitle = "Sales Report",
+                        items = reportReceiptItems,
+                        totalAmount = currentReportTotal,
+                        qrData = "",
+                        customerName = "",
+                        mobileNumber = "",
+                        userName = currentUserName,
+                        printerWidth = PineLabsConstants.PRINTER_WIDTH_32,
+                        imageBitmap = footerBitmap,
+                        footerMessage = authManager.footerMessage,
+                        companyBrand = authManager.companyBrand
+                    )
+                    val printIntent = PineLabsManager.createPrintIntent(
+                        context = this,
+                        printRefNo = "REPORT",
+                        printItems = printItems,
+                        applicationId = authManager.pineLabsApplicationId,
+                        userId = authManager.pineLabsUserId
+                    )
+                    footerBitmap?.recycle()
+                    startActivity(printIntent)
+                } catch (e: Exception) {
+                    Toast.makeText(this, "Print error: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                Toast.makeText(this, "Printing Sales Report...", Toast.LENGTH_SHORT).show()
+                val itemsJson = Gson().toJson(reportReceiptItems)
+                val intent = Intent(this, PaymentActivity::class.java).apply {
+                    putExtra(PaymentActivity.EXTRA_IS_TEST_PRINT, true)
+                    putExtra(PaymentActivity.EXTRA_TOTAL_AMOUNT, currentReportTotal)
+                    putExtra(PaymentActivity.EXTRA_RECEIPT_ITEMS_JSON, itemsJson)
+                    putExtra(PaymentActivity.EXTRA_PAYMENT_MODE, "Sales Report")
+                }
+                startActivity(intent)
+            }
+        }
+
+        dialog.show()
+    }
+
     /**
      * Initiates Pine Labs app-to-app payment transaction (MethodId: 1001).
      */
@@ -808,6 +1080,7 @@ class BillingActivity : AppCompatActivity() {
                     }
                     lastOrderIntent = intent
                     isLastOrderPrintedSuccessfully = false
+                    pendingOrderId = 0L // Reset pending order ID
 
                     // Clear cart & devotee inputs upon payment completion
                     allItems.forEach { it.quantity = 0 }
@@ -1253,6 +1526,7 @@ class BillingActivity : AppCompatActivity() {
                 val settleResp = settleResult.getOrNull()
 
                 if (settleResult.isSuccess) {
+                    pendingOrderId = 0L // Reset pending order ID
                     delay(800L)
                     stopQrPollingAndDismiss()
                     navigateToRazorpayReceipt(orderId, rzpOrderId)
@@ -1523,6 +1797,7 @@ class BillingActivity : AppCompatActivity() {
                     }
                     lastOrderIntent = intent
                     isLastOrderPrintedSuccessfully = false
+                    pendingOrderId = 0L // Reset pending order ID
                     if (isPrintEnabled()) {
                         isPrintPending = false
                         binding.btnManualPrint?.visibility = View.GONE
@@ -1640,6 +1915,12 @@ class BillingActivity : AppCompatActivity() {
         menuTerminalInfo.setOnClickListener {
             drawerLayout.closeDrawer(androidx.core.view.GravityCompat.START)
             showPineLabsTerminalInfoDialog()
+        }
+
+        val menuReport = findViewById<View>(R.id.menuReport)
+        menuReport?.setOnClickListener {
+            drawerLayout.closeDrawer(androidx.core.view.GravityCompat.START)
+            showReportsDialog()
         }
 
         val menuLockCounter = findViewById<View>(R.id.menuLockCounter)

@@ -201,4 +201,21 @@ class OrderRepositoryImpl(
             Result.failure(e)
         }
     }
+
+    override suspend fun getSaleReport(
+        startDate: String,
+        endDate: String
+    ): Result<com.google.gson.JsonObject> = withContext(ioDispatcher) {
+        try {
+            val response = orderApiService.getSaleReport(startDate = startDate, endDate = endDate)
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                val errorBody = response.errorBody()?.string()
+                Result.failure(Exception("HTTP ${response.code()}: $errorBody"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

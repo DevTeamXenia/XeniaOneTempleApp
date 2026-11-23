@@ -84,6 +84,36 @@
             android:textSize="15sp" />
     </LinearLayout>
 
+    <!-- Menu Item: Report -->
+    <LinearLayout
+        android:id="@+id/menuReport"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:background="?attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="8dp"
+        android:paddingVertical="12dp">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/ic_check_circle"
+            app:tint="@color/temple_gold_primary" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:fontFamily="sans-serif-medium"
+            android:text="Report"
+            android:textColor="@color/text_dark"
+            android:textSize="15sp" />
+    </LinearLayout>
+
     <!-- Menu Item 2: Logout -->
     <LinearLayout
         android:id="@+id/menuLogout"

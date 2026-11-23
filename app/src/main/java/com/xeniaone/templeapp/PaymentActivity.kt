@@ -227,8 +227,13 @@ class PaymentActivity : AppCompatActivity() {
             orderCustomerName = "0"
             orderMobileNumber = "0"
             pspRefNo = "0"
-            totalAmount = 0.0
-            receiptItems = listOf(ReceiptItem(no = 1, name = "Test Prasadam Item", quantity = 1, rate = 0.0, total = 0.0))
+            val passedTotal = intent.getDoubleExtra(EXTRA_TOTAL_AMOUNT, 0.0)
+            if (totalAmount <= 0.0 && passedTotal > 0.0) {
+                totalAmount = passedTotal
+            }
+            if (receiptItems.isEmpty()) {
+                receiptItems = listOf(ReceiptItem(no = 1, name = "Test Prasadam Item", quantity = 1, rate = 0.0, total = 0.0))
+            }
         }
 
         // Generate formatted date & time: e.g. "04-Sep-2024  07:50 AM" in IST
@@ -1002,10 +1007,12 @@ class PaymentActivity : AppCompatActivity() {
         val headerTitle = if (isTestPrint) "TEST PRINT" else "Sabarimala Sree Dharmasastha Temple"
         drawWrapped(headerTitle, width / 2f, maxTextWidth, 40f, Paint.Align.CENTER)
 
-        y += 58f
-        paint.textSize = 32f
-        paint.color = Color.BLACK
-        canvas.drawText("Prebooking Prasadam Receipt", width / 2f, y, paint)
+        if (paymentMode != "Sales Report") {
+            y += 58f
+            paint.textSize = 32f
+            paint.color = Color.BLACK
+            canvas.drawText("Prebooking Prasadam Receipt", width / 2f, y, paint)
+        }
 
         if (isDuplicatePrint) {
             y += 36f
@@ -1023,8 +1030,10 @@ class PaymentActivity : AppCompatActivity() {
         val displayPspRef = pspRefNo
         val displayTotal = if (totalAmount > 0.0) totalAmount else receiptItems.sumOf { it.total }
 
-        canvas.drawText("Receipt No :   $displayOrderId", margin, y, paint)
-        y += 38f
+        if (paymentMode != "Sales Report") {
+            canvas.drawText("Receipt No :   $displayOrderId", margin, y, paint)
+            y += 38f
+        }
         canvas.drawText("Date       :   $formattedDate", margin, y, paint)
 
         // Devotee name and mobile: printed only when they are not empty
@@ -1143,27 +1152,26 @@ class PaymentActivity : AppCompatActivity() {
             }
         }
 
-        if (footerMsg.isNotBlank()) {
-            drawMultiLine(footerMsg)
-        }
+        if (paymentMode != "Sales Report") {
+            if (footerMsg.isNotBlank()) {
+                drawMultiLine(footerMsg)
+            }
 
+            // ---------------- Footer image (below QR) ----------------
+            if (footerBitmap != null) {
+                y += 35f // Added space between footer text and footer image
+                val footerLeft = (width - footerBitmap.width) / 2f
+                canvas.drawBitmap(footerBitmap, footerLeft, y, null)
+                y += footerBitmap.height
+                footerBitmap.recycle()
+            }
+            y += 40f   // bottom padding so the cutter doesn't clip the image
 
-
-
-
-        // ---------------- Footer image (below QR) ----------------
-        if (footerBitmap != null) {
-            y += 35f // Added space between footer text and footer image
-            val footerLeft = (width - footerBitmap.width) / 2f
-            canvas.drawBitmap(footerBitmap, footerLeft, y, null)
-            y += footerBitmap.height
-            footerBitmap.recycle()
-        }
-        y += 40f   // bottom padding so the cutter doesn't clip the image
-
-
-        if (compBrand.isNotBlank()) {
-            drawMultiLine(compBrand)
+            if (compBrand.isNotBlank()) {
+                drawMultiLine(compBrand)
+            }
+        } else {
+            footerBitmap?.recycle()
         }
 
 

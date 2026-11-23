@@ -51,4 +51,9 @@ interface OrderRepository {
         companyId: Int,
         settled: Boolean = false
     ): Result<OrderKioskSummaryResponse>
+
+    suspend fun getSaleReport(
+        startDate: String,
+        endDate: String
+    ): Result<com.google.gson.JsonObject>
 }
