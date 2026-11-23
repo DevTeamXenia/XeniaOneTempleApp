@@ -23,6 +23,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.RemoteException
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.widget.Toast
@@ -220,6 +221,8 @@ class PaymentActivity : AppCompatActivity() {
 
         val itemsJson = intent.getStringExtra(EXTRA_RECEIPT_ITEMS_JSON)
         receiptItems = parseReceiptItems(itemsJson)
+
+        Log.i(TAG, "💵 [PaymentActivity] onCreate loaded: orderId=$orderId, paymentMode=$paymentMode, total=$totalAmount, itemsCount=${receiptItems.size}, isPineLabs=${PineLabsManager.isPineLabsAvailable(this)}")
 
         if (isTestPrint) {
             orderNo = "0"
@@ -670,6 +673,7 @@ class PaymentActivity : AppCompatActivity() {
      */
     private fun printReceiptOnPineLabs() {
         try {
+            Log.i(TAG, "🖨️ [PaymentActivity] printReceiptOnPineLabs triggered. orderNo=$orderNo, mode=$paymentMode, itemsCount=${receiptItems.size}, total=$totalAmount")
             autoReturnTimer?.cancel()
 
             isPrintingInProgress = true
@@ -711,14 +715,12 @@ class PaymentActivity : AppCompatActivity() {
                 companyBrand = authManager.companyBrand
             )
 
-            PineLabsManager.cachePrintSession(displayOrderId, printItems)
-
-            printItems.forEachIndexed { index, item ->
-            }
+            val uniquePrintRef = if (orderId > 0L) orderId.toString() else "${displayOrderId}_${System.currentTimeMillis() % 10000}"
+            PineLabsManager.cachePrintSession(uniquePrintRef, printItems)
 
             val printIntent = PineLabsManager.createPrintIntent(
                 context = this,
-                printRefNo = displayOrderId,
+                printRefNo = uniquePrintRef,
                 printItems = printItems,
                 applicationId = authManager.pineLabsApplicationId,
                 userId = authManager.pineLabsUserId

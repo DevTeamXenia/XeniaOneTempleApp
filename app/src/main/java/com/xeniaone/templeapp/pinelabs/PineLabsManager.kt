@@ -519,6 +519,7 @@ object PineLabsManager {
     const val MAX_PINE_LABS_RETRIES = 3
 
     fun cachePrintSession(refNo: String, items: List<PineLabsPrintItem>) {
+        resetRetryState()
         lastCachedPrintRefNo = refNo
         lastCachedPrintItems = items
         currentRetryCount = 0

@@ -817,9 +817,10 @@ class BillingActivity : AppCompatActivity() {
                         footerMessage = authManager.footerMessage,
                         companyBrand = authManager.companyBrand
                     )
+                    val uniqueReportRef = "RPT_${System.currentTimeMillis() % 100000}"
                     val printIntent = PineLabsManager.createPrintIntent(
                         context = this,
-                        printRefNo = "REPORT",
+                        printRefNo = uniqueReportRef,
                         printItems = printItems,
                         applicationId = authManager.pineLabsApplicationId,
                         userId = authManager.pineLabsUserId
