@@ -590,8 +590,10 @@ class BillingActivity : AppCompatActivity() {
         val btnCancelReport = dialogView.findViewById<View>(R.id.btnCancelReport)
         val btnPrintReport = dialogView.findViewById<View>(R.id.btnPrintReport)
 
-        val apiDateTimeFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.ENGLISH)
-        val displayDateTimeFormat = SimpleDateFormat("dd-MMM-yyyy HH:mm:ss", Locale.ENGLISH)
+        val apiDateTimeFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).apply {
+            timeZone = TimeZone.getTimeZone("UTC")
+        }
+        val displayDateTimeFormat = SimpleDateFormat("dd-MMM-yyyy HH:mm:ss", Locale.getDefault())
 
         val calendarFrom = java.util.Calendar.getInstance().apply {
             set(java.util.Calendar.HOUR_OF_DAY, 0)
@@ -619,12 +621,14 @@ class BillingActivity : AppCompatActivity() {
 
             val startDateParam = selectedFromDateTime
             val endDateParam = selectedToDateTime
+            Log.i(TAG, "📊 [Sales Report API] Requesting saleReport with startDate=$startDateParam, endDate=$endDateParam (UTC)")
 
             lifecycleScope.launch {
                 try {
                     val app = application as TempleApp
                     val result = app.container.orderRepository.getSaleReport(startDateParam, endDateParam)
                     val jsonObj = result.getOrNull()
+                    Log.i(TAG, "📊 [Sales Report API Response] isSuccess=${result.isSuccess}, hasBody=${jsonObj != null}")
 
                     if (result.isSuccess && jsonObj != null) {
                         layoutReportItemsContainer?.removeAllViews()

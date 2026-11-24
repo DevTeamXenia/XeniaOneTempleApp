@@ -303,15 +303,6 @@ class PaymentActivity : AppCompatActivity() {
     }
 
     private fun initializeUiAndPrinting() {
-        if (!isTestPrint && !isDuplicatePrint) {
-            if (orderId > 0L && printedOrderIds.contains(orderId)) {
-                Log.w(TAG, "🚫 [Order-wise Print Guard] Order #$orderId has already been printed. Blocking duplicate print!")
-                Toast.makeText(this, "Order #$orderId already printed", Toast.LENGTH_LONG).show()
-                finish()
-                return
-            }
-        }
-
         setupUI()
         setupListeners()
 
