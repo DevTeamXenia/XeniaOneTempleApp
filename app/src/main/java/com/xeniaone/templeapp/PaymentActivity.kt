@@ -97,6 +97,7 @@ class PaymentActivity : AppCompatActivity() {
             isPrintFailed = false
             BillingActivity.isPendingPrintAvailable = false
             BillingActivity.isLastOrderPrintedSuccessfully = true
+            if (!isTestPrint && orderId > 0L) printedOrderIds.add(orderId)
             binding.tvPrinterStatus.text = "✅ Receipt printed on Pine Labs POS!"
             startAutoReturnTimer()
         } else {
@@ -190,6 +191,8 @@ class PaymentActivity : AppCompatActivity() {
         const val EXTRA_CUSTOMER_MOBILE = "extra_customer_mobile"
         const val EXTRA_IS_DUPLICATE_PRINT = "extra_is_duplicate_print"
         const val EXTRA_IS_TEST_PRINT = "extra_is_test_print"
+
+        val printedOrderIds = mutableSetOf<Long>()
     }
 
     private var isDuplicatePrint = false
@@ -300,6 +303,15 @@ class PaymentActivity : AppCompatActivity() {
     }
 
     private fun initializeUiAndPrinting() {
+        if (!isTestPrint && !isDuplicatePrint) {
+            if (orderId > 0L && printedOrderIds.contains(orderId)) {
+                Log.w(TAG, "🚫 [Order-wise Print Guard] Order #$orderId has already been printed. Blocking duplicate print!")
+                Toast.makeText(this, "Order #$orderId already printed", Toast.LENGTH_LONG).show()
+                finish()
+                return
+            }
+        }
+
         setupUI()
         setupListeners()
 
@@ -914,6 +926,7 @@ class PaymentActivity : AppCompatActivity() {
                 binding.tvPrinterStatus.text = "✅ Receipt printed successfully!"
                 BillingActivity.isPendingPrintAvailable = false
                 BillingActivity.isLastOrderPrintedSuccessfully = true
+                if (!isTestPrint && orderId > 0L) printedOrderIds.add(orderId)
             }
             true
         } catch (e: RemoteException) {

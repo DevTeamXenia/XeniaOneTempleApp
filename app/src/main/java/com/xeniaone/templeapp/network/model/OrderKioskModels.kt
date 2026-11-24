@@ -211,5 +211,25 @@ data class OrderDetailsData(
     val paymentOrderRef: String?,
 
     @SerializedName("TotalAmount")
-    val totalAmount: String?
+    val totalAmount: String?,
+
+    @SerializedName("Items")
+    val items: List<OrderDetailItem>?
+)
+
+data class OrderDetailItem(
+    @SerializedName("SlNo")
+    val slNo: Int?,
+
+    @SerializedName("ItemName")
+    val itemName: String?,
+
+    @SerializedName("Quantity")
+    val quantity: Double?,
+
+    @SerializedName("ItemRate")
+    val itemRate: String?,
+
+    @SerializedName("Amount")
+    val amount: String?
 )

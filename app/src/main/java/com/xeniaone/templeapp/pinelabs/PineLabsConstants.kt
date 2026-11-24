@@ -81,7 +81,7 @@ object PineLabsConstants {
     const val PRINTER_RES_CUT_POSITION_ERROR = 1010
 
     // Default Configuration
-    const val DEFAULT_APPLICATION_ID = "b5ec66b79af44d7c871781e8125bbd63"
+   const val DEFAULT_APPLICATION_ID = "b5ec66b79af44d7c871781e8125bbd63"
 
 //    const val DEFAULT_APPLICATION_ID = "4aa574308b9f4c4795d463797a48f65a"
     const val DEFAULT_USER_ID = "1234"
