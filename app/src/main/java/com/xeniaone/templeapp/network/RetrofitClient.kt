@@ -9,7 +9,8 @@ import java.util.concurrent.TimeUnit
 
 object RetrofitClient {
 
-    private const val BASE_URL = "https://oneapi.xeniapos.com/"
+   private const val BASE_URL = "https://oneapi.xeniapos.com/"
+//    private const val BASE_URL = "https://devtestapi.xeniacatalogue.info/"
 
     fun createAuthApiService(): AuthApiService {
         val loggingInterceptor = HttpLoggingInterceptor().apply {

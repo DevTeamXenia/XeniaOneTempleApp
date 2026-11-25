@@ -101,6 +101,9 @@ class BillingActivity : AppCompatActivity() {
     private var isNavigatingToReceipt: Boolean = false
     private var lastPayClickTime: Long = 0L
 
+    private fun maskCard(card: String?): String =
+        if (card.isNullOrBlank()) "N/A" else "****" + card.takeLast(4)
+
     private var cachedDrawerLayout: androidx.drawerlayout.widget.DrawerLayout? = null
     private fun getDrawerLayout(): androidx.drawerlayout.widget.DrawerLayout? {
         if (cachedDrawerLayout == null) {
@@ -1152,7 +1155,7 @@ class BillingActivity : AppCompatActivity() {
                     } catch (_: Exception) {}
                 }
 
-                if (processResult.isSuccess && processResponse != null && processResponse.status.equals("Success", ignoreCase = true) && finalOrderNo.isNotBlank() && finalEncryptedOrderId.isNotBlank()) {
+                if (processResult.isSuccess && processResponse != null && processResponse.status.equals("PAID", ignoreCase = true) && finalOrderNo.isNotBlank() && finalEncryptedOrderId.isNotBlank()) {
                     val intent = Intent(this@BillingActivity, PaymentActivity::class.java).apply {
                         putExtra(PaymentActivity.EXTRA_ORDER_ID, finalOrderId)
                         putExtra(PaymentActivity.EXTRA_ORDER_NO, finalOrderNo)
@@ -1178,9 +1181,16 @@ class BillingActivity : AppCompatActivity() {
                     productAdapter.notifyDataSetChanged()
                     updateUi()
 
+                    // ... success branch (condition above this unchanged)
+                    Log.i(TAG, "✅ placeOrder success | orderNo=$finalOrderNo, encryptedOrderId=$finalEncryptedOrderId, " +
+                            "pspRef=$pspRef, approvalCode=$approvalCode, rrn=$rrn, invoiceNo=$invoiceNo, " +
+                            "cardType=$cardType, card=${maskCard(cardNumber)}")
+
                     if (isPrintEnabled()) {
+                        Log.d(TAG, "🖨️ Print enabled -> starting receipt activity for orderNo=$finalOrderNo")
                         startActivity(intent)
                     } else {
+                        Log.w(TAG, "🖨️ Print disabled -> skipping receipt for orderNo=$finalOrderNo")
                         Toast.makeText(this@BillingActivity, "Payment approved successfully (Print Disabled)", Toast.LENGTH_LONG).show()
                     }
                 } else {
@@ -1189,10 +1199,20 @@ class BillingActivity : AppCompatActivity() {
                     } else {
                         processResponse?.message ?: processResult.exceptionOrNull()?.message ?: "Server returned error"
                     }
+
+                    Log.e(TAG, "❌ placeOrder FAILED after card payment | reason=$err, " +
+                            "status=${processResponse?.status}, serverMsg=${processResponse?.message}, " +
+                            "orderNo='$finalOrderNo', encryptedOrderId='$finalEncryptedOrderId'")
+                    Log.e(TAG, "⚠️ PAYMENT TAKEN BUT ORDER NOT CREATED -> needs retry/refund | " +
+                            "pspRef=$pspRef, approvalCode=$approvalCode, rrn=$rrn, invoiceNo=$invoiceNo, " +
+                            "cardType=$cardType, card=${maskCard(cardNumber)}")
+                    processResult.exceptionOrNull()?.let { Log.e(TAG, "placeOrder exception", it) }
+
                     showPlaceOrderRetryDialog(pspRef, approvalCode, cardNumber, cardType, invoiceNo, rrn, err)
                 }
             } catch (e: Exception) {
                 CommonMethod.dismissLoader()
+                Log.e(TAG, "💥 Exception in placeOrder flow | pspRef=$pspRef, rrn=$rrn, msg=${e.message}", e)
                 showPlaceOrderRetryDialog(pspRef, approvalCode, cardNumber, cardType, invoiceNo, rrn, e.message ?: "Unknown error")
             }
         }
@@ -1965,7 +1985,7 @@ class BillingActivity : AppCompatActivity() {
                         } catch (_: Exception) {}
                     }
 
-                    if (processResult.isSuccess && processResponse != null && processResponse.status.equals("Success", ignoreCase = true) && finalOrderNo.isNotBlank() && finalEncryptedOrderId.isNotBlank()) {
+                    if (processResult.isSuccess && processResponse != null && processResponse.status.equals("PAID", ignoreCase = true) && finalOrderNo.isNotBlank() && finalEncryptedOrderId.isNotBlank()) {
                         onSuccess() // Dismisses cash dialog ONLY when BOTH summary and placeOrder succeed with orderNo & encryptedOrderId!
 
                         val receiptItems = activeItems.mapIndexed { index, item ->

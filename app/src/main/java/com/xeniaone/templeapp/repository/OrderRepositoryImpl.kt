@@ -148,7 +148,7 @@ class OrderRepositoryImpl(
             val response = orderApiService.processOrder(orderId, companyId, customerId, settled, isWhatsApp, paymentRef)
             if (response.isSuccessful && response.body() != null) {
                 val resBody = response.body()!!
-                if (resBody.status.equals("Success", ignoreCase = true)) {
+                if (resBody.status.equals("PAID", ignoreCase = true)) {
                     Result.success(resBody)
                 } else {
                     val errorMsg = resBody.message?.takeIf { it.isNotBlank() }
