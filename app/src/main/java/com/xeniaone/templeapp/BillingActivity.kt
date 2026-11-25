@@ -198,7 +198,10 @@ class BillingActivity : AppCompatActivity() {
         binding.btnManualPrint?.setOnClickListener {
             val lastIntent = lastOrderIntent
             if (lastIntent != null) {
-                startActivity(lastIntent)
+                val reprintIntent = Intent(lastIntent).apply {
+                    putExtra(PaymentActivity.EXTRA_IS_DUPLICATE_PRINT, true)
+                }
+                startActivity(reprintIntent)
             } else {
                 Toast.makeText(this, "No previous order to print", Toast.LENGTH_SHORT).show()
             }

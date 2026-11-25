@@ -353,7 +353,7 @@ class PaymentActivity : AppCompatActivity() {
             binding.tvPrinterStatus.text = "Pine Labs POS detected. Printing receipt..."
             Handler(Looper.getMainLooper()).postDelayed({
                 if (!hasReceiptBeenPrinted && !isPrintingInProgress) {
-                    printReceiptOnPineLabs()
+                    printReceiptOnPineLabs(isManual = false)
                 }
             }, 600)
         } else {
@@ -562,7 +562,7 @@ class PaymentActivity : AppCompatActivity() {
                     } else {
                         hasAutoPrintedKiosk = true
                         lifecycleScope.launch(Dispatchers.IO) {
-                            printReceiptOnKioskUsb()
+                            printReceiptOnKioskUsb(isManual = false)
                         }
                     }
                 }
@@ -646,7 +646,7 @@ class PaymentActivity : AppCompatActivity() {
                 } else {
                     hasAutoPrintedKiosk = true
                     lifecycleScope.launch(Dispatchers.IO) {
-                        printReceiptOnNyx()
+                        printReceiptOnNyx(isManual = false)
                     }
                 }
             }
@@ -669,7 +669,7 @@ class PaymentActivity : AppCompatActivity() {
                     } else {
                         hasAutoPrintedKiosk = true
                         lifecycleScope.launch(Dispatchers.IO) {
-                            printReceiptOnNyx()
+                            printReceiptOnNyx(isManual = false)
                         }
                     }
                 }
@@ -722,21 +722,21 @@ class PaymentActivity : AppCompatActivity() {
 
         // Prioritize Pine Labs POS print if on a Pine Labs terminal
         if (PineLabsManager.isPineLabsAvailable(this)) {
-            printReceiptOnPineLabs()
+            printReceiptOnPineLabs(isManual = isManual)
             return
         }
 
         binding.pbPrinter.visibility = View.VISIBLE
-        binding.tvPrinterStatus.text = "Printing receipt..."
+        binding.tvPrinterStatus.text = if (isManual) "Reprinting receipt..." else "Printing receipt..."
 
         // If USB connection was dropped or disconnected, attempt auto-reconnect
         if (curConnect == null || curConnect?.isConnect() != true) {
             initKioskPrinter()
         } else {
             lifecycleScope.launch(Dispatchers.IO) {
-                val kioskPrinted = printReceiptOnKioskUsb()
+                val kioskPrinted = printReceiptOnKioskUsb(isManual = isManual)
                 if (!kioskPrinted && printerService != null) {
-                    printReceiptOnNyx()
+                    printReceiptOnNyx(isManual = isManual)
                 } else if (!kioskPrinted && curConnect == null && printerService == null) {
                     withContext(Dispatchers.Main) {
                         binding.pbPrinter.visibility = View.GONE
@@ -753,7 +753,7 @@ class PaymentActivity : AppCompatActivity() {
     /**
      * Initiates Pine Labs app-to-app text print request (MethodId: 1002 with PrintDataType=0).
      */
-    private fun printReceiptOnPineLabs() {
+    private fun printReceiptOnPineLabs(isManual: Boolean = false) {
         if (!isTestPrint && (orderNo.isBlank() || encryptedOrderId.isBlank())) {
             Log.e(TAG, "printReceiptOnPineLabs blocked: orderNo='$orderNo', encryptedOrderId='$encryptedOrderId'")
             binding.tvPrinterStatus.text = "⚠️ Cannot print: Order number or QR ID not generated"
@@ -761,8 +761,9 @@ class PaymentActivity : AppCompatActivity() {
             Toast.makeText(this, "Order placement incomplete. Missing Order No / QR ID.", Toast.LENGTH_LONG).show()
             return
         }
-        if (!isDuplicatePrint && !isTestPrint && orderId > 0L && printedOrderIds.contains(orderId)) {
-            Log.d(TAG, "printReceiptOnPineLabs: Order $orderId already printed")
+        // Only block automatic print if already printed. If user tapped manually (isManual == true) or duplicate print, allow reprint of this latest order!
+        if (!isManual && !isDuplicatePrint && !isTestPrint && orderId > 0L && printedOrderIds.contains(orderId)) {
+            Log.d(TAG, "printReceiptOnPineLabs: Auto-print skipped, Order $orderId already printed")
             return
         }
         if (!isTestPrint && receiptItems.isEmpty()) {
@@ -896,7 +897,7 @@ class PaymentActivity : AppCompatActivity() {
         }
     }
 
-    private suspend fun printReceiptOnKioskUsb(): Boolean = withContext(NonCancellable) {
+    private suspend fun printReceiptOnKioskUsb(isManual: Boolean = false): Boolean = withContext(NonCancellable) {
         if (!isTestPrint && (orderNo.isBlank() || encryptedOrderId.isBlank())) {
             Log.e(TAG, "printReceiptOnKioskUsb blocked: orderNo='$orderNo', encryptedOrderId='$encryptedOrderId'")
             return@withContext false
@@ -905,8 +906,9 @@ class PaymentActivity : AppCompatActivity() {
             Log.e(TAG, "printReceiptOnKioskUsb blocked: receiptItems is empty for orderId=$orderId")
             return@withContext false
         }
-        if (!isDuplicatePrint && !isTestPrint && orderId > 0L && printedOrderIds.contains(orderId)) {
-            Log.d(TAG, "printReceiptOnKioskUsb: Order $orderId already printed")
+        // Only block automatic print if already printed. If user tapped manually (isManual == true) or duplicate print, allow reprint of this latest order!
+        if (!isManual && !isDuplicatePrint && !isTestPrint && orderId > 0L && printedOrderIds.contains(orderId)) {
+            Log.d(TAG, "printReceiptOnKioskUsb: Auto-print skipped, Order $orderId already printed")
             return@withContext true
         }
         try {
@@ -1015,7 +1017,7 @@ class PaymentActivity : AppCompatActivity() {
         }
     }
 
-    private suspend fun printReceiptOnNyx(): Boolean {
+    private suspend fun printReceiptOnNyx(isManual: Boolean = false): Boolean {
         if (!isTestPrint && (orderNo.isBlank() || encryptedOrderId.isBlank())) {
             Log.e(TAG, "printReceiptOnNyx blocked: orderNo='$orderNo', encryptedOrderId='$encryptedOrderId'")
             return false
@@ -1024,8 +1026,9 @@ class PaymentActivity : AppCompatActivity() {
             Log.e(TAG, "printReceiptOnNyx blocked: receiptItems is empty for orderId=$orderId")
             return false
         }
-        if (!isDuplicatePrint && !isTestPrint && orderId > 0L && printedOrderIds.contains(orderId)) {
-            Log.d(TAG, "printReceiptOnNyx: Order $orderId already printed")
+        // Only block automatic print if already printed. If user tapped manually (isManual == true) or duplicate print, allow reprint of this latest order!
+        if (!isManual && !isDuplicatePrint && !isTestPrint && orderId > 0L && printedOrderIds.contains(orderId)) {
+            Log.d(TAG, "printReceiptOnNyx: Auto-print skipped, Order $orderId already printed")
             return true
         }
         return try {
