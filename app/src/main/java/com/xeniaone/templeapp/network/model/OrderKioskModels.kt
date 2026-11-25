@@ -144,31 +144,31 @@ data class OrderModifier(
 )
 
 data class OrderKioskSummaryResponse(
-    @SerializedName("Status")
+    @SerializedName("Status", alternate = ["status", "STATUS"])
     val status: String?,
 
-    @SerializedName("OrderId")
+    @SerializedName("OrderId", alternate = ["orderId", "order_id", "ORDERID"])
     val orderId: Int?,
 
-    @SerializedName("EncryptedOrderId")
+    @SerializedName("EncryptedOrderId", alternate = ["encryptedOrderId", "encrypted_order_id", "EncryptedOrderNo", "encryptedOrderNo", "encrypted_order_no"])
     val encryptedOrderId: String?,
 
-    @SerializedName("EaseOrderId")
+    @SerializedName("EaseOrderId", alternate = ["easeOrderId", "ease_order_id"])
     val easeOrderId: String?,
 
-    @SerializedName("OrderNo")
+    @SerializedName("OrderNo", alternate = ["orderNo", "order_no", "OrderNumber", "orderNumber"])
     val orderNo: String?,
 
-    @SerializedName("InvoiceNo")
+    @SerializedName("InvoiceNo", alternate = ["invoiceNo", "invoice_no"])
     val invoiceNo: String?,
 
-    @SerializedName("Data")
+    @SerializedName("Data", alternate = ["data", "DATA"])
     val data: String?,
 
-    @SerializedName("Message")
+    @SerializedName("Message", alternate = ["message", "MESSAGE"])
     val message: String?,
 
-    @SerializedName("AdminPassword")
+    @SerializedName("AdminPassword", alternate = ["adminPassword", "admin_password"])
     val adminPassword: String? = null
 )
 
@@ -184,15 +184,15 @@ data class OrderDetailsData(
     @SerializedName("OrderId")
     val orderId: Long?,
 
-    @SerializedName("OrderNo")
+    @SerializedName("OrderNo", alternate = ["orderNo", "order_no", "OrderNumber", "orderNumber"])
     val orderNo: String?,
-    @SerializedName("PaymentRef")
+    @SerializedName("PaymentRef", alternate = ["paymentRef", "PaymentReference"])
     val PaymentRef: String?,
 
-    @SerializedName("InvoiceNo")
+    @SerializedName("InvoiceNo", alternate = ["invoiceNo", "invoice_no"])
     val invoiceNo: String?,
 
-    @SerializedName("EncryptedOrderId")
+    @SerializedName("EncryptedOrderId", alternate = ["encryptedOrderId", "encrypted_order_id", "EncryptedOrderNo", "encryptedOrderNo", "encrypted_order_no"])
     val encryptedOrderId: String?,
 
     @SerializedName("OrderDate")

@@ -14,7 +14,6 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
-import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbManager
 import android.os.Build
 import android.os.Bundle
@@ -95,6 +94,8 @@ class PaymentActivity : AppCompatActivity() {
         if (printResponse != null && printResponse.isSuccess) {
             PineLabsManager.resetRetryState()
             isPrintFailed = false
+            hasReceiptBeenPrinted = true
+            hasAutoPrintedKiosk = true
             BillingActivity.isPendingPrintAvailable = false
             BillingActivity.isLastOrderPrintedSuccessfully = true
             if (!isTestPrint && orderId > 0L) printedOrderIds.add(orderId)
@@ -160,6 +161,7 @@ class PaymentActivity : AppCompatActivity() {
     private var isPrintingInProgress = false
     private var isPrintFailed = false
     private var hasAutoPrintedKiosk = false
+    private var hasReceiptBeenPrinted = false
     private var usbReceiverRegistered = false
     private var printerReconnectJob: kotlinx.coroutines.Job? = null
 
@@ -251,7 +253,18 @@ class PaymentActivity : AppCompatActivity() {
     }
 
     private fun fetchOrderDetailsAndInitializePrint() {
-        if (orderId <= 0L || (isDuplicatePrint && receiptItems.isNotEmpty() && orderNo.isNotBlank())) {
+        if (orderId <= 0L && !isTestPrint) {
+            binding.tvPrinterStatus.text = "Invalid order. Cannot print receipt."
+            binding.pbPrinter.visibility = View.GONE
+            Toast.makeText(this, "Order was not placed. Invalid Order ID.", Toast.LENGTH_LONG).show()
+            startAutoReturnTimer()
+            return
+        }
+
+        // ONLY skip getOrderDetails if we already have orderNo, encryptedOrderId, totalAmount > 0, AND receiptItems not empty!
+        if (isTestPrint || 
+            (isDuplicatePrint && receiptItems.isNotEmpty() && orderNo.isNotBlank()) || 
+            (orderNo.isNotBlank() && encryptedOrderId.isNotBlank() && receiptItems.isNotEmpty() && totalAmount > 0.0)) {
             initializeUiAndPrinting()
             return
         }
@@ -273,15 +286,44 @@ class PaymentActivity : AppCompatActivity() {
                     if (!orderData.orderDate.isNullOrBlank()) {
                         formattedDate = convertUtcToLocalIst(orderData.orderDate)
                     }
-
-                } else {
-
+                    if (totalAmount <= 0.0 && !orderData.totalAmount.isNullOrBlank()) {
+                        totalAmount = orderData.totalAmount.toDoubleOrNull() ?: totalAmount
+                    }
+                    if (receiptItems.isEmpty() && !orderData.items.isNullOrEmpty()) {
+                        receiptItems = orderData.items.mapIndexed { idx, itm ->
+                            val qty = (itm.quantity ?: 1.0).toInt()
+                            val rate = itm.itemRate?.toDoubleOrNull() ?: 0.0
+                            val itemTotal = itm.amount?.toDoubleOrNull() ?: (qty * rate)
+                            ReceiptItem(
+                                no = itm.slNo ?: (idx + 1),
+                                name = itm.itemName ?: "Prasadam Item",
+                                quantity = qty,
+                                rate = rate,
+                                total = itemTotal
+                            )
+                        }
+                    }
+                    if (totalAmount <= 0.0 && receiptItems.isNotEmpty()) {
+                        totalAmount = receiptItems.sumOf { it.total }
+                    }
                 }
             } catch (e: Exception) {
-
+                Log.w(TAG, "getOrderDetails error: ${e.message}")
             }
             withContext(Dispatchers.Main) {
-                initializeUiAndPrinting()
+                if (!isTestPrint && (orderNo.isBlank() || encryptedOrderId.isBlank())) {
+                    binding.tvPrinterStatus.text = "⚠️ Order placement incomplete. Order No or QR ID missing."
+                    binding.pbPrinter.visibility = View.GONE
+                    Toast.makeText(this@PaymentActivity, "Order No or Encrypted Order ID not generated yet. Cannot print.", Toast.LENGTH_LONG).show()
+                    startAutoReturnTimer()
+                } else if (!isTestPrint && receiptItems.isEmpty()) {
+                    binding.tvPrinterStatus.text = "⚠️ Order placement incomplete. Order items missing."
+                    binding.pbPrinter.visibility = View.GONE
+                    Toast.makeText(this@PaymentActivity, "Order items not found. Cannot print empty receipt.", Toast.LENGTH_LONG).show()
+                    startAutoReturnTimer()
+                } else {
+                    initializeUiAndPrinting()
+                }
             }
         }
     }
@@ -310,7 +352,9 @@ class PaymentActivity : AppCompatActivity() {
         if (PineLabsManager.isPineLabsAvailable(this)) {
             binding.tvPrinterStatus.text = "Pine Labs POS detected. Printing receipt..."
             Handler(Looper.getMainLooper()).postDelayed({
-                printReceiptOnPineLabs()
+                if (!hasReceiptBeenPrinted && !isPrintingInProgress) {
+                    printReceiptOnPineLabs()
+                }
             }, 600)
         } else {
             bindNyxPrinterService()
@@ -318,7 +362,7 @@ class PaymentActivity : AppCompatActivity() {
 
             // Fallback auto-trigger print to guarantee printout comes out on Kiosk
             Handler(Looper.getMainLooper()).postDelayed({
-                if (!hasAutoPrintedKiosk && !isPrintingInProgress) {
+                if (!hasReceiptBeenPrinted && !hasAutoPrintedKiosk && !isPrintingInProgress) {
                     hasAutoPrintedKiosk = true
                     triggerPrint(isManual = false)
                 }
@@ -502,39 +546,44 @@ class PaymentActivity : AppCompatActivity() {
             POSConnect.CONNECT_SUCCESS -> {
                 printerReconnectJob?.cancel()
                 printerReconnectJob = null
-                isPrintingInProgress = false
                 runOnUiThread {
                     binding.pbPrinter.visibility = View.GONE
-                    binding.tvPrinterStatus.text = "KIOSK Printer Connected. Printing receipt..."
+                    binding.tvPrinterStatus.text = if (hasReceiptBeenPrinted) {
+                        "✅ Receipt printed successfully!"
+                    } else {
+                        "KIOSK Printer Connected. Printing receipt..."
+                    }
                 }
-                lifecycleScope.launch(Dispatchers.IO) {
-                    hasAutoPrintedKiosk = true
-                    printReceiptOnKioskUsb()
+                // Single-shot guard: Only print if not already printed, not auto-printed, and not currently printing
+                if (!hasReceiptBeenPrinted && !hasAutoPrintedKiosk && !isPrintingInProgress &&
+                    (isTestPrint || isDuplicatePrint || !printedOrderIds.contains(orderId))) {
+                    if (!isTestPrint && (orderNo.isBlank() || encryptedOrderId.isBlank())) {
+                        Log.e(TAG, "ConnectListener auto-print blocked: orderNo='$orderNo', encryptedOrderId='$encryptedOrderId'")
+                    } else {
+                        hasAutoPrintedKiosk = true
+                        lifecycleScope.launch(Dispatchers.IO) {
+                            printReceiptOnKioskUsb()
+                        }
+                    }
                 }
             }
             POSConnect.CONNECT_FAIL,
             POSConnect.CONNECT_INTERRUPT,
-            POSConnect.SEND_FAIL -> {
-                isPrintingInProgress = false
-                hasAutoPrintedKiosk = false
-                try { curConnect?.close() } catch (_: Exception) {}
-                curConnect = null
-                runOnUiThread {
-                    binding.pbPrinter.visibility = View.GONE
-                    binding.tvPrinterStatus.text = "Kiosk USB Printer disconnected. Retrying..."
-                }
-                startPrinterReconnectPolling()
-            }
+            POSConnect.SEND_FAIL,
             POSConnect.USB_DETACHED -> {
                 isPrintingInProgress = false
-                hasAutoPrintedKiosk = false
                 try { curConnect?.close() } catch (_: Exception) {}
                 curConnect = null
                 runOnUiThread {
                     binding.pbPrinter.visibility = View.GONE
-                    binding.tvPrinterStatus.text = "Printer cable detached. Please re-plug USB cable."
+                    if (!hasReceiptBeenPrinted) {
+                        binding.tvPrinterStatus.text = "Printer disconnected. Retrying..."
+                    }
                 }
-                startPrinterReconnectPolling()
+                // Do NOT start reconnect polling or reset auto-print if receipt was already successfully printed!
+                if (!hasReceiptBeenPrinted) {
+                    startPrinterReconnectPolling()
+                }
             }
         }
     }
@@ -590,9 +639,15 @@ class PaymentActivity : AppCompatActivity() {
 
     private fun bindNyxPrinterService() {
         if (printerService != null) {
-            if (!isPrintingInProgress) {
-                lifecycleScope.launch(Dispatchers.IO) {
-                    printReceiptOnNyx()
+            if (!hasReceiptBeenPrinted && !hasAutoPrintedKiosk && !isPrintingInProgress &&
+                (isTestPrint || isDuplicatePrint || !printedOrderIds.contains(orderId))) {
+                if (!isTestPrint && (orderNo.isBlank() || encryptedOrderId.isBlank())) {
+                    Log.e(TAG, "bindNyxPrinterService auto-print blocked: orderNo='$orderNo', encryptedOrderId='$encryptedOrderId'")
+                } else {
+                    hasAutoPrintedKiosk = true
+                    lifecycleScope.launch(Dispatchers.IO) {
+                        printReceiptOnNyx()
+                    }
                 }
             }
             return
@@ -607,9 +662,15 @@ class PaymentActivity : AppCompatActivity() {
             override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
                 printerService = IPrinterService.Stub.asInterface(service)
                 isNyxBound = true
-                if (!isPrintingInProgress && printerService != null) {
-                    lifecycleScope.launch(Dispatchers.IO) {
-                        printReceiptOnNyx()
+                if (!hasReceiptBeenPrinted && !hasAutoPrintedKiosk && !isPrintingInProgress && printerService != null &&
+                    (isTestPrint || isDuplicatePrint || !printedOrderIds.contains(orderId))) {
+                    if (!isTestPrint && (orderNo.isBlank() || encryptedOrderId.isBlank())) {
+                        Log.e(TAG, "onServiceConnected auto-print blocked: orderNo='$orderNo', encryptedOrderId='$encryptedOrderId'")
+                    } else {
+                        hasAutoPrintedKiosk = true
+                        lifecycleScope.launch(Dispatchers.IO) {
+                            printReceiptOnNyx()
+                        }
                     }
                 }
             }
@@ -631,8 +692,26 @@ class PaymentActivity : AppCompatActivity() {
     }
 
     private fun triggerPrint(isManual: Boolean) {
+        if (!isTestPrint && (orderNo.isBlank() || encryptedOrderId.isBlank())) {
+            Log.e(TAG, "triggerPrint blocked: orderNo='$orderNo', encryptedOrderId='$encryptedOrderId'")
+            binding.tvPrinterStatus.text = "⚠️ Cannot print: Order number or QR ID not generated"
+            binding.pbPrinter.visibility = View.GONE
+            Toast.makeText(this, "Order placement incomplete. Missing Order No / QR ID.", Toast.LENGTH_LONG).show()
+            return
+        }
+
         if (isPrintingInProgress) {
             Toast.makeText(this, "Printing is already in progress...", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        if (!isManual && !isDuplicatePrint && !isTestPrint && orderId > 0L && printedOrderIds.contains(orderId)) {
+            Log.d(TAG, "triggerPrint: Auto-print skipped, orderId=$orderId is already printed")
+            return
+        }
+
+        if (!isManual && hasReceiptBeenPrinted) {
+            Log.d(TAG, "triggerPrint: Auto-print skipped, receipt already printed for orderId=$orderId")
             return
         }
 
@@ -675,8 +754,34 @@ class PaymentActivity : AppCompatActivity() {
      * Initiates Pine Labs app-to-app text print request (MethodId: 1002 with PrintDataType=0).
      */
     private fun printReceiptOnPineLabs() {
+        if (!isTestPrint && (orderNo.isBlank() || encryptedOrderId.isBlank())) {
+            Log.e(TAG, "printReceiptOnPineLabs blocked: orderNo='$orderNo', encryptedOrderId='$encryptedOrderId'")
+            binding.tvPrinterStatus.text = "⚠️ Cannot print: Order number or QR ID not generated"
+            binding.pbPrinter.visibility = View.GONE
+            Toast.makeText(this, "Order placement incomplete. Missing Order No / QR ID.", Toast.LENGTH_LONG).show()
+            return
+        }
+        if (!isDuplicatePrint && !isTestPrint && orderId > 0L && printedOrderIds.contains(orderId)) {
+            Log.d(TAG, "printReceiptOnPineLabs: Order $orderId already printed")
+            return
+        }
+        if (!isTestPrint && receiptItems.isEmpty()) {
+            Log.e(TAG, "printReceiptOnPineLabs blocked: receiptItems is empty for orderId=$orderId")
+            binding.tvPrinterStatus.text = "⚠️ Cannot print: Order items empty."
+            binding.pbPrinter.visibility = View.GONE
+            Toast.makeText(this, "Order details not available to print.", Toast.LENGTH_LONG).show()
+            return
+        }
         try {
-            Log.i(TAG, "🖨️ [PaymentActivity] printReceiptOnPineLabs triggered. orderNo=$orderNo, mode=$paymentMode, itemsCount=${receiptItems.size}, total=$totalAmount")
+            val displayTotal = when {
+                totalAmount > 0.0 -> totalAmount
+                receiptItems.isNotEmpty() -> receiptItems.sumOf { it.total }
+                else -> 0.0
+            }
+            if (totalAmount <= 0.0 && displayTotal > 0.0) {
+                totalAmount = displayTotal
+            }
+            Log.i(TAG, "🖨️ [PaymentActivity] printReceiptOnPineLabs triggered. orderNo=$orderNo, mode=$paymentMode, itemsCount=${receiptItems.size}, total=$displayTotal")
             autoReturnTimer?.cancel()
 
             isPrintingInProgress = true
@@ -689,7 +794,6 @@ class PaymentActivity : AppCompatActivity() {
             val displayOrderId = formatReceiptNo(orderNo)
             val displayPaymentMode = if (paymentMode.isNotBlank()) paymentMode else "Pine Labs POS"
             val displayRef = if (rrn.isNotBlank()) rrn else if (approvalCode.isNotBlank()) approvalCode else pspRefNo
-            val displayTotal = if (totalAmount > 0.0) totalAmount else receiptItems.sumOf { it.total }
             val qrData = if (encryptedOrderId.isNotBlank()) encryptedOrderId else ""
 
 
@@ -793,6 +897,18 @@ class PaymentActivity : AppCompatActivity() {
     }
 
     private suspend fun printReceiptOnKioskUsb(): Boolean = withContext(NonCancellable) {
+        if (!isTestPrint && (orderNo.isBlank() || encryptedOrderId.isBlank())) {
+            Log.e(TAG, "printReceiptOnKioskUsb blocked: orderNo='$orderNo', encryptedOrderId='$encryptedOrderId'")
+            return@withContext false
+        }
+        if (!isTestPrint && receiptItems.isEmpty()) {
+            Log.e(TAG, "printReceiptOnKioskUsb blocked: receiptItems is empty for orderId=$orderId")
+            return@withContext false
+        }
+        if (!isDuplicatePrint && !isTestPrint && orderId > 0L && printedOrderIds.contains(orderId)) {
+            Log.d(TAG, "printReceiptOnKioskUsb: Order $orderId already printed")
+            return@withContext true
+        }
         try {
             kotlinx.coroutines.yield()
             delay(150L) // Allow Activity window focus dispatch to settle before heavy raster generation
@@ -873,6 +989,11 @@ class PaymentActivity : AppCompatActivity() {
             receiptBitmap.recycle()
             isPrintingInProgress = false
             isPrintFailed = false
+            hasReceiptBeenPrinted = true
+            hasAutoPrintedKiosk = true
+            if (!isTestPrint && orderId > 0L) {
+                printedOrderIds.add(orderId)
+            }
 
             withContext(Dispatchers.Main) {
                 binding.pbPrinter.visibility = View.GONE
@@ -895,6 +1016,18 @@ class PaymentActivity : AppCompatActivity() {
     }
 
     private suspend fun printReceiptOnNyx(): Boolean {
+        if (!isTestPrint && (orderNo.isBlank() || encryptedOrderId.isBlank())) {
+            Log.e(TAG, "printReceiptOnNyx blocked: orderNo='$orderNo', encryptedOrderId='$encryptedOrderId'")
+            return false
+        }
+        if (!isTestPrint && receiptItems.isEmpty()) {
+            Log.e(TAG, "printReceiptOnNyx blocked: receiptItems is empty for orderId=$orderId")
+            return false
+        }
+        if (!isDuplicatePrint && !isTestPrint && orderId > 0L && printedOrderIds.contains(orderId)) {
+            Log.d(TAG, "printReceiptOnNyx: Order $orderId already printed")
+            return true
+        }
         return try {
             val service = printerService ?: return false
             isPrintingInProgress = true
@@ -911,13 +1044,16 @@ class PaymentActivity : AppCompatActivity() {
 
             receiptBitmap.recycle()
             isPrintingInProgress = false
+            isPrintFailed = false
+            hasReceiptBeenPrinted = true
+            hasAutoPrintedKiosk = true
+            if (!isTestPrint && orderId > 0L) printedOrderIds.add(orderId)
 
             withContext(Dispatchers.Main) {
                 binding.pbPrinter.visibility = View.GONE
                 binding.tvPrinterStatus.text = "✅ Receipt printed successfully!"
                 BillingActivity.isPendingPrintAvailable = false
                 BillingActivity.isLastOrderPrintedSuccessfully = true
-                if (!isTestPrint && orderId > 0L) printedOrderIds.add(orderId)
             }
             true
         } catch (e: RemoteException) {

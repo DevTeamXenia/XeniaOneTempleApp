@@ -88,8 +88,6 @@ class BillingActivity : AppCompatActivity() {
     private var pendingRazorpayOrderId: String = ""
     private var pendingCustomerName: String = ""
     private var pendingCustomerMobile: String = ""
-
-    // Razorpay QR State & Coroutine Polling
     private var qrPollingJob: kotlinx.coroutines.Job? = null
     private var qrCountDownTimer: CountDownTimer? = null
     private var qrDialog: AlertDialog? = null
@@ -99,6 +97,8 @@ class BillingActivity : AppCompatActivity() {
     private var isQrPaymentHandled: Boolean = false
     private var isPrintPending: Boolean = false
     private var isPaymentProcessing: Boolean = false
+    private var isSettlingOrder: Boolean = false
+    private var isNavigatingToReceipt: Boolean = false
     private var lastPayClickTime: Long = 0L
 
     private var cachedDrawerLayout: androidx.drawerlayout.widget.DrawerLayout? = null
@@ -109,7 +109,6 @@ class BillingActivity : AppCompatActivity() {
         return cachedDrawerLayout
     }
 
-    // Launcher for Pine Labs App-to-App Payment Intent (MethodId: 1001)
     private val pineLabsPaymentLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -148,15 +147,12 @@ class BillingActivity : AppCompatActivity() {
         orderRepository = app.container.orderRepository
         val authRepo = app.container.authRepository
 
-        // Suppress system default keyboard for devotee mobile input (custom keypad used)
         binding.etDevoteeMobile.showSoftInputOnFocus = false
 
         currentLanguage = intent.getStringExtra(EXTRA_LANGUAGE_CODE) ?: authManager.selectedLanguage
 
-        // Detect Pine Labs hardware / MasterApp availability while loading
         detectAndDisplayPineLabsDevice()
 
-        // Check if Kiosk Mode was enabled; if so, enforce lock task & home launcher alias
         val kioskPrefs = getSharedPreferences("kiosk_settings", MODE_PRIVATE)
         val isKioskOnStartup = kioskPrefs.getBoolean("pref_kiosk_mode_enabled", false)
         updateHomeLauncherAliasState(isKioskOnStartup)
@@ -266,13 +262,10 @@ class BillingActivity : AppCompatActivity() {
             loadEmployeeBannerImage(authManager.employeeImage)
         }
 
-        // Initial empty render (No dummy table items, initial total ₹0.00)
         updateUi()
 
-        // Show loading state while connecting to socket and fetching products
         showProductsLoader()
 
-        // 1. Fetch fresh employee profile in background
         lifecycleScope.launch {
             if (authManager.authToken.isNotBlank()) {
                 try {
@@ -401,11 +394,9 @@ class BillingActivity : AppCompatActivity() {
 
     private fun bindSocketProducts(socketProducts: List<SocketProduct>) {
         runOnUiThread {
-            // Keep track of any quantity the user might have already selected
             val existingQuantities = allItems.associate { it.name.lowercase() to it.quantity }
 
             val newItems = mutableListOf<PrasadamItem>()
-            val gson = Gson()
             for (p in socketProducts) {
                 val nameLower = p.productName.lowercase()
                 val fallbackRes = when {
@@ -451,7 +442,6 @@ class BillingActivity : AppCompatActivity() {
 
     @SuppressLint("SetTextI18n")
     private fun updateUi() {
-        // Populate Table Rows
         binding.llOrderItemsContainer.removeAllViews()
 
         val activeItems = allItems.filter { it.quantity > 0 }
@@ -483,7 +473,6 @@ class BillingActivity : AppCompatActivity() {
             }
         }
 
-        // Calculate and format Total Amount (Starts at ₹0.00 when no items)
         val totalAmount = allItems.sumOf { it.totalAmount }
         binding.tvTotalAmountValue.text = "₹%.2f".format(totalAmount)
         binding.btnPay.isEnabled = true
@@ -493,10 +482,10 @@ class BillingActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         isPaymentProcessing = false
+        isSettlingOrder = false
+        isNavigatingToReceipt = false
         detectAndDisplayPineLabsDevice()
         updateDevoteeMobileHint()
-
-        // Re-enforce Kiosk Mode (Screen Pinning) if enabled and unpinned by "No thanks"
         val kioskPrefs = getSharedPreferences("kiosk_settings", MODE_PRIVATE)
         val isKioskModeOn = kioskPrefs.getBoolean("pref_kiosk_mode_enabled", false)
         if (isKioskModeOn && !PineLabsManager.isPineLabsAvailable(this)) {
@@ -508,6 +497,34 @@ class BillingActivity : AppCompatActivity() {
                 }
             } catch (e: Exception) {
             }
+        }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putLong("pendingOrderId", pendingOrderId)
+        outState.putDouble("pendingTotal", pendingTotal)
+        outState.putString("pendingReceiptItemsJson", pendingReceiptItemsJson)
+        outState.putString("pendingPaymentMode", pendingPaymentMode)
+        outState.putString("pendingRazorpayOrderId", pendingRazorpayOrderId)
+    }
+
+    override fun onRestoreInstanceState(savedInstanceState: Bundle) {
+        super.onRestoreInstanceState(savedInstanceState)
+        if (pendingOrderId <= 0L) {
+            pendingOrderId = savedInstanceState.getLong("pendingOrderId", 0L)
+        }
+        if (pendingTotal <= 0.0) {
+            pendingTotal = savedInstanceState.getDouble("pendingTotal", 0.0)
+        }
+        if (pendingReceiptItemsJson.isBlank()) {
+            pendingReceiptItemsJson = savedInstanceState.getString("pendingReceiptItemsJson") ?: ""
+        }
+        if (pendingPaymentMode.isBlank()) {
+            pendingPaymentMode = savedInstanceState.getString("pendingPaymentMode") ?: ""
+        }
+        if (pendingRazorpayOrderId.isBlank()) {
+            pendingRazorpayOrderId = savedInstanceState.getString("pendingRazorpayOrderId") ?: ""
         }
     }
 
@@ -535,7 +552,6 @@ class BillingActivity : AppCompatActivity() {
             return
         }
 
-        // If Pine Labs is detected on this device, offer Pine Labs App-to-App payment
         if (PineLabsManager.isPineLabsAvailable(this)) {
             showPaymentOptionDialog(activeItems, total)
         } else {
@@ -850,9 +866,7 @@ class BillingActivity : AppCompatActivity() {
         dialog.show()
     }
 
-    /**
-     * Initiates Pine Labs app-to-app payment transaction (MethodId: 1001).
-     */
+
     private fun initiatePineLabsPayment(
         activeItems: List<PrasadamItem>,
         total: Double,
@@ -933,7 +947,13 @@ class BillingActivity : AppCompatActivity() {
                 CommonMethod.dismissLoader()
 
                 val orderResponse = orderResult.getOrNull()
-                val orderId = orderResponse?.orderId?.toLong() ?: (System.currentTimeMillis() % 100000000)
+                if (orderResult.isFailure || orderResponse == null || !orderResponse.status.equals("Success", ignoreCase = true) || (orderResponse.orderId ?: 0) <= 0) {
+                    isPaymentProcessing = false
+                    val err = orderResponse?.message ?: orderResult.exceptionOrNull()?.message ?: "Pine Labs order summary failed"
+                    showModernMessageDialog("Order Summary Failed", err)
+                    return@launch
+                }
+                val orderId = orderResponse.orderId!!.toLong()
                 pendingOrderId = orderId
 
                 val pineIntent = PineLabsManager.createTransactionIntent(
@@ -954,9 +974,7 @@ class BillingActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * Handles the callback received from Pine Labs MasterApp DoTransaction.
-     */
+
     private fun handlePineLabsPaymentResult(resultCode: Int, data: Intent?) {
         isPaymentProcessing = false
         val response = PineLabsManager.parseTransactionResponse(data)
@@ -969,9 +987,38 @@ class BillingActivity : AppCompatActivity() {
             val invoiceNo = detail?.invoiceNumber ?: 0L
             val pspRef = if (rrn.isNotBlank()) rrn else if (approvalCode.isNotBlank()) approvalCode else detail?.plutusTransactionLogId.orEmpty()
 
+            // Safe recovery: if pendingOrderId was lost due to process death, restore from billingRefNo
+            val refOrderId = detail?.billingRefNo?.toLongOrNull() ?: 0L
+            if (pendingOrderId <= 0L && refOrderId > 0L) {
+                pendingOrderId = refOrderId
+            }
+            // Safe recovery: if pendingTotal was lost, restore from authAmountPaise (converted from paise)
+            val amountFromPaise = detail?.authAmountPaise?.toDoubleOrNull()?.let { it / 100.0 } ?: 0.0
+            if (pendingTotal <= 0.0 && amountFromPaise > 0.0) {
+                pendingTotal = amountFromPaise
+            }
+            // Safe recovery: if pendingReceiptItemsJson was lost, restore from active cart items
+            if (pendingReceiptItemsJson.isBlank()) {
+                val activeItems = allItems.filter { it.quantity > 0 }
+                if (activeItems.isNotEmpty()) {
+                    val receiptItems = activeItems.mapIndexed { index, item ->
+                        ReceiptItem(
+                            no = index + 1,
+                            name = item.name,
+                            quantity = item.quantity,
+                            rate = item.unitPrice,
+                            total = item.totalAmount
+                        )
+                    }
+                    pendingReceiptItemsJson = Gson().toJson(receiptItems)
+                    if (pendingTotal <= 0.0) {
+                        pendingTotal = activeItems.sumOf { it.totalAmount }
+                    }
+                }
+            }
+
             Toast.makeText(this, "✅ Payment Approved! (Auth: $approvalCode)", Toast.LENGTH_SHORT).show()
 
-            // Execute Process API (api/Order/kiosk/placeOrder/{orderId}/Proccess) and navigate to print screen
             processAndNavigatePineLabsOrder(
                 pspRef = pspRef,
                 approvalCode = approvalCode,
@@ -991,6 +1038,7 @@ class BillingActivity : AppCompatActivity() {
     }
 
     private fun showModernMessageDialog(title: String, message: String) {
+        if (isFinishing || isDestroyed) return
         val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_modern_alert, null)
         val dialog = AlertDialog.Builder(this)
             .setView(dialogView)
@@ -1024,10 +1072,10 @@ class BillingActivity : AppCompatActivity() {
     ) {
         if (isFinishing || isDestroyed) return
         AlertDialog.Builder(this)
-            .setTitle("Order Processing Failed")
-            .setMessage("Payment was approved, but server order processing failed: $errorMessage\n\nPlease tap Retry to complete the order and generate print.")
+            .setTitle("Place Order Incomplete")
+            .setMessage("Payment was approved, but server order processing is incomplete: $errorMessage\n\nPlease tap 'Place Order Again' to complete the order and generate print.")
             .setCancelable(false)
-            .setPositiveButton("Retry") { _, _ ->
+            .setPositiveButton("Place Order Again") { _, _ ->
                 processAndNavigatePineLabsOrder(pspRef, approvalCode, cardNumber, cardType, invoiceNo, rrn)
             }
             .setNegativeButton("Cancel") { dialog, _ ->
@@ -1066,12 +1114,49 @@ class BillingActivity : AppCompatActivity() {
                 )
 
                 CommonMethod.dismissLoader()
-                if (processResult.isSuccess && processResult.getOrNull() != null) {
-                    val processResponse = processResult.getOrNull()!!
-                    val finalOrderId = processResponse.orderId?.toLong() ?: pendingOrderId
+                val processResponse = processResult.getOrNull()
+                val finalOrderId = processResponse?.orderId?.toLong() ?: pendingOrderId
+                var finalOrderNo = processResponse?.orderNo ?: ""
+                var finalEncryptedOrderId = processResponse?.encryptedOrderId ?: ""
 
+                if (finalOrderNo.isBlank() || finalEncryptedOrderId.isBlank() || pendingReceiptItemsJson.isBlank() || pendingTotal <= 0.0) {
+                    try {
+                        val detailsResult = orderRepository.getOrderDetails(finalOrderId)
+                        val detailsData = detailsResult.getOrNull()?.data
+                        if (detailsData != null) {
+                            if (finalOrderNo.isBlank() && !detailsData.orderNo.isNullOrBlank()) {
+                                finalOrderNo = detailsData.orderNo
+                            }
+                            if (finalEncryptedOrderId.isBlank() && !detailsData.encryptedOrderId.isNullOrBlank()) {
+                                finalEncryptedOrderId = detailsData.encryptedOrderId
+                            }
+                            if (pendingTotal <= 0.0 && !detailsData.totalAmount.isNullOrBlank()) {
+                                pendingTotal = detailsData.totalAmount.toDoubleOrNull() ?: pendingTotal
+                            }
+                            if (pendingReceiptItemsJson.isBlank() && !detailsData.items.isNullOrEmpty()) {
+                                val fetchedItems = detailsData.items.mapIndexed { idx, itm ->
+                                    val qty = (itm.quantity ?: 1.0).toInt()
+                                    val rate = itm.itemRate?.toDoubleOrNull() ?: 0.0
+                                    val itemTotal = itm.amount?.toDoubleOrNull() ?: (qty * rate)
+                                    ReceiptItem(
+                                        no = itm.slNo ?: (idx + 1),
+                                        name = itm.itemName ?: "Prasadam Item",
+                                        quantity = qty,
+                                        rate = rate,
+                                        total = itemTotal
+                                    )
+                                }
+                                pendingReceiptItemsJson = Gson().toJson(fetchedItems)
+                            }
+                        }
+                    } catch (_: Exception) {}
+                }
+
+                if (processResult.isSuccess && processResponse != null && processResponse.status.equals("Success", ignoreCase = true) && finalOrderNo.isNotBlank() && finalEncryptedOrderId.isNotBlank()) {
                     val intent = Intent(this@BillingActivity, PaymentActivity::class.java).apply {
                         putExtra(PaymentActivity.EXTRA_ORDER_ID, finalOrderId)
+                        putExtra(PaymentActivity.EXTRA_ORDER_NO, finalOrderNo)
+                        putExtra(PaymentActivity.EXTRA_ENCRYPTED_ORDER_ID, finalEncryptedOrderId)
                         putExtra(PaymentActivity.EXTRA_PSP_REF_NO, pspRef)
                         putExtra(PaymentActivity.EXTRA_TOTAL_AMOUNT, pendingTotal)
                         putExtra(PaymentActivity.EXTRA_RECEIPT_ITEMS_JSON, pendingReceiptItemsJson)
@@ -1099,7 +1184,11 @@ class BillingActivity : AppCompatActivity() {
                         Toast.makeText(this@BillingActivity, "Payment approved successfully (Print Disabled)", Toast.LENGTH_LONG).show()
                     }
                 } else {
-                    val err = processResult.exceptionOrNull()?.message ?: "Server returned error"
+                    val err = if (finalOrderNo.isBlank() || finalEncryptedOrderId.isBlank()) {
+                        "Order Number or Encrypted Order ID not yet generated by server."
+                    } else {
+                        processResponse?.message ?: processResult.exceptionOrNull()?.message ?: "Server returned error"
+                    }
                     showPlaceOrderRetryDialog(pspRef, approvalCode, cardNumber, cardType, invoiceNo, rrn, err)
                 }
             } catch (e: Exception) {
@@ -1131,6 +1220,7 @@ class BillingActivity : AppCompatActivity() {
         }
 
         if (cartItems.isEmpty()) {
+            isPaymentProcessing = false
             Toast.makeText(this, "Cart is empty. Please select prasadam items.", Toast.LENGTH_SHORT).show()
             return
         }
@@ -1142,15 +1232,13 @@ class BillingActivity : AppCompatActivity() {
                 val companyId = authManager.companyId
                 val branchId = authManager.defaultBranch
                 val userId = authManager.userId
-
-                // Step 1: Fetch Payment Providers: GET /api/PaymentProvider/company/{companyId}
                 val providersResult = orderRepository.getPaymentProviders(companyId)
                 val providers = providersResult.getOrNull() ?: emptyList()
 
-                // Check for ProviderId where Name == "RAZORAYQR"
                 val razorpayQrProvider = providers.firstOrNull { it.name.equals("RAZORAYQR", ignoreCase = true) }
                 if (razorpayQrProvider == null) {
                     CommonMethod.dismissLoader()
+                    isPaymentProcessing = false
                     val msg = if (providers.isEmpty()) "No payment providers found for Company ID: $companyId" else "RAZORAYQR payment provider is not configured"
                     showModernMessageDialog("Payment Error", msg)
                     return@launch
@@ -1185,8 +1273,6 @@ class BillingActivity : AppCompatActivity() {
                     isWalletLoyality = false,
                     cartItems = cartItems
                 )
-
-                // Step 2: Call Summary API: POST /api/Order/kiosk/summary with paymentProviderId
                 val summaryResult = orderRepository.createKioskOrder(
                     companyId = companyId,
                     branchId = branchId,
@@ -1195,42 +1281,36 @@ class BillingActivity : AppCompatActivity() {
                     request = orderRequest
                 )
 
+                CommonMethod.dismissLoader()
+
                 val summaryResponse = summaryResult.getOrNull()
-                if (summaryResponse == null || !summaryResponse.status.equals("Success", ignoreCase = true)) {
-                    CommonMethod.dismissLoader()
+                if (summaryResult.isFailure || summaryResponse == null || !summaryResponse.status.equals("Success", ignoreCase = true) || (summaryResponse.orderId ?: 0) <= 0) {
+                    isPaymentProcessing = false
                     val err = summaryResponse?.message ?: summaryResult.exceptionOrNull()?.message ?: "Order summary creation failed"
-                    showModernMessageDialog("Order Failed", err)
+                    showModernMessageDialog("Order Summary Failed", err)
                     return@launch
                 }
-                val initialOrderId = summaryResponse.orderId ?: 0
+                val initialOrderId = summaryResponse.orderId!!
                 val easeOrderIdFromSummary = summaryResponse.easeOrderId ?: ""
                 val qrUrlFromSummary = summaryResponse.data ?: ""
 
-                CommonMethod.dismissLoader()
+                pendingOrderId = initialOrderId.toLong()
+                pendingRazorpayOrderId = easeOrderIdFromSummary
+                pendingTotal = total
+                pendingCustomerName = ""
+                pendingCustomerMobile = devoteeMobile
 
-                if (initialOrderId > 0) {
-                    pendingOrderId = initialOrderId.toLong()
-                    pendingRazorpayOrderId = easeOrderIdFromSummary
-                    pendingTotal = total
-                    pendingCustomerName = ""
-                    pendingCustomerMobile = devoteeMobile
-
-
-//                    settleAndNavigateRazorpayQrOrder(initialOrderId, easeOrderIdFromSummary)
-
-//                     Step 4: Show QR Dialog and start 3-second status polling
-                    showRazorpayQrDialog(
-                        orderId = initialOrderId,
-                        easeOrderId = easeOrderIdFromSummary,
-                        qrUrl = qrUrlFromSummary,
-                        totalAmount = total
-                    )
-                } else {
-                    showModernMessageDialog("Order Failed", "Invalid Order ID received from summary")
-                }
+                // Step 4: Show QR Dialog and start 3-second status polling
+                showRazorpayQrDialog(
+                    orderId = initialOrderId,
+                    easeOrderId = easeOrderIdFromSummary,
+                    qrUrl = qrUrlFromSummary,
+                    totalAmount = total
+                )
             } catch (e: Exception) {
                 CommonMethod.dismissLoader()
-                Toast.makeText(this@BillingActivity, "Razorpay QR error: ${e.message}", Toast.LENGTH_SHORT).show()
+                isPaymentProcessing = false
+                showModernMessageDialog("Order Error", "Failed to initiate Razorpay QR payment: ${e.message}")
             }
         }
     }
@@ -1403,16 +1483,13 @@ class BillingActivity : AppCompatActivity() {
                     val statusItem = response?.data?.firstOrNull()
                     val paymentStatus = statusItem?.status?.uppercase(Locale.US) ?: response?.rootOrderStatus?.uppercase(Locale.US) ?: ""
                     val providerStatus = statusItem?.providerStatus?.uppercase(Locale.US) ?: response?.rootProviderStatus?.uppercase(Locale.US) ?: ""
-                    val isFinal = statusItem?.isFinal == true || response?.rootIsFinal == true
-                    val message = statusItem?.message ?: ""
+                    val message = statusItem?.message ?: response?.message ?: ""
 
+                    val isSuccess = paymentStatus in listOf("CAPTURED", "PAID", "SUCCESS", "COMPLETED", "S") ||
+                                    providerStatus in listOf("CAPTURED", "PAID", "SUCCESS", "COMPLETED", "S")
 
-                    val isSuccess = paymentStatus == "CAPTURED" || paymentStatus == "PAID" || paymentStatus == "SUCCESS" || paymentStatus == "COMPLETED" || paymentStatus == "S" ||
-                                    providerStatus == "CAPTURED" || providerStatus == "PAID" || providerStatus == "SUCCESS" || providerStatus == "COMPLETED" || providerStatus == "S" ||
-                                    isFinal
-
-                    val isFailed = paymentStatus == "FAILED" || paymentStatus == "EXPIRED" || paymentStatus == "CANCELLED" || paymentStatus == "F" ||
-                                   providerStatus == "FAILED" || providerStatus == "EXPIRED" || providerStatus == "CANCELLED" || providerStatus == "F"
+                    val isFailed = paymentStatus in listOf("FAILED", "EXPIRED", "CANCELLED", "F", "FAILURE") ||
+                                   providerStatus in listOf("FAILED", "EXPIRED", "CANCELLED", "F", "FAILURE")
 
                     if (isSuccess) {
                         Log.i(TAG, "✅ Razorpay QR Payment Captured Successfully!")
@@ -1518,6 +1595,12 @@ class BillingActivity : AppCompatActivity() {
     }
 
     private fun settleAndNavigateRazorpayQrOrder(orderId: Int, rzpOrderId: String) {
+        if (isSettlingOrder) {
+            Log.w(TAG, "settleAndNavigateRazorpayQrOrder: already settling orderId=$orderId")
+            return
+        }
+        isSettlingOrder = true
+
         lifecycleScope.launch {
             try {
                 val companyId = authManager.companyId
@@ -1530,21 +1613,83 @@ class BillingActivity : AppCompatActivity() {
                 )
                 val settleResp = settleResult.getOrNull()
 
-                if (settleResult.isSuccess) {
+                CommonMethod.dismissLoader()
+                var finalOrderNo = settleResp?.orderNo ?: ""
+                var finalEncryptedOrderId = settleResp?.encryptedOrderId ?: ""
+
+                // If orderNo or encryptedOrderId are missing from placeOrder response, fetch from getOrderDetails
+                if (finalOrderNo.isBlank() || finalEncryptedOrderId.isBlank()) {
+                    try {
+                        val detailsResult = orderRepository.getOrderDetails(orderId.toLong())
+                        val detailsData = detailsResult.getOrNull()?.data
+                        if (detailsData != null) {
+                            if (finalOrderNo.isBlank() && !detailsData.orderNo.isNullOrBlank()) {
+                                finalOrderNo = detailsData.orderNo
+                            }
+                            if (finalEncryptedOrderId.isBlank() && !detailsData.encryptedOrderId.isNullOrBlank()) {
+                                finalEncryptedOrderId = detailsData.encryptedOrderId
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to fetch order details after placeOrder: ${e.message}")
+                    }
+                }
+
+                // ONLY navigate to print when BOTH orderNo and encryptedOrderId are generated!
+                if (settleResult.isSuccess && settleResp != null && settleResp.status.equals("Success", ignoreCase = true) && finalOrderNo.isNotBlank() && finalEncryptedOrderId.isNotBlank()) {
                     pendingOrderId = 0L // Reset pending order ID
-                    delay(800L)
+                    delay(500L)
                     stopQrPollingAndDismiss()
-                    navigateToRazorpayReceipt(orderId, rzpOrderId)
+                    isSettlingOrder = false
+                    navigateToRazorpayReceipt(
+                        orderId = orderId,
+                        rzpOrderId = rzpOrderId,
+                        orderNo = finalOrderNo,
+                        encryptedOrderId = finalEncryptedOrderId
+                    )
                 } else {
+                    isSettlingOrder = false
+                    CommonMethod.dismissLoader()
                     stopQrPollingAndDismiss()
-                    val err = settleResp?.message ?: settleResult.exceptionOrNull()?.message ?: "Order settlement failed"
-                    showModernMessageDialog("Settlement Failed", err)
+                    val err = if (finalOrderNo.isBlank() || finalEncryptedOrderId.isBlank()) {
+                        "Order Number or Encrypted Order ID not yet generated by server."
+                    } else {
+                        settleResp?.message ?: settleResult.exceptionOrNull()?.message ?: "Order placement failed on server"
+                    }
+                    showRazorpayPlaceOrderRetryDialog(orderId, rzpOrderId, err)
                 }
             } catch (e: Exception) {
+                isSettlingOrder = false
+                CommonMethod.dismissLoader()
                 stopQrPollingAndDismiss()
-                Toast.makeText(this@BillingActivity, "Settlement error: ${e.message}", Toast.LENGTH_SHORT).show()
+                showRazorpayPlaceOrderRetryDialog(orderId, rzpOrderId, e.message ?: "An error occurred during order placement")
             }
         }
+    }
+
+    private fun showRazorpayPlaceOrderRetryDialog(
+        orderId: Int,
+        rzpOrderId: String,
+        errorMessage: String
+    ) {
+        if (isFinishing || isDestroyed) return
+        AlertDialog.Builder(this)
+            .setTitle("Place Order Incomplete")
+            .setMessage("Payment was received, but server place order is incomplete:\n$errorMessage\n\nPlease tap 'Place Order Again' to generate the order number and print receipt.")
+            .setCancelable(false)
+            .setPositiveButton("Place Order Again") { dialog, _ ->
+                dialog.dismiss()
+                CommonMethod.showLoader(this@BillingActivity, "Placing Order...")
+                settleAndNavigateRazorpayQrOrder(orderId, rzpOrderId)
+            }
+            .setNegativeButton("Cancel") { dialog, _ ->
+                dialog.dismiss()
+                showModernMessageDialog(
+                    "Order Pending",
+                    "Payment was received, but order #$orderId has not been finalized yet. Please contact administration with reference: $rzpOrderId"
+                )
+            }
+            .show()
     }
 
     private fun stopQrPollingAndDismiss() {
@@ -1637,7 +1782,24 @@ class BillingActivity : AppCompatActivity() {
         }
     }
 
-    private fun navigateToRazorpayReceipt(orderId: Int, rzpOrderId: String) {
+    private fun navigateToRazorpayReceipt(
+        orderId: Int,
+        rzpOrderId: String,
+        orderNo: String,
+        encryptedOrderId: String
+    ) {
+        if (isNavigatingToReceipt) {
+            Log.w(TAG, "navigateToRazorpayReceipt: duplicate call suppressed")
+            return
+        }
+        if (orderNo.isBlank() || encryptedOrderId.isBlank()) {
+            Log.e(TAG, "navigateToRazorpayReceipt blocked: orderNo='$orderNo', encryptedOrderId='$encryptedOrderId'")
+            isNavigatingToReceipt = false
+            showRazorpayPlaceOrderRetryDialog(orderId, rzpOrderId, "Order number or Encrypted Order ID not generated yet.")
+            return
+        }
+        isNavigatingToReceipt = true
+
         val activeItems = allItems.filter { it.quantity > 0 }
         val receiptItems = activeItems.mapIndexed { index, item ->
             ReceiptItem(
@@ -1656,11 +1818,13 @@ class BillingActivity : AppCompatActivity() {
             putExtra(PaymentActivity.EXTRA_CUSTOMER_NAME, "")
             putExtra(PaymentActivity.EXTRA_CUSTOMER_MOBILE, devoteeMobile)
             putExtra(PaymentActivity.EXTRA_ORDER_ID, orderId.toLong())
+            putExtra(PaymentActivity.EXTRA_ORDER_NO, orderNo)
+            putExtra(PaymentActivity.EXTRA_ENCRYPTED_ORDER_ID, encryptedOrderId)
             putExtra(PaymentActivity.EXTRA_PSP_REF_NO, rzpOrderId)
             putExtra(PaymentActivity.EXTRA_TOTAL_AMOUNT, total)
             putExtra(PaymentActivity.EXTRA_RECEIPT_ITEMS_JSON, receiptItemsJson)
             putExtra(PaymentActivity.EXTRA_LANGUAGE_CODE, currentLanguage)
-            putExtra(PaymentActivity.EXTRA_PAYMENT_MODE, "Razorpay")
+            putExtra(PaymentActivity.EXTRA_PAYMENT_MODE, "Razorpay UPI QR")
         }
         lastOrderIntent = intent
         isLastOrderPrintedSuccessfully = false
@@ -1711,6 +1875,7 @@ class BillingActivity : AppCompatActivity() {
         }
 
         if (cartItems.isEmpty()) {
+            isPaymentProcessing = false
             Toast.makeText(this, "Cart is empty. Please select prasadam items.", Toast.LENGTH_SHORT).show()
             return
         }
@@ -1762,12 +1927,13 @@ class BillingActivity : AppCompatActivity() {
                 CommonMethod.dismissLoader()
                 val orderResponse = orderResult.getOrNull()
 
-                if (orderResponse != null && orderResponse.status.equals("Success", ignoreCase = true)) {
-                    onSuccess() // Dismisses cash dialog ONLY when order creation succeeds!
-                    val initialOrderId = orderResponse.orderId ?: (System.currentTimeMillis() % 100000000).toInt()
+                if (orderResult.isSuccess && orderResponse != null && orderResponse.status.equals("Success", ignoreCase = true) && (orderResponse.orderId ?: 0) > 0) {
+                    val initialOrderId = orderResponse.orderId!!
                     val pspRef = customRefId.takeIf { !it.isNullOrBlank() }
                         ?: orderResponse.easeOrderId
                         ?: "CASH-${System.currentTimeMillis()}"
+
+                    CommonMethod.showLoader(this@BillingActivity, "Placing Cash Order...")
 
                     // Step 2: Execute Process API for Cash Order (settled=true)
                     val processResult = orderRepository.processOrder(
@@ -1777,52 +1943,82 @@ class BillingActivity : AppCompatActivity() {
                         settled = true,
                         isWhatsApp = isWhatsAppEnabled()
                     )
+                    CommonMethod.dismissLoader()
                     val processResponse = processResult.getOrNull()
-                    val finalOrderId = processResponse?.orderId ?: initialOrderId
-                    val receiptItems = activeItems.mapIndexed { index, item ->
-                        com.xeniaone.templeapp.model.ReceiptItem(
-                            no = index + 1,
-                            name = item.name,
-                            quantity = item.quantity,
-                            rate = item.unitPrice,
-                            total = item.totalAmount
-                        )
-                    }
-                    val receiptItemsJson = com.google.gson.Gson().toJson(receiptItems)
 
-                    val intent = Intent(this@BillingActivity, PaymentActivity::class.java).apply {
-                        putExtra(PaymentActivity.EXTRA_CUSTOMER_NAME, "")
-                        putExtra(PaymentActivity.EXTRA_CUSTOMER_MOBILE, devoteeMobile)
-                        putExtra(PaymentActivity.EXTRA_ORDER_ID, finalOrderId.toLong())
-                        putExtra(PaymentActivity.EXTRA_PSP_REF_NO, pspRef)
-                        putExtra(PaymentActivity.EXTRA_TOTAL_AMOUNT, total)
-                        putExtra(PaymentActivity.EXTRA_RECEIPT_ITEMS_JSON, receiptItemsJson)
-                        putExtra(PaymentActivity.EXTRA_LANGUAGE_CODE, currentLanguage)
-                        putExtra(PaymentActivity.EXTRA_PAYMENT_MODE, "Cash Payment")
+                    val finalOrderId = (processResponse?.orderId ?: initialOrderId).toLong()
+                    var finalOrderNo = processResponse?.orderNo ?: ""
+                    var finalEncryptedOrderId = processResponse?.encryptedOrderId ?: ""
+
+                    if (finalOrderNo.isBlank() || finalEncryptedOrderId.isBlank()) {
+                        try {
+                            val detailsResult = orderRepository.getOrderDetails(finalOrderId)
+                            val detailsData = detailsResult.getOrNull()?.data
+                            if (detailsData != null) {
+                                if (finalOrderNo.isBlank() && !detailsData.orderNo.isNullOrBlank()) {
+                                    finalOrderNo = detailsData.orderNo
+                                }
+                                if (finalEncryptedOrderId.isBlank() && !detailsData.encryptedOrderId.isNullOrBlank()) {
+                                    finalEncryptedOrderId = detailsData.encryptedOrderId
+                                }
+                            }
+                        } catch (_: Exception) {}
                     }
-                    lastOrderIntent = intent
-                    isLastOrderPrintedSuccessfully = false
-                    pendingOrderId = 0L // Reset pending order ID
-                    if (isPrintEnabled()) {
-                        isPrintPending = false
-                        binding.btnManualPrint?.visibility = View.GONE
-                        startActivity(intent)
+
+                    if (processResult.isSuccess && processResponse != null && processResponse.status.equals("Success", ignoreCase = true) && finalOrderNo.isNotBlank() && finalEncryptedOrderId.isNotBlank()) {
+                        onSuccess() // Dismisses cash dialog ONLY when BOTH summary and placeOrder succeed with orderNo & encryptedOrderId!
+
+                        val receiptItems = activeItems.mapIndexed { index, item ->
+                            com.xeniaone.templeapp.model.ReceiptItem(
+                                no = index + 1,
+                                name = item.name,
+                                quantity = item.quantity,
+                                rate = item.unitPrice,
+                                total = item.totalAmount
+                            )
+                        }
+                        val receiptItemsJson = com.google.gson.Gson().toJson(receiptItems)
+
+                        val intent = Intent(this@BillingActivity, PaymentActivity::class.java).apply {
+                            putExtra(PaymentActivity.EXTRA_CUSTOMER_NAME, "")
+                            putExtra(PaymentActivity.EXTRA_CUSTOMER_MOBILE, devoteeMobile)
+                            putExtra(PaymentActivity.EXTRA_ORDER_ID, finalOrderId)
+                            putExtra(PaymentActivity.EXTRA_ORDER_NO, finalOrderNo)
+                            putExtra(PaymentActivity.EXTRA_ENCRYPTED_ORDER_ID, finalEncryptedOrderId)
+                            putExtra(PaymentActivity.EXTRA_PSP_REF_NO, pspRef)
+                            putExtra(PaymentActivity.EXTRA_TOTAL_AMOUNT, total)
+                            putExtra(PaymentActivity.EXTRA_RECEIPT_ITEMS_JSON, receiptItemsJson)
+                            putExtra(PaymentActivity.EXTRA_LANGUAGE_CODE, currentLanguage)
+                            putExtra(PaymentActivity.EXTRA_PAYMENT_MODE, "Cash Payment")
+                        }
+                        lastOrderIntent = intent
+                        isLastOrderPrintedSuccessfully = false
+                        pendingOrderId = 0L // Reset pending order ID
+                        if (isPrintEnabled()) {
+                            isPrintPending = false
+                            binding.btnManualPrint?.visibility = View.GONE
+                            startActivity(intent)
+                        } else {
+                            Toast.makeText(this@BillingActivity, "Cash order completed successfully (Print Disabled)", Toast.LENGTH_LONG).show()
+                            isPrintPending = true
+                            binding.btnManualPrint?.visibility = View.VISIBLE
+                        }
+                        allItems.forEach { item -> item.quantity = 0 }
+                        binding.etDevoteeMobile.text?.clear()
+                        productAdapter.notifyDataSetChanged()
+                        updateUi()
                     } else {
-                        Toast.makeText(this@BillingActivity, "Cash order completed successfully (Print Disabled)", Toast.LENGTH_LONG).show()
-                        isPrintPending = true
-                        binding.btnManualPrint?.visibility = View.VISIBLE
+                        isPaymentProcessing = false
+                        val placeOrderErr = if (finalOrderNo.isBlank() || finalEncryptedOrderId.isBlank()) {
+                            "Order Number or Encrypted Order ID not yet generated by server."
+                        } else {
+                            processResponse?.message ?: processResult.exceptionOrNull()?.message ?: "Cash order placement failed"
+                        }
+                        onError(placeOrderErr)
                     }
-                    allItems.forEach { item -> item.quantity = 0 }
-                    binding.etDevoteeMobile.text?.clear()
-                    productAdapter.notifyDataSetChanged()
-                    updateUi()
                 } else {
                     isPaymentProcessing = false
-                    val errorMsg = if (!orderResponse?.message.isNullOrBlank()) {
-                        orderResponse.message
-                    } else {
-                        orderResult.exceptionOrNull()?.message ?: "Cash order creation failed"
-                    }
+                    val errorMsg = orderResponse?.message ?: orderResult.exceptionOrNull()?.message ?: "Cash order summary creation failed"
                     onError(errorMsg)
                 }
             } catch (e: Exception) {

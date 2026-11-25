@@ -18,6 +18,50 @@ class OrderRepositoryImpl(
     companion object {
         private const val TAG = "OrderRepository"
         private val gson = Gson()
+
+        private fun extractErrorMessage(errorBody: String?, statusCode: Int, defaultMsg: String): String {
+            if (errorBody.isNullOrBlank()) return "$defaultMsg (HTTP $statusCode)"
+            return try {
+                val jsonElement = com.google.gson.JsonParser.parseString(errorBody)
+                if (jsonElement.isJsonObject) {
+                    val obj = jsonElement.asJsonObject
+                    val primaryMsg = when {
+                        obj.has("Message") && !obj.get("Message").isJsonNull -> obj.get("Message").asString
+                        obj.has("message") && !obj.get("message").isJsonNull -> obj.get("message").asString
+                        obj.has("Exception") && !obj.get("Exception").isJsonNull -> obj.get("Exception").asString
+                        obj.has("exception") && !obj.get("exception").isJsonNull -> obj.get("exception").asString
+                        obj.has("Error") && !obj.get("Error").isJsonNull -> obj.get("Error").asString
+                        obj.has("error") && !obj.get("error").isJsonNull -> obj.get("error").asString
+                        obj.has("title") && !obj.get("title").isJsonNull -> obj.get("title").asString
+                        else -> null
+                    }
+                    val validationErrors = if (obj.has("errors") && obj.get("errors").isJsonObject) {
+                        val errorsObj = obj.getAsJsonObject("errors")
+                        val sb = StringBuilder()
+                        for ((_, errArr) in errorsObj.entrySet()) {
+                            if (errArr.isJsonArray) {
+                                for (err in errArr.asJsonArray) {
+                                    if (sb.isNotEmpty()) sb.append(", ")
+                                    sb.append(err.asString)
+                                }
+                            }
+                        }
+                        sb.toString().takeIf { it.isNotBlank() }
+                    } else null
+
+                    when {
+                        !primaryMsg.isNullOrBlank() && !validationErrors.isNullOrBlank() -> "$primaryMsg: $validationErrors"
+                        !primaryMsg.isNullOrBlank() -> primaryMsg
+                        !validationErrors.isNullOrBlank() -> validationErrors
+                        else -> errorBody
+                    }
+                } else {
+                    errorBody
+                }
+            } catch (_: Exception) {
+                errorBody
+            }
+        }
     }
 
     override suspend fun getPaymentProviders(companyId: Int): Result<List<PaymentProviderItem>> =
@@ -29,7 +73,9 @@ class OrderRepositoryImpl(
                     val providers = body?.data ?: emptyList()
                     Result.success(providers)
                 } else {
-                    Result.failure(Exception("HTTP error ${response.code()}: ${response.message()}"))
+                    val errorBody = response.errorBody()?.string()
+                    val errorMsg = extractErrorMessage(errorBody, response.code(), "Failed to get payment providers")
+                    Result.failure(Exception(errorMsg))
                 }
             } catch (e: Exception) {
                 Result.failure(e)
@@ -54,22 +100,16 @@ class OrderRepositoryImpl(
             )
             if (response.isSuccessful && response.body() != null) {
                 val resBody = response.body()!!
-                Result.success(resBody)
+                if (resBody.status.equals("Success", ignoreCase = true) && (resBody.orderId ?: 0) > 0) {
+                    Result.success(resBody)
+                } else {
+                    val errorMsg = resBody.message?.takeIf { it.isNotBlank() }
+                        ?: "Order summary creation failed (Status: ${resBody.status})"
+                    Result.failure(Exception(errorMsg))
+                }
             } else {
                 val errorBody = response.errorBody()?.string()
-                val parsedMessage = try {
-                    if (!errorBody.isNullOrBlank()) {
-                        val summary = gson.fromJson(errorBody, OrderKioskSummaryResponse::class.java)
-                        summary?.message
-                    } else null
-                } catch (_: Exception) {
-                    null
-                }
-                val errorMessage = if (!parsedMessage.isNullOrBlank()) {
-                    parsedMessage
-                } else {
-                    "HTTP ${response.code()}: $errorBody"
-                }
+                val errorMessage = extractErrorMessage(errorBody, response.code(), "Order summary creation failed")
                 Result.failure(Exception(errorMessage))
             }
         } catch (e: Exception) {
@@ -88,7 +128,8 @@ class OrderRepositoryImpl(
                 Result.success(body)
             } else {
                 val errorBody = response.errorBody()?.string()
-                Result.failure(Exception("HTTP ${response.code()}: $errorBody"))
+                val errorMessage = extractErrorMessage(errorBody, response.code(), "Payment status check failed")
+                Result.failure(Exception(errorMessage))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -107,22 +148,16 @@ class OrderRepositoryImpl(
             val response = orderApiService.processOrder(orderId, companyId, customerId, settled, isWhatsApp, paymentRef)
             if (response.isSuccessful && response.body() != null) {
                 val resBody = response.body()!!
-                Result.success(resBody)
+                if (resBody.status.equals("Success", ignoreCase = true)) {
+                    Result.success(resBody)
+                } else {
+                    val errorMsg = resBody.message?.takeIf { it.isNotBlank() }
+                        ?: "Order placement failed (Status: ${resBody.status})"
+                    Result.failure(Exception(errorMsg))
+                }
             } else {
                 val errorBody = response.errorBody()?.string()
-                val parsedMessage = try {
-                    if (!errorBody.isNullOrBlank()) {
-                        val summary = gson.fromJson(errorBody, OrderKioskSummaryResponse::class.java)
-                        summary?.message
-                    } else null
-                } catch (_: Exception) {
-                    null
-                }
-                val errorMessage = if (!parsedMessage.isNullOrBlank()) {
-                    parsedMessage
-                } else {
-                    "HTTP ${response.code()}: $errorBody"
-                }
+                val errorMessage = extractErrorMessage(errorBody, response.code(), "Order placement failed")
                 Result.failure(Exception(errorMessage))
             }
         } catch (e: Exception) {
@@ -141,7 +176,8 @@ class OrderRepositoryImpl(
                 Result.success(body)
             } else {
                 val errorBody = response.errorBody()?.string()
-                Result.failure(Exception("HTTP ${response.code()}: $errorBody"))
+                val errorMessage = extractErrorMessage(errorBody, response.code(), "Payment status check failed")
+                Result.failure(Exception(errorMessage))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -153,13 +189,15 @@ class OrderRepositoryImpl(
         easeOrderId: String?
     ): Result<SibCheckPaymentResponse> = withContext(ioDispatcher) {
         try {
-            val response = orderApiService.checkRazorpayPaymentStatus(orderId, easeOrderId!!)
+            val qrId = easeOrderId ?: ""
+            val response = orderApiService.checkRazorpayPaymentStatus(orderId, qrId)
             if (response.isSuccessful && response.body() != null) {
                 val body = response.body()!!
                 Result.success(body)
             } else {
                 val errorBody = response.errorBody()?.string()
-                Result.failure(Exception("HTTP ${response.code()}: $errorBody"))
+                val errorMessage = extractErrorMessage(errorBody, response.code(), "Payment status check failed")
+                Result.failure(Exception(errorMessage))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -176,7 +214,8 @@ class OrderRepositoryImpl(
                 Result.success(body)
             } else {
                 val errorBody = response.errorBody()?.string()
-                Result.failure(Exception("HTTP ${response.code()}: $errorBody"))
+                val errorMessage = extractErrorMessage(errorBody, response.code(), "Failed to get order details")
+                Result.failure(Exception(errorMessage))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -192,10 +231,17 @@ class OrderRepositoryImpl(
             val response = orderApiService.cancelOrder(orderId, companyId, settled)
             if (response.isSuccessful && response.body() != null) {
                 val body = response.body()!!
-                Result.success(body)
+                if (body.status.equals("Success", ignoreCase = true)) {
+                    Result.success(body)
+                } else {
+                    val errorMsg = body.message?.takeIf { it.isNotBlank() }
+                        ?: "Order cancellation failed (Status: ${body.status})"
+                    Result.failure(Exception(errorMsg))
+                }
             } else {
                 val errorBody = response.errorBody()?.string()
-                Result.failure(Exception("HTTP ${response.code()}: $errorBody"))
+                val errorMessage = extractErrorMessage(errorBody, response.code(), "Order cancellation failed")
+                Result.failure(Exception(errorMessage))
             }
         } catch (e: Exception) {
             Result.failure(e)
