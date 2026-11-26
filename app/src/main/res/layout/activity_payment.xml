@@ -67,7 +67,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/receipt_spacing_large"
             android:fontFamily="sans-serif-medium"
-            android:text="Total Amount : ₹520.00"
+            android:text="Total Amount : ₹00.00"
             android:textColor="#000000"
             android:textSize="@dimen/receipt_total_text_size"
             android:textStyle="bold" />
@@ -106,7 +106,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:fontFamily="sans-serif-medium"
-                        android:text="27533365"
+                        android:text=""
                         android:textColor="#000000"
                         android:textSize="@dimen/receipt_meta_text_size" />
                 </LinearLayout>
@@ -129,7 +129,7 @@
                         android:id="@+id/tv_receipt_date"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="04 - Sep - 2024  07: 50 AM"
+                        android:text=""
                         android:textColor="#222222"
                         android:textSize="@dimen/receipt_meta_text_size" />
                 </LinearLayout>
@@ -139,7 +139,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="@dimen/receipt_spacing_small"
-                    android:text="UPI Reference No: 5647784112"
+                    android:text="UPI Reference No: "
                     android:textColor="#444444"
                     android:textSize="@dimen/receipt_meta_text_size" />
             </LinearLayout>

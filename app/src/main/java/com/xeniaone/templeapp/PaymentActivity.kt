@@ -261,56 +261,89 @@ class PaymentActivity : AppCompatActivity() {
             return
         }
 
-        // ONLY skip getOrderDetails if we already have orderNo, encryptedOrderId, totalAmount > 0, AND receiptItems not empty!
-        if (isTestPrint || 
-            (isDuplicatePrint && receiptItems.isNotEmpty() && orderNo.isNotBlank()) || 
-            (orderNo.isNotBlank() && encryptedOrderId.isNotBlank() && receiptItems.isNotEmpty() && totalAmount > 0.0)) {
+        if (isTestPrint) {
             initializeUiAndPrinting()
             return
         }
 
+        binding.pbPrinter.visibility = View.VISIBLE
+        binding.tvPrinterStatus.text = "Fetching official receipt from server..."
+
         lifecycleScope.launch {
-            try {
-                val result = orderRepository.getOrderDetails(orderId)
-                val orderData = result.getOrNull()?.data
-                if (orderData != null) {
-                    if (!orderData.encryptedOrderId.isNullOrBlank()) {
-                        encryptedOrderId = orderData.encryptedOrderId
-                    }
-                    if (!orderData.orderNo.isNullOrBlank()) {
-                        orderNo = orderData.orderNo
-                    }
-                    if (!orderData.PaymentRef.isNullOrBlank()) {
-                        pspRefNo = orderData.PaymentRef
-                    }
-                    if (!orderData.orderDate.isNullOrBlank()) {
-                        formattedDate = convertUtcToLocalIst(orderData.orderDate)
-                    }
-                    if (totalAmount <= 0.0 && !orderData.totalAmount.isNullOrBlank()) {
-                        totalAmount = orderData.totalAmount.toDoubleOrNull() ?: totalAmount
-                    }
-                    if (receiptItems.isEmpty() && !orderData.items.isNullOrEmpty()) {
-                        receiptItems = orderData.items.mapIndexed { idx, itm ->
-                            val qty = (itm.quantity ?: 1.0).toInt()
-                            val rate = itm.itemRate?.toDoubleOrNull() ?: 0.0
-                            val itemTotal = itm.amount?.toDoubleOrNull() ?: (qty * rate)
-                            ReceiptItem(
-                                no = itm.slNo ?: (idx + 1),
-                                name = itm.itemName ?: "Prasadam Item",
-                                quantity = qty,
-                                rate = rate,
-                                total = itemTotal
-                            )
+            var isSuccess = false
+            var retryCount = 0
+            val startTime = System.currentTimeMillis()
+            while (!isSuccess && (System.currentTimeMillis() - startTime < 30_000L) && !isFinishing && !isDestroyed) {
+                retryCount++
+                try {
+                    Log.i(TAG, "🖨️ [Strict API Fetch] Calling getOrderDetails for orderId=$orderId (Attempt #$retryCount)...")
+                    val result = orderRepository.getOrderDetails(orderId)
+                    val orderData = result.getOrNull()?.data
+                    Log.i(TAG, "🖨️ [Strict API Response] isSuccess=${result.isSuccess}, orderNo=${orderData?.orderNo}, totalAmount=${orderData?.totalAmount}, itemsCount=${orderData?.items?.size ?: 0}")
+                    if (result.isSuccess && orderData != null) {
+                        val status = orderData.orderStatus.orEmpty().uppercase()
+                        if (status == "CANCELLED" || status == "CANCEL" || status == "FAILED") {
+                            Log.w(TAG, "❌ [Strict API Fetch] Order #$orderId status is $status! Aborting print...")
+                            withContext(Dispatchers.Main) {
+                                binding.pbPrinter.visibility = View.GONE
+                                binding.tvPrinterStatus.text = "⚠️ Order was cancelled or failed."
+                                Toast.makeText(this@PaymentActivity, "Order was cancelled or failed.", Toast.LENGTH_LONG).show()
+                                finish()
+                            }
+                            return@launch
+                        }
+
+                        isSuccess = true
+                        if (!orderData.encryptedOrderId.isNullOrBlank()) {
+                            encryptedOrderId = orderData.encryptedOrderId
+                        }
+                        if (!orderData.orderNo.isNullOrBlank()) {
+                            orderNo = orderData.orderNo
+                        }
+                        if (!orderData.PaymentRef.isNullOrBlank()) {
+                            pspRefNo = orderData.PaymentRef
+                        }
+                        if (!orderData.orderDate.isNullOrBlank()) {
+                            formattedDate = convertUtcToLocalIst(orderData.orderDate)
+                        }
+                        // STRICTLY OVERRIDE receiptItems and totalAmount with official server data!
+                        if (!orderData.items.isNullOrEmpty()) {
+                            receiptItems = orderData.items.mapIndexed { idx, itm ->
+                                val qty = (itm.quantity ?: 1.0).toInt()
+                                val rate = itm.itemRate?.toDoubleOrNull() ?: 0.0
+                                val itemTotal = itm.amount?.toDoubleOrNull() ?: (qty * rate)
+                                ReceiptItem(
+                                    no = itm.slNo ?: (idx + 1),
+                                    name = itm.itemName ?: "Prasadam Item",
+                                    quantity = qty,
+                                    rate = rate,
+                                    total = itemTotal
+                                )
+                            }
+                        }
+                        if (!orderData.totalAmount.isNullOrBlank()) {
+                            val parsedTotal = orderData.totalAmount.toDoubleOrNull() ?: 0.0
+                            if (parsedTotal > 0.0) {
+                                totalAmount = parsedTotal
+                            }
+                        }
+                        if (receiptItems.isNotEmpty()) {
+                            totalAmount = receiptItems.sumOf { it.total }
                         }
                     }
-                    if (totalAmount <= 0.0 && receiptItems.isNotEmpty()) {
-                        totalAmount = receiptItems.sumOf { it.total }
-                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "❌ [Strict API Exception] error=${e.message}", e)
                 }
-            } catch (e: Exception) {
-                Log.w(TAG, "getOrderDetails error: ${e.message}")
+                if (!isSuccess) {
+                    withContext(Dispatchers.Main) {
+                        binding.tvPrinterStatus.text = "Fetching receipt from server (Attempt $retryCount)..."
+                    }
+                    delay(2000L)
+                }
             }
+
             withContext(Dispatchers.Main) {
+                Log.i(TAG, "🖨️ [Strict API Finalize] Final receiptItems count=${receiptItems.size}, totalAmount=$totalAmount, orderNo=$orderNo")
                 if (!isTestPrint && (orderNo.isBlank() || encryptedOrderId.isBlank())) {
                     binding.tvPrinterStatus.text = "⚠️ Order placement incomplete. Order No or QR ID missing."
                     binding.pbPrinter.visibility = View.GONE
