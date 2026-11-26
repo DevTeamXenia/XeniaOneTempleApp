@@ -1088,6 +1088,15 @@ class BillingActivity : AppCompatActivity() {
                 dialog.dismiss()
                 Toast.makeText(this, "Order processing cancelled.", Toast.LENGTH_LONG).show()
             }
+            .setNeutralButton("Skip") { dialog, _ ->
+                dialog.dismiss()
+                val activeItems = allItems.filter { it.quantity > 0 }
+                if (activeItems.isNotEmpty()) {
+                    showPaymentOptionDialog(activeItems, pendingTotal)
+                } else {
+                    Toast.makeText(this, "Cart is empty", Toast.LENGTH_SHORT).show()
+                }
+            }
             .show()
     }
 
@@ -1659,7 +1668,7 @@ class BillingActivity : AppCompatActivity() {
                 }
 
                 // ONLY navigate to print when BOTH orderNo and encryptedOrderId are generated!
-                if (settleResult.isSuccess && settleResp != null && settleResp.status.equals("Success", ignoreCase = true) && finalOrderNo.isNotBlank() && finalEncryptedOrderId.isNotBlank()) {
+                if (settleResult.isSuccess && settleResp != null && settleResp.status.equals("PAID", ignoreCase = true) && finalOrderNo.isNotBlank() && finalEncryptedOrderId.isNotBlank()) {
                     pendingOrderId = 0L // Reset pending order ID
                     delay(500L)
                     stopQrPollingAndDismiss()
