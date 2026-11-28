@@ -208,20 +208,16 @@ class OrderRepositoryImpl(
         orderId: Long
     ): Result<com.xeniaone.templeapp.network.model.OrderDetailsResponse> = withContext(ioDispatcher) {
         try {
-            android.util.Log.i("OrderRepository", "📦 [getOrderDetails API] Requesting GET api/Order/$orderId...")
             val response = orderApiService.getOrderDetails(orderId)
             if (response.isSuccessful && response.body() != null) {
                 val body = response.body()!!
-                android.util.Log.i("OrderRepository", "📦 [getOrderDetails API Success] orderId=$orderId, orderNo=${body.data?.orderNo}, totalAmount=${body.data?.totalAmount}, itemsCount=${body.data?.items?.size ?: 0}")
                 Result.success(body)
             } else {
                 val errorBody = response.errorBody()?.string()
-                android.util.Log.e("OrderRepository", "❌ [getOrderDetails API Error] orderId=$orderId, code=${response.code()}, error=$errorBody")
                 val errorMessage = extractErrorMessage(errorBody, response.code(), "Failed to get order details")
                 Result.failure(Exception(errorMessage))
             }
         } catch (e: Exception) {
-            android.util.Log.e("OrderRepository", "❌ [getOrderDetails Exception] orderId=$orderId, error=${e.message}", e)
             Result.failure(e)
         }
     }

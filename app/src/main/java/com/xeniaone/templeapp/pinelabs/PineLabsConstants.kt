@@ -34,14 +34,14 @@ object PineLabsConstants {
     const val METHOD_MULTI_SCAN = "1010"
 
     // Transaction Types (Detail.TransactionType)
-    const val TXN_TYPE_SALE = 4001L          // Card Sale (Chip / Swipe / Contactless Tap)
-    const val TXN_TYPE_REFUND = 4002L        // Refund
-    const val TXN_TYPE_VOID = 4006L          // Void Transaction
-    const val TXN_TYPE_REPRINT = 4504L       // Reprint Last Transaction
-    const val TXN_TYPE_WALLET_PAY = 5102L    // Wallet Pay
-    const val TXN_TYPE_UPI_SALE = 5120L      // Dynamic UPI Sale on Terminal Screen
-    const val TXN_TYPE_UPI_STATUS = 5122L    // UPI Get Status
-    const val TXN_TYPE_BHARAT_QR = 5123L     // Bharat QR Sale
+    const val TXN_TYPE_SALE = 4001L
+    const val TXN_TYPE_REFUND = 4002L
+    const val TXN_TYPE_VOID = 4006L
+    const val TXN_TYPE_REPRINT = 4504L
+    const val TXN_TYPE_WALLET_PAY = 5102L
+    const val TXN_TYPE_UPI_SALE = 5120L
+    const val TXN_TYPE_UPI_STATUS = 5122L
+    const val TXN_TYPE_BHARAT_QR = 5123L
 
     // Print Data Types (PrintData.Data[i].PrintDataType)
     const val PRINT_DATA_TYPE_TEXT = 0
